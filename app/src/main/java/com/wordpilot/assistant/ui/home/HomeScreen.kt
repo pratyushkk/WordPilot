@@ -142,6 +142,18 @@ fun HomeScreen(
             )
 
             HomeActionCard(
+                icon = Icons.Outlined.Layers,
+                title = "Use with Any Keyboard",
+                description = "Floating grammar assistant across Gboard, SwiftKey, etc.",
+                onClick = {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                    }
+                    try { context.startActivity(intent) } catch (e: Exception) {}
+                }
+            )
+
+            HomeActionCard(
                 icon = Icons.Outlined.Book,
                 title = "Personal Dictionary",
                 description = "Manage custom words and ignored suggestions",

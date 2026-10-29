@@ -55,6 +55,12 @@ class WordPilotInputMethodService : InputMethodService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
+        window?.window?.decorView?.let { decor ->
+            decor.setViewTreeLifecycleOwner(this)
+            decor.setViewTreeViewModelStoreOwner(this)
+            decor.setViewTreeSavedStateRegistryOwner(this)
+        }
+
         val composeView = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             setViewTreeLifecycleOwner(this@WordPilotInputMethodService)

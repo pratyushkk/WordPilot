@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="accessibility_service_description">Provides real-time grammar and spelling suggestions across all apps with any keyboard</string>
+    <string name="accessibility_service_name">WordPilot Floating Assistant</string>
     <string name="app_name">WordPilot</string>
     <string name="cancel">Cancel</string>
     <string name="correction_accept">Accept</string>

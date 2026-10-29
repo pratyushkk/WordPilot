@@ -4,6 +4,8 @@ drawable ic_launcher_background
 drawable ic_launcher_foreground
 mipmap ic_launcher
 mipmap ic_launcher_round
+string accessibility_service_description
+string accessibility_service_name
 string app_name
 string cancel
 string correction_accept
@@ -111,4 +113,5 @@ string style_make_polite
 string style_make_professional
 string yes
 style Theme.WordPilot
+xml accessibility_service_config
 xml method
