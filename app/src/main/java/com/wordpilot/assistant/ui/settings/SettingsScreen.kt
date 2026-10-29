@@ -23,6 +23,7 @@ fun SettingsScreen(
     onNavigateToDictionary: () -> Unit,
     onNavigateToModel: () -> Unit,
     onNavigateToOnboarding: () -> Unit,
+    onNavigateToBubbleCustomization: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -93,6 +94,11 @@ fun SettingsScreen(
                 SettingsThemeSelector(
                     currentTheme = uiState.theme,
                     onThemeSelected = { viewModel.setTheme(it) }
+                )
+                SettingsClickable(
+                    title = "Popup Size & Reshape",
+                    subtitle = "Sliders for width, height, shape, text size with live preview",
+                    onClick = onNavigateToBubbleCustomization
                 )
             }
 

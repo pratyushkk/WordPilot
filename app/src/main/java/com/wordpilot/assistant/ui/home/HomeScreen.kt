@@ -3,8 +3,10 @@ package com.wordpilot.assistant.ui.home
 import android.content.Context
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,10 +15,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wordpilot.assistant.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,7 +31,8 @@ fun HomeScreen(
     onNavigateToOnboarding: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToDictionary: () -> Unit,
-    onNavigateToModel: () -> Unit
+    onNavigateToModel: () -> Unit,
+    onNavigateToBubbleCustomization: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isKeyboardEnabled = remember { isWordPilotKeyboardEnabled(context) }
@@ -35,17 +41,29 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            "WordPilot",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_wordpilot_logo),
+                            contentDescription = "WordPilot Logo",
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
                         )
-                        Text(
-                            "Your Writing Assistant",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column {
+                            Text(
+                                "WordPilot",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Your Writing Assistant",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -151,6 +169,13 @@ fun HomeScreen(
                     }
                     try { context.startActivity(intent) } catch (e: Exception) {}
                 }
+            )
+
+            HomeActionCard(
+                icon = Icons.Outlined.Tune,
+                title = "Resize & Reshape Assistant",
+                description = "Sliders for width, height, shape, text size with live preview",
+                onClick = onNavigateToBubbleCustomization
             )
 
             HomeActionCard(

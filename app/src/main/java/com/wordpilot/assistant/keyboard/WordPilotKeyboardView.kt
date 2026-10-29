@@ -58,15 +58,22 @@ fun WordPilotKeyboardView(
                 label = "SuggestionAnimation"
             ) { correction ->
                 if (correction != null) {
-                    FloatingSuggestionCard(
-                        correction = correction,
-                        isExpanded = uiState.isCorrectionCardExpanded,
-                        onAccept = { onAcceptCorrection(correction) },
-                        onDismiss = onDismissCorrection,
-                        onToggleExpand = onToggleExpandCard,
-                        onAddToDictionary = { onAddToDictionary(correction) },
-                        onIgnoreRule = { onIgnoreRule(correction) }
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        FloatingSuggestionCard(
+                            correction = correction,
+                            isExpanded = uiState.isCorrectionCardExpanded,
+                            onAccept = { onAcceptCorrection(correction) },
+                            onDismiss = onDismissCorrection,
+                            onToggleExpand = onToggleExpandCard,
+                            onAddToDictionary = { onAddToDictionary(correction) },
+                            onIgnoreRule = { onIgnoreRule(correction) }
+                        )
+                    }
                 } else {
                     KeyboardSuggestionBar(
                         suggestions = uiState.wordSuggestions,

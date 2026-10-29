@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -22,8 +23,10 @@ import com.wordpilot.assistant.engine.SentenceSpan
 import com.wordpilot.assistant.utils.Debouncer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -45,11 +48,12 @@ class WordPilotAccessibilityService : AccessibilityService(),
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val debouncer = Debouncer(serviceScope, 300L)
+    private val debouncer = Debouncer(serviceScope, 250L)
     private val safeReplacementHelper = SafeReplacementHelper()
 
     private lateinit var floatingController: FloatingAssistantController
     private var lastAnalyzedText: String = ""
+    private var hideJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -73,6 +77,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
             AccessibilityEvent.TYPE_VIEW_FOCUSED or
+            AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED or
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
@@ -89,41 +94,69 @@ class WordPilotAccessibilityService : AccessibilityService(),
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
+            AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-                handleTextEvent(event)
+                handleTextInputEvent(event)
             }
 
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                // If window changed completely to non-text window, check if input still focused
-                val activeNode = findActiveInputNode(event)
-                if (activeNode == null) {
-                    floatingController.dismiss()
-                }
+                handleWindowStateChanged(event)
             }
         }
     }
 
-    private fun handleTextEvent(event: AccessibilityEvent) {
-        val node = findActiveInputNode(event) ?: return
+    private fun handleTextInputEvent(event: AccessibilityEvent) {
+        val node = findActiveInputNode(event)
 
-        // Skip password or non-editable nodes
-        if (node.isPassword) {
-            Log.d(TAG, "Skipping password field")
-            floatingController.dismiss()
-            return
-        }
+        if (node != null && !node.isPassword) {
+            // Cancel any pending dismissal
+            hideJob?.cancel()
 
-        val text = node.text?.toString() ?: ""
-        if (text.isBlank()) {
-            floatingController.dismiss()
-            return
-        }
+            // Keep assistant always present on the left while keyboard / input is active
+            floatingController.showAssistant()
 
-        if (text != lastAnalyzedText) {
-            Log.d(TAG, "Text changed in ${event.packageName}: \"$text\"")
-            debouncer.debounce {
-                analyzeText(text, node)
+            val text = extractNodeText(node)
+            if (text.isBlank()) {
+                floatingController.clearCorrection()
+                return
             }
+
+            if (text != lastAnalyzedText) {
+                Log.d(TAG, "Text changed in ${event.packageName}: \"$text\"")
+                debouncer.debounce {
+                    analyzeText(text, node)
+                }
+            }
+        } else if (isKeyboardVisible()) {
+            // Keyboard is active on screen, make sure assistant remains present
+            hideJob?.cancel()
+            floatingController.showAssistant()
+        }
+    }
+
+    private fun handleWindowStateChanged(event: AccessibilityEvent) {
+        val inputActive = isKeyboardVisible() || findActiveInputNodeAcrossAllWindows() != null
+        if (!inputActive) {
+            // Debounce hiding to avoid flickering during quick window shifts
+            hideJob?.cancel()
+            hideJob = serviceScope.launch {
+                delay(600L)
+                val stillActive = isKeyboardVisible() || findActiveInputNodeAcrossAllWindows() != null
+                if (!stillActive) {
+                    floatingController.hideAssistant()
+                }
+            }
+        } else {
+            hideJob?.cancel()
+            floatingController.showAssistant()
+        }
+    }
+
+    private fun isKeyboardVisible(): Boolean {
+        return try {
+            windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -134,28 +167,41 @@ class WordPilotAccessibilityService : AccessibilityService(),
             return source
         }
 
-        // Priority 2: Input focused node in active window
-        val root = rootInActiveWindow
-        if (root != null) {
-            val inputFocused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-            if (inputFocused != null && isEditableNode(inputFocused)) {
-                return inputFocused
-            }
+        // Priority 2: Check active window / interactive windows
+        return findActiveInputNodeAcrossAllWindows()
+    }
 
-            // Priority 3: Search recursively for focused editable node
-            val focusedChild = findFocusedEditable(root)
-            if (focusedChild != null) {
-                return focusedChild
+    private fun findActiveInputNodeAcrossAllWindows(): AccessibilityNodeInfo? {
+        // 1. Search rootInActiveWindow
+        try {
+            rootInActiveWindow?.let { root ->
+                root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.let { if (isEditableNode(it)) return it }
+                findFocusedEditable(root)?.let { return it }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking rootInActiveWindow", e)
         }
 
-        return source?.takeIf { isEditableNode(it) }
+        // 2. Search all interactive non-IME windows
+        try {
+            for (window in windows) {
+                if (window.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD) continue
+                val root = window.root ?: continue
+                root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.let { if (isEditableNode(it)) return it }
+                findFocusedEditable(root)?.let { return it }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching windows", e)
+        }
+
+        return null
     }
 
     private fun isEditableNode(node: AccessibilityNodeInfo): Boolean {
         if (node.isPassword) return false
         return node.isEditable ||
             node.className?.contains("EditText", ignoreCase = true) == true ||
+            node.className?.contains("AutoCompleteTextView", ignoreCase = true) == true ||
             node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
     }
 
@@ -171,11 +217,30 @@ class WordPilotAccessibilityService : AccessibilityService(),
         return null
     }
 
+    private fun extractNodeText(node: AccessibilityNodeInfo): String {
+        node.text?.let { if (it.isNotEmpty()) return it.toString() }
+        if (!node.contentDescription.isNullOrEmpty()) {
+            return node.contentDescription.toString()
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val childText = child.text?.toString()
+            if (!childText.isNullOrEmpty()) {
+                return childText
+            }
+        }
+        return ""
+    }
+
     private suspend fun analyzeText(text: String, targetNode: AccessibilityNodeInfo) = withContext(Dispatchers.Default) {
         val app = WordPilotApp.instance
         lastAnalyzedText = text
 
         try {
+            withContext(Dispatchers.Main) {
+                floatingController.setChecking(true)
+            }
+
             val sentence = app.sentenceAnalyzer.findCurrentSentence(text, text.length)
                 ?: SentenceSpan(0, text.length, text)
 
@@ -196,6 +261,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
             val topCorrection = validCorrections.firstOrNull()
 
             withContext(Dispatchers.Main) {
+                floatingController.setChecking(false)
                 if (topCorrection != null) {
                     Log.d(TAG, "Showing correction: ${topCorrection.originalText} -> ${topCorrection.suggestedReplacement}")
                     floatingController.showCorrection(
@@ -216,24 +282,27 @@ class WordPilotAccessibilityService : AccessibilityService(),
                         }
                     )
                 } else {
-                    floatingController.dismiss()
+                    floatingController.clearCorrection()
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error analyzing text", e)
             withContext(Dispatchers.Main) {
-                floatingController.dismiss()
+                floatingController.setChecking(false)
+                floatingController.clearCorrection()
             }
         }
     }
 
     private fun applyCorrectionToNode(
-        node: AccessibilityNodeInfo,
+        targetNode: AccessibilityNodeInfo,
         originalFullText: String,
         correction: Correction
     ) {
         try {
-            val currentText = node.text?.toString() ?: originalFullText
+            // Find the most fresh node instance across windows
+            val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
+            val currentText = extractNodeText(node).ifBlank { originalFullText }
             val updatedText = safeReplacementHelper.applyCorrection(currentText, correction) ?: return
 
             Log.d(TAG, "Applying correction: \"$currentText\" -> \"$updatedText\"")
@@ -242,6 +311,21 @@ class WordPilotAccessibilityService : AccessibilityService(),
             }
             val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
             Log.d(TAG, "ACTION_SET_TEXT result: $success")
+
+            if (success) {
+                // Keep cursor at the end of the replaced word
+                val replacementLength = correction.suggestedReplacement?.length ?: 0
+                val newCursor = (correction.startOffset + replacementLength).coerceIn(0, updatedText.length)
+                val cursorArgs = Bundle().apply {
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
+                }
+                node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
+                lastAnalyzedText = updatedText
+            }
+
+            // Reset card back to "✓ Clear" monitoring state
+            floatingController.clearCorrection()
         } catch (e: Exception) {
             Log.e(TAG, "Error applying correction", e)
         }
@@ -249,7 +333,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
     override fun onInterrupt() {
         Log.d(TAG, "onInterrupt: service interrupted")
-        floatingController.dismiss()
+        floatingController.hideAssistant()
     }
 
     override fun onDestroy() {

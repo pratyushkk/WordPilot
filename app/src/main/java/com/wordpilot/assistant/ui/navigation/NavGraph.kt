@@ -13,6 +13,7 @@ import com.wordpilot.assistant.ui.home.HomeScreen
 import com.wordpilot.assistant.ui.model.ModelManagementScreen
 import com.wordpilot.assistant.ui.onboarding.OnboardingScreen
 import com.wordpilot.assistant.ui.rewrite.RewriteScreen
+import com.wordpilot.assistant.ui.settings.BubbleCustomizationScreen
 import com.wordpilot.assistant.ui.settings.SettingsScreen
 
 object Routes {
@@ -25,6 +26,7 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val REWRITE = "rewrite"
     const val MODEL_MANAGEMENT = "model_management"
+    const val BUBBLE_CUSTOMIZATION = "bubble_customization"
 }
 
 @Composable
@@ -39,7 +41,8 @@ fun WordPilotNavGraph() {
                 onNavigateToOnboarding = { navController.navigate(Routes.ONBOARDING) },
                 onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
                 onNavigateToDictionary = { navController.navigate(Routes.DICTIONARY) },
-                onNavigateToModel = { navController.navigate(Routes.MODEL_MANAGEMENT) }
+                onNavigateToModel = { navController.navigate(Routes.MODEL_MANAGEMENT) },
+                onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) }
             )
         }
         composable(Routes.EDITOR) {
@@ -68,8 +71,12 @@ fun WordPilotNavGraph() {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToDictionary = { navController.navigate(Routes.DICTIONARY) },
                 onNavigateToModel = { navController.navigate(Routes.MODEL_MANAGEMENT) },
-                onNavigateToOnboarding = { navController.navigate(Routes.ONBOARDING) }
+                onNavigateToOnboarding = { navController.navigate(Routes.ONBOARDING) },
+                onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) }
             )
+        }
+        composable(Routes.BUBBLE_CUSTOMIZATION) {
+            BubbleCustomizationScreen(onNavigateBack = { navController.popBackStack() })
         }
         composable(Routes.DICTIONARY) {
             DictionaryScreen(onNavigateBack = { navController.popBackStack() })
