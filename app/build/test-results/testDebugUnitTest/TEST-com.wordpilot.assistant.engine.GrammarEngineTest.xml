@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.wordpilot.assistant.engine.GrammarEngineTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-29T09:12:34" hostname="SAMSUNG-BOOK" time="0.073">
+  <properties/>
+  <testcase name="test article a vs an - a apple" classname="com.wordpilot.assistant.engine.GrammarEngineTest" time="0.056"/>
+  <testcase name="test subject verb agreement - I has" classname="com.wordpilot.assistant.engine.GrammarEngineTest" time="0.002"/>
+  <testcase name="test pronoun I capitalization" classname="com.wordpilot.assistant.engine.GrammarEngineTest" time="0.002"/>
+  <testcase name="test repeated words detection" classname="com.wordpilot.assistant.engine.GrammarEngineTest" time="0.004"/>
+  <testcase name="test punctuation spacing - missing space after comma" classname="com.wordpilot.assistant.engine.GrammarEngineTest" time="0.002"/>
+  <testcase name="test subject verb agreement - she go" classname="com.wordpilot.assistant.engine.GrammarEngineTest" time="0.002"/>
+  <testcase name="test confused words - their going" classname="com.wordpilot.assistant.engine.GrammarEngineTest" time="0.004"/>
+  <testcase name="test capitalization at sentence start" classname="com.wordpilot.assistant.engine.GrammarEngineTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

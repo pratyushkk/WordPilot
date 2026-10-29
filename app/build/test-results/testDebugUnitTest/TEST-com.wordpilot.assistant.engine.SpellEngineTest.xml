@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.wordpilot.assistant.engine.SpellEngineTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-29T09:12:34" hostname="SAMSUNG-BOOK" time="0.013">
+  <properties/>
+  <testcase name="test check method finds misspelled words and returns corrections" classname="com.wordpilot.assistant.engine.SpellEngineTest" time="0.012"/>
+  <testcase name="test unknown words return false" classname="com.wordpilot.assistant.engine.SpellEngineTest" time="0.0"/>
+  <testcase name="test spelling suggestions generated for typo" classname="com.wordpilot.assistant.engine.SpellEngineTest" time="0.0"/>
+  <testcase name="test known core words return true" classname="com.wordpilot.assistant.engine.SpellEngineTest" time="0.0"/>
+  <testcase name="test adding word to personal dictionary" classname="com.wordpilot.assistant.engine.SpellEngineTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

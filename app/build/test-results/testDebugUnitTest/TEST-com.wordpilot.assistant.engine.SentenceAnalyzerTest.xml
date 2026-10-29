@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.wordpilot.assistant.engine.SentenceAnalyzerTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-29T09:12:34" hostname="SAMSUNG-BOOK" time="0.001">
+  <properties/>
+  <testcase name="test find current sentence by cursor position" classname="com.wordpilot.assistant.engine.SentenceAnalyzerTest" time="0.0"/>
+  <testcase name="test word completion detection" classname="com.wordpilot.assistant.engine.SentenceAnalyzerTest" time="0.0"/>
+  <testcase name="test abbreviations are not treated as sentence boundaries" classname="com.wordpilot.assistant.engine.SentenceAnalyzerTest" time="0.001"/>
+  <testcase name="test split sentences correctly" classname="com.wordpilot.assistant.engine.SentenceAnalyzerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

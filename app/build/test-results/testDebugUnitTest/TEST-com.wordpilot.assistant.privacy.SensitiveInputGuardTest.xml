@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.wordpilot.assistant.privacy.SensitiveInputGuardTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-29T09:12:34" hostname="SAMSUNG-BOOK" time="0.002">
+  <properties/>
+  <testcase name="test no suggestions flag disables analysis" classname="com.wordpilot.assistant.privacy.SensitiveInputGuardTest" time="0.001"/>
+  <testcase name="test regular text field is safe to analyze" classname="com.wordpilot.assistant.privacy.SensitiveInputGuardTest" time="0.0"/>
+  <testcase name="test password fields are recognized as sensitive" classname="com.wordpilot.assistant.privacy.SensitiveInputGuardTest" time="0.001"/>
+  <testcase name="test null EditorInfo is treated as sensitive for safety" classname="com.wordpilot.assistant.privacy.SensitiveInputGuardTest" time="0.0"/>
+  <testcase name="test PIN numeric password fields are recognized as sensitive" classname="com.wordpilot.assistant.privacy.SensitiveInputGuardTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

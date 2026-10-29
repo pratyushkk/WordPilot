@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.wordpilot.assistant.domain.SafeReplacementHelperTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-29T09:12:34" hostname="SAMSUNG-BOOK" time="0.028">
+  <properties/>
+  <testcase name="test valid correction replacement" classname="com.wordpilot.assistant.domain.SafeReplacementHelperTest" time="0.009"/>
+  <testcase name="test stale correction is rejected when text does not match" classname="com.wordpilot.assistant.domain.SafeReplacementHelperTest" time="0.0"/>
+  <testcase name="test offset adjustment after single replacement" classname="com.wordpilot.assistant.domain.SafeReplacementHelperTest" time="0.016"/>
+  <testcase name="test multiple non-overlapping corrections applied from end to start" classname="com.wordpilot.assistant.domain.SafeReplacementHelperTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
