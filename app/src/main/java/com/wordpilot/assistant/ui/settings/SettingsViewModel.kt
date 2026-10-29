@@ -11,7 +11,8 @@ data class SettingsUiState(
     val grammarCheckEnabled: Boolean = true,
     val spellCheckEnabled: Boolean = true,
     val autoCheckEnabled: Boolean = true,
-    val historyEnabled: Boolean = false
+    val historyEnabled: Boolean = false,
+    val geminiApiKey: String? = null
 )
 
 class SettingsViewModel : ViewModel() {
@@ -28,18 +29,25 @@ class SettingsViewModel : ViewModel() {
                 prefs.grammarCheckEnabled,
                 prefs.spellCheckEnabled,
                 prefs.autoCheckEnabled,
-                prefs.historyEnabled
-            ) { theme, grammar, spell, auto, history ->
+                combine(prefs.historyEnabled, prefs.geminiApiKey) { h, k -> Pair(h, k) }
+            ) { theme, grammar, spell, auto, (history, apiKey) ->
                 SettingsUiState(
                     theme = theme,
                     grammarCheckEnabled = grammar,
                     spellCheckEnabled = spell,
                     autoCheckEnabled = auto,
-                    historyEnabled = history
+                    historyEnabled = history,
+                    geminiApiKey = apiKey
                 )
             }.collect { state ->
                 _uiState.value = state
             }
+        }
+    }
+
+    fun setGeminiApiKey(key: String) {
+        viewModelScope.launch {
+            app.updateGeminiApiKey(key)
         }
     }
 

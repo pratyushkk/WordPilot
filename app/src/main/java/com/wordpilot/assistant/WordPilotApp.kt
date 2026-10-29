@@ -8,15 +8,26 @@ import com.wordpilot.assistant.data.repository.HistoryRepositoryImpl
 import com.wordpilot.assistant.data.repository.ModelRepositoryImpl
 import com.wordpilot.assistant.domain.correction.CorrectionUseCase
 import com.wordpilot.assistant.domain.correction.SafeReplacementHelper
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.rewriting.RewriteUseCase
 import com.wordpilot.assistant.engine.CorrectionCoordinator
+import com.wordpilot.assistant.engine.RewriteCoordinator
 import com.wordpilot.assistant.engine.SentenceAnalyzer
+import com.wordpilot.assistant.engine.impl.GeminiAIEngine
 import com.wordpilot.assistant.engine.impl.RuleBasedGrammarEngine
+import com.wordpilot.assistant.engine.impl.RuleBasedRewriteEngine
 import com.wordpilot.assistant.engine.impl.StubAIEngine
 import com.wordpilot.assistant.engine.impl.TrieSpellEngine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
 import java.io.File
 
 class WordPilotApp : Application() {
+
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // Database
     lateinit var database: WordPilotDatabase
@@ -41,6 +52,12 @@ class WordPilotApp : Application() {
         private set
     lateinit var aiEngine: StubAIEngine
         private set
+    lateinit var geminiEngine: GeminiAIEngine
+        private set
+    lateinit var ruleBasedRewriteEngine: RuleBasedRewriteEngine
+        private set
+    lateinit var rewriteCoordinator: RewriteCoordinator
+        private set
     lateinit var correctionCoordinator: CorrectionCoordinator
         private set
     lateinit var sentenceAnalyzer: SentenceAnalyzer
@@ -50,6 +67,9 @@ class WordPilotApp : Application() {
     lateinit var correctionUseCase: CorrectionUseCase
         private set
     lateinit var rewriteUseCase: RewriteUseCase
+        private set
+
+    var cachedGeminiApiKey: String? = null
         private set
 
     override fun onCreate() {
@@ -77,10 +97,42 @@ class WordPilotApp : Application() {
         correctionCoordinator = CorrectionCoordinator(spellEngine, grammarEngine)
         sentenceAnalyzer = SentenceAnalyzer()
 
-        // Use Cases
         val safeReplacementHelper = SafeReplacementHelper()
+        ruleBasedRewriteEngine = RuleBasedRewriteEngine(correctionCoordinator, safeReplacementHelper)
+
+        geminiEngine = GeminiAIEngine { cachedGeminiApiKey }
+
+        rewriteCoordinator = RewriteCoordinator(
+            geminiEngine = geminiEngine,
+            localEngine = aiEngine,
+            ruleEngine = ruleBasedRewriteEngine,
+            initialEngineType = AIEngineType.GEMINI_FLASH
+        )
+
+        // Use Cases
         correctionUseCase = CorrectionUseCase(correctionCoordinator, sentenceAnalyzer, safeReplacementHelper)
-        rewriteUseCase = RewriteUseCase(aiEngine)
+        rewriteUseCase = RewriteUseCase(rewriteCoordinator)
+
+        // Preload API key and preferred engine from preferences
+        applicationScope.launch {
+            userPreferences.geminiApiKey.collect { key ->
+                cachedGeminiApiKey = key
+            }
+        }
+
+        applicationScope.launch {
+            userPreferences.selectedEngine.collect { engineId ->
+                val type = AIEngineType.fromId(engineId)
+                rewriteCoordinator.setEngineType(type)
+            }
+        }
+    }
+
+    fun updateGeminiApiKey(key: String) {
+        cachedGeminiApiKey = key
+        applicationScope.launch {
+            userPreferences.setGeminiApiKey(key)
+        }
     }
 
     companion object {

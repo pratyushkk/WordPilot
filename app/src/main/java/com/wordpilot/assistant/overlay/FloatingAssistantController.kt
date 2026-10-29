@@ -334,8 +334,22 @@ class FloatingAssistantController(
                             },
                             onDismiss = { clearCorrection() },
                             onCloseAssistant = { hideAssistant() },
-                            onToggleMinimize = { toggleMinimize() },
-                            onToggleExpand = { toggleExpand() },
+                            onToggleMinimize = {
+                                if (_isMinimized.value) {
+                                    val opened = com.wordpilot.assistant.keyboard.WordPilotInputMethodService.requestOpenExpandedAssistant()
+                                    if (!opened) {
+                                        toggleMinimize()
+                                    }
+                                } else {
+                                    toggleMinimize()
+                                }
+                            },
+                            onToggleExpand = {
+                                val opened = com.wordpilot.assistant.keyboard.WordPilotInputMethodService.requestOpenExpandedAssistant()
+                                if (!opened) {
+                                    toggleExpand()
+                                }
+                            },
                             onAddToDictionary = {
                                 currentCorrection?.let { corr ->
                                     onAddToDictionaryCallback?.invoke(corr)

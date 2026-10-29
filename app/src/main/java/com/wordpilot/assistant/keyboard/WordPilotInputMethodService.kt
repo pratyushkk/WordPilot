@@ -33,6 +33,18 @@ class WordPilotInputMethodService : InputMethodService(),
     ViewModelStoreOwner,
     SavedStateRegistryOwner {
 
+    companion object {
+        private var activeInstance: WordPilotInputMethodService? = null
+
+        fun requestOpenExpandedAssistant(): Boolean {
+            val instance = activeInstance ?: return false
+            instance.suggestionController.openExpandedAssistant()
+            return true
+        }
+
+        fun isImeActive(): Boolean = activeInstance != null
+    }
+
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val store = ViewModelStore()
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
@@ -46,6 +58,7 @@ class WordPilotInputMethodService : InputMethodService(),
 
     override fun onCreate() {
         super.onCreate()
+        activeInstance = this
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         suggestionController = KeyboardSuggestionController(serviceScope)
@@ -81,7 +94,7 @@ class WordPilotInputMethodService : InputMethodService(),
                             suggestionController.dismissCorrection()
                         },
                         onToggleExpandCard = {
-                            suggestionController.toggleCardExpanded()
+                            suggestionController.openExpandedAssistant()
                         },
                         onAddToDictionary = { correction ->
                             suggestionController.addToDictionary(correction)
@@ -93,10 +106,31 @@ class WordPilotInputMethodService : InputMethodService(),
                             applyWordSuggestion(word)
                         },
                         onAssistantClicked = {
-                            val intent = Intent(this@WordPilotInputMethodService, MainActivity::class.java).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            startActivity(intent)
+                            suggestionController.openExpandedAssistant()
+                        },
+                        onCloseAssistant = {
+                            suggestionController.closeExpandedAssistant()
+                        },
+                        onApplyAssistantResult = { text ->
+                            suggestionController.applyAssistantResult(text)
+                        },
+                        onRefreshAssistantText = {
+                            suggestionController.refreshAssistantText()
+                        },
+                        onUpdateAssistantSourceText = { text ->
+                            suggestionController.updateAssistantSourceText(text)
+                        },
+                        onSelectAssistantStyle = { style ->
+                            suggestionController.selectAssistantStyle(style)
+                        },
+                        onCustomInstructionChanged = { inst ->
+                            suggestionController.updateAssistantCustomInstruction(inst)
+                        },
+                        onSelectAssistantEngine = { engine ->
+                            suggestionController.selectAssistantEngine(engine)
+                        },
+                        onRetryAssistantRewrite = {
+                            suggestionController.executeAssistantRewrite()
                         }
                     )
                 }
@@ -178,10 +212,7 @@ class WordPilotInputMethodService : InputMethodService(),
                 suggestionController.setMode(KeyboardMode.SYMBOLS)
             }
             is KeyAction.WordPilotAssistant -> {
-                val intent = Intent(this, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                startActivity(intent)
+                suggestionController.openExpandedAssistant()
             }
         }
     }
@@ -199,6 +230,9 @@ class WordPilotInputMethodService : InputMethodService(),
 
     override fun onDestroy() {
         super.onDestroy()
+        if (activeInstance == this) {
+            activeInstance = null
+        }
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)

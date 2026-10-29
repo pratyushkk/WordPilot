@@ -21,6 +21,16 @@ class UserPreferences(private val context: Context) {
         val AUTO_CHECK_ENABLED = booleanPreferencesKey("auto_check_enabled")
         val HISTORY_ENABLED = booleanPreferencesKey("history_enabled")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
+        val SELECTED_ENGINE = stringPreferencesKey("selected_engine")
+    }
+
+    val geminiApiKey: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[GEMINI_API_KEY]
+    }
+
+    val selectedEngine: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[SELECTED_ENGINE] ?: "gemini"
     }
 
     val theme: Flow<String> = context.dataStore.data.map { prefs ->
@@ -80,6 +90,18 @@ class UserPreferences(private val context: Context) {
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[ONBOARDING_COMPLETED] = completed
+        }
+    }
+
+    suspend fun setGeminiApiKey(apiKey: String) {
+        context.dataStore.edit { prefs ->
+            prefs[GEMINI_API_KEY] = apiKey
+        }
+    }
+
+    suspend fun setSelectedEngine(engine: String) {
+        context.dataStore.edit { prefs ->
+            prefs[SELECTED_ENGINE] = engine
         }
     }
 

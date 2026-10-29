@@ -256,12 +256,10 @@ fun FloatingSuggestionCard(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .pointerInput(Unit) {
-                                        detectDragGestures { change, dragAmount ->
-                                            change.consume()
-                                            onDrag(dragAmount.x, dragAmount.y)
-                                        }
-                                    }
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { onToggleExpand() }
                             )
 
                             Text(
@@ -327,12 +325,10 @@ fun FloatingSuggestionCard(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .pointerInput(Unit) {
-                                    detectDragGestures { change, dragAmount ->
-                                        change.consume()
-                                        onDrag(dragAmount.x, dragAmount.y)
-                                    }
-                                },
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { onToggleExpand() },
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(

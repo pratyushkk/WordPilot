@@ -30,6 +30,45 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showClearDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showGeminiDialog by remember { mutableStateOf(false) }
+    var geminiKeyInput by remember { mutableStateOf("") }
+
+    if (showGeminiDialog) {
+        AlertDialog(
+            onDismissRequest = { showGeminiDialog = false },
+            title = { Text("Configure Gemini API Key") },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter your Google Gemini API key to enable instant cloud AI writing, style shifts, and clarity improvements.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = geminiKeyInput.ifEmpty { uiState.geminiApiKey ?: "" },
+                        onValueChange = { geminiKeyInput = it },
+                        placeholder = { Text("AIzaSy...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val key = geminiKeyInput.trim()
+                    if (key.isNotEmpty()) {
+                        viewModel.setGeminiApiKey(key)
+                    }
+                    showGeminiDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGeminiDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -149,10 +188,21 @@ fun SettingsScreen(
             }
 
             // AI
-            SettingsSection(title = "AI Model") {
+            SettingsSection(title = "AI & Writing Engine") {
+                val apiKey = uiState.geminiApiKey
+                val keySubtitle = if (!apiKey.isNullOrBlank()) {
+                    "Configured (${apiKey.take(7)}...)"
+                } else {
+                    "Not configured — Tap to enter key"
+                }
                 SettingsClickable(
-                    title = "Manage AI Model",
-                    subtitle = "Download, configure, or remove the on-device AI model",
+                    title = "Gemini API Key",
+                    subtitle = keySubtitle,
+                    onClick = { showGeminiDialog = true }
+                )
+                SettingsClickable(
+                    title = "Manage Local AI Model",
+                    subtitle = "Download, configure, or remove on-device SLM models",
                     onClick = onNavigateToModel
                 )
             }

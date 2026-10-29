@@ -1,19 +1,21 @@
 package com.wordpilot.assistant.domain.rewriting
 
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.RewriteResult
 import com.wordpilot.assistant.domain.models.RewriteStyle
-import com.wordpilot.assistant.engine.LocalAIEngine
+import com.wordpilot.assistant.engine.RewriteCoordinator
 
 class RewriteUseCase(
-    private val aiEngine: LocalAIEngine
+    val coordinator: RewriteCoordinator
 ) {
     val isAvailable: Boolean
-        get() = aiEngine.isModelInstalled
+        get() = true
 
     suspend fun rewrite(
         text: String,
         style: RewriteStyle,
-        customInstruction: String? = null
+        customInstruction: String? = null,
+        forcedEngine: AIEngineType? = null
     ): RewriteResult {
         if (text.isBlank()) {
             return RewriteResult(
@@ -25,18 +27,8 @@ class RewriteUseCase(
             )
         }
 
-        if (!aiEngine.isModelInstalled) {
-            return RewriteResult(
-                originalText = text,
-                rewrittenText = text,
-                style = style,
-                isSuccess = false,
-                errorMessage = "AI model not installed. Install it from Settings → AI Model."
-            )
-        }
-
         return try {
-            aiEngine.rewrite(text, style, customInstruction)
+            coordinator.rewrite(text, style, customInstruction, forcedEngine)
         } catch (e: Exception) {
             RewriteResult(
                 originalText = text,
@@ -49,6 +41,6 @@ class RewriteUseCase(
     }
 
     fun cancel() {
-        aiEngine.cancelInference()
+        coordinator.cancel()
     }
 }
