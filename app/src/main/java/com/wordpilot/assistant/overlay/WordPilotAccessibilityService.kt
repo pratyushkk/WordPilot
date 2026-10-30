@@ -40,6 +40,8 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
     companion object {
         private const val TAG = "WordPilotA11y"
+        var instance: WordPilotAccessibilityService? = null
+            private set
     }
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -62,6 +64,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         Log.d(TAG, "onCreate: WordPilotAccessibilityService started")
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
@@ -78,6 +81,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         Log.d(TAG, "onServiceConnected: Configuring AccessibilityServiceInfo")
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
@@ -87,15 +91,100 @@ class WordPilotAccessibilityService : AccessibilityService(),
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
             AccessibilityEvent.TYPE_WINDOWS_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-        info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
-            AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
-            AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         info.notificationTimeout = 50
         serviceInfo = info
     }
 
+    private fun isExcludedPackage(packageName: String?): Boolean {
+        if (packageName.isNullOrBlank()) return false
+        val lower = packageName.lowercase()
+
+        // Allow WordPilot itself and System UI / IME
+        if (lower.startsWith("com.wordpilot.") || lower == "android" || lower.startsWith("com.android.systemui")) {
+            return false
+        }
+
+        // 1. Known Banking, Payment & UPI Apps
+        if (lower.startsWith("com.google.android.apps.nbu.paisa.user") || // GPay
+            lower.startsWith("com.phonepe.") || // PhonePe
+            lower.startsWith("net.one97.paytm") || // Paytm
+            lower.startsWith("in.org.npci.upiapp") || // BHIM
+            lower.startsWith("com.dreamplug.androidapp") || // CRED
+            lower.startsWith("com.sbi.") || // SBI / YONO
+            lower.startsWith("com.snapwork.sbi") ||
+            lower.startsWith("com.hdfcbank.") || // HDFC
+            lower.startsWith("com.hdfc.payzapp") ||
+            lower.startsWith("com.csam.icici.bank.imobile") || // ICICI
+            lower.startsWith("com.axis.mobile") || // Axis
+            lower.startsWith("com.kotak.") || // Kotak
+            lower.startsWith("com.bankofbaroda.") || // BoB
+            lower.startsWith("com.pnb.pnbone") || // PNB
+            lower.startsWith("com.canarabank.") || // Canara
+            lower.startsWith("com.unionbank.") || // Union Bank
+            lower.startsWith("com.idfcfirstbank.") || // IDFC First
+            lower.startsWith("com.indusind.") || // IndusInd
+            lower.startsWith("com.rblbank.") || // RBL
+            lower.startsWith("com.federalbank.") || // Federal
+            lower.startsWith("com.yesbank") || // Yes Bank
+            lower.startsWith("com.freecharge.") || // Freecharge
+            lower.startsWith("com.mobikwik_new") || // Mobikwik
+            lower.startsWith("com.fi.money") || // Fi Money
+            lower.startsWith("money.jupiter") || // Jupiter
+            lower.startsWith("com.zerodha.kite3") || // Zerodha
+            lower.startsWith("com.nextbillion.groww") || // Groww
+            lower.startsWith("com.upstox.pro") || // Upstox
+            lower.startsWith("com.angelbroking.") || // Angel One
+            lower.startsWith("com.chase.sig.android") || // Chase
+            lower.startsWith("com.infonow.bofa") || // Bank of America
+            lower.startsWith("com.wf.wellsfargomobile") || // Wells Fargo
+            lower.startsWith("com.citi.citimobile") || // Citi
+            lower.startsWith("com.barclays.") || // Barclays
+            lower.startsWith("uk.co.hsbc.") || // HSBC
+            lower.startsWith("com.paypal.") || // PayPal
+            lower.startsWith("com.revolut.") || // Revolut
+            lower.startsWith("com.squareup.cash") // Cash App
+        ) {
+            return true
+        }
+
+        // 2. Password Managers, 2FA Authenticators & Wallets
+        if (lower.startsWith("com.google.android.apps.authenticator2") ||
+            lower.startsWith("com.azure.authenticator") ||
+            lower.startsWith("com.x8bit.bitwarden") ||
+            lower.startsWith("com.onepassword.") ||
+            lower.startsWith("com.lastpass.") ||
+            lower.startsWith("com.dashlane") ||
+            lower.startsWith("com.authy.authy")
+        ) {
+            return true
+        }
+
+        // 3. Keyword heuristics for unlisted banking and payment apps
+        if (lower.contains("banking") ||
+            lower.contains(".bank") ||
+            lower.contains("yono") ||
+            lower.contains("paytm") ||
+            lower.contains("phonepe") ||
+            lower.contains("authenticator") ||
+            lower.contains("password")
+        ) {
+            return true
+        }
+
+        return false
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+
+        val packageName = event.packageName?.toString()
+        if (isExcludedPackage(packageName)) {
+            hideJob?.cancel()
+            floatingController.hideAssistant()
+            floatingController.clearCorrection()
+            return
+        }
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOWS_CHANGED,
@@ -221,6 +310,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
         // 1. Search rootInActiveWindow
         try {
             rootInActiveWindow?.let { root ->
+                if (isExcludedPackage(root.packageName?.toString())) return null
                 root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.let { if (isEditableNode(it)) return it }
                 findFocusedEditable(root)?.let { return it }
             }
@@ -233,6 +323,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
             for (window in windows) {
                 if (window.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD) continue
                 val root = window.root ?: continue
+                if (isExcludedPackage(root.packageName?.toString())) continue
                 root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.let { if (isEditableNode(it)) return it }
                 findFocusedEditable(root)?.let { return it }
             }
@@ -469,6 +560,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         Log.d(TAG, "onDestroy: service destroyed")
         floatingController.destroy()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)

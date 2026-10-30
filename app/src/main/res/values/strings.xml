@@ -5,6 +5,7 @@
     <string name="keyboard_description">Smart writing assistant keyboard with grammar and spelling correction</string>
     <string name="accessibility_service_name">WordPilot Floating Assistant</string>
     <string name="accessibility_service_description">Provides real-time grammar and spelling suggestions across all apps with any keyboard</string>
+    <string name="tile_name">WordPilot Assistant</string>
     
     <!-- Home -->
     <string name="home_title">WordPilot</string>
