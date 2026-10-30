@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.ModelState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -182,12 +183,57 @@ fun ModelManagementScreen(
                         }
 
                         uiState.isInstalled -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(
-                                    "On-device neural inference is active. All text rephrasing, tone adjustments, and style suggestions process locally without internet.",
+                                    "On-device neural inference is ready. All text rephrasing, tone adjustments, and style suggestions process locally without internet.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                "Active Assistant Engine",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                uiState.selectedEngine.displayName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (uiState.selectedEngine == AIEngineType.LOCAL_AI) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+
+                                        if (uiState.selectedEngine != AIEngineType.LOCAL_AI) {
+                                            Button(
+                                                onClick = { viewModel.setSelectedEngine(AIEngineType.LOCAL_AI) },
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                            ) {
+                                                Text("Use Local AI", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        } else {
+                                            OutlinedButton(
+                                                onClick = { viewModel.setSelectedEngine(AIEngineType.GEMINI_FLASH) },
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                            ) {
+                                                Text("Switch to API", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+                                }
+
                                 OutlinedButton(
                                     onClick = { viewModel.deleteModel() },
                                     modifier = Modifier.fillMaxWidth(),

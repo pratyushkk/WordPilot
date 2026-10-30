@@ -1,5 +1,6 @@
 package com.wordpilot.assistant.ui.floating
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
 import com.wordpilot.assistant.ui.theme.AssistantColors
 
@@ -39,6 +41,8 @@ fun SuggestionPreview(
     onSelectTone: (String) -> Unit,
     currentTone: String,
     settings: AppearanceSettings,
+    selectedEngine: AIEngineType = AIEngineType.LOCAL_AI,
+    onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val toneOptions = listOf("Default", "Professional", "Casual", "Friendly", "Formal")
@@ -88,7 +92,71 @@ fun SuggestionPreview(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Engine Choice Switcher (Local AI vs Cloud API)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    onClick = { onSelectEngine(AIEngineType.LOCAL_AI) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedEngine == AIEngineType.LOCAL_AI) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        Color(settings.glassTintArgb).copy(alpha = 0.4f)
+                    },
+                    border = BorderStroke(
+                        1.dp,
+                        if (selectedEngine == AIEngineType.LOCAL_AI) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "📱 Local AI",
+                            fontSize = 11.sp,
+                            fontWeight = if (selectedEngine == AIEngineType.LOCAL_AI) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedEngine == AIEngineType.LOCAL_AI) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = { onSelectEngine(AIEngineType.GEMINI_FLASH) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedEngine == AIEngineType.GEMINI_FLASH) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        Color(settings.glassTintArgb).copy(alpha = 0.4f)
+                    },
+                    border = BorderStroke(
+                        1.dp,
+                        if (selectedEngine == AIEngineType.GEMINI_FLASH) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "⚡ Cloud API",
+                            fontSize = 11.sp,
+                            fontWeight = if (selectedEngine == AIEngineType.GEMINI_FLASH) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedEngine == AIEngineType.GEMINI_FLASH) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Tone pills row
             Row(

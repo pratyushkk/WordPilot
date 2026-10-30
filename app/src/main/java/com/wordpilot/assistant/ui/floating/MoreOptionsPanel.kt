@@ -1,11 +1,13 @@
 package com.wordpilot.assistant.ui.floating
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Palette
@@ -18,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
 import com.wordpilot.assistant.ui.theme.AssistantColors
 
@@ -28,6 +31,8 @@ fun MoreOptionsPanel(
     onCustomPromptSubmit: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onBack: () -> Unit,
+    selectedEngine: AIEngineType = AIEngineType.LOCAL_AI,
+    onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showCustomPromptInput by remember { mutableStateOf(false) }
@@ -92,7 +97,71 @@ fun MoreOptionsPanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Engine Choice Switcher (Local AI vs Cloud API)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    onClick = { onSelectEngine(AIEngineType.LOCAL_AI) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedEngine == AIEngineType.LOCAL_AI) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        Color(settings.glassTintArgb).copy(alpha = 0.4f)
+                    },
+                    border = BorderStroke(
+                        1.dp,
+                        if (selectedEngine == AIEngineType.LOCAL_AI) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "📱 Local AI",
+                            fontSize = 11.sp,
+                            fontWeight = if (selectedEngine == AIEngineType.LOCAL_AI) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedEngine == AIEngineType.LOCAL_AI) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = { onSelectEngine(AIEngineType.GEMINI_FLASH) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedEngine == AIEngineType.GEMINI_FLASH) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        Color(settings.glassTintArgb).copy(alpha = 0.4f)
+                    },
+                    border = BorderStroke(
+                        1.dp,
+                        if (selectedEngine == AIEngineType.GEMINI_FLASH) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "⚡ Cloud API",
+                            fontSize = 11.sp,
+                            fontWeight = if (selectedEngine == AIEngineType.GEMINI_FLASH) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedEngine == AIEngineType.GEMINI_FLASH) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             if (showCustomPromptInput) {
                 // Custom prompt input

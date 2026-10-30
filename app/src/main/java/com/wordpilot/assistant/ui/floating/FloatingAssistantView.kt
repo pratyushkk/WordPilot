@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.domain.models.CorrectionCategory
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
@@ -54,6 +55,8 @@ fun FloatingAssistantView(
     onUndo: () -> Unit,
     onOpenSettings: () -> Unit,
     onCollapse: () -> Unit,
+    selectedEngine: AIEngineType = AIEngineType.LOCAL_AI,
+    onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val badgeColor = when (activeCorrection?.category) {
@@ -169,7 +172,9 @@ fun FloatingAssistantView(
                     onActionClick = onActionClick,
                     onCustomPromptSubmit = onCustomPromptSubmit,
                     onOpenSettings = onOpenSettings,
-                    onBack = { onActionClick("back_to_expanded") }
+                    onBack = { onActionClick("back_to_expanded") },
+                    selectedEngine = selectedEngine,
+                    onSelectEngine = onSelectEngine
                 )
             }
         }
@@ -188,6 +193,8 @@ fun FloatingAssistantView(
                     canUndo = canUndo,
                     currentTone = currentTone,
                     settings = settings,
+                    selectedEngine = selectedEngine,
+                    onSelectEngine = onSelectEngine,
                     onReplace = onReplace,
                     onInsert = onInsert,
                     onCopy = onCopy,

@@ -35,6 +35,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.wordpilot.assistant.MainActivity
 import com.wordpilot.assistant.WordPilotApp
 import com.wordpilot.assistant.domain.correction.SafeReplacementHelper
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.domain.models.RewriteStyle
 import com.wordpilot.assistant.ui.floating.FloatingAssistantView
@@ -462,6 +463,23 @@ class FloatingAssistantController(
         }
     }
 
+    fun onSelectEngine(engine: AIEngineType) {
+        val app = WordPilotApp.instance
+        app.rewriteCoordinator.setEngineType(engine)
+        controllerScope.launch {
+            app.userPreferences.setSelectedEngine(engine.id)
+        }
+        if (_uiState.value == FloatingUiState.PREVIEW && _previewOriginalText.value.isNotBlank()) {
+            val style = when (_currentTone.value.lowercase()) {
+                "professional", "formal" -> RewriteStyle.MAKE_PROFESSIONAL
+                "casual" -> RewriteStyle.MAKE_CASUAL
+                "friendly" -> RewriteStyle.MAKE_POLITE
+                else -> RewriteStyle.REWRITE
+            }
+            executeRewrite(style, _currentTone.value)
+        }
+    }
+
     fun applyPreviewReplacement() {
         val improved = _previewImprovedText.value
         if (improved.isBlank()) return
@@ -618,6 +636,7 @@ class FloatingAssistantController(
                 val prevError by _previewErrorMessage.collectAsState()
                 val undoAvailable by _canUndo.collectAsState()
                 val tone by _currentTone.collectAsState()
+                val activeEngine by WordPilotApp.instance.rewriteCoordinator.selectedEngine.collectAsState()
 
                 WordPilotTheme {
                     Box(
@@ -656,7 +675,9 @@ class FloatingAssistantController(
                             onCancelPreview = { setUiState(FloatingUiState.EXPANDED) },
                             onUndo = { undoLastChange() },
                             onOpenSettings = { openAppearanceSettings() },
-                            onCollapse = { setUiState(FloatingUiState.COLLAPSED) }
+                            onCollapse = { setUiState(FloatingUiState.COLLAPSED) },
+                            selectedEngine = activeEngine,
+                            onSelectEngine = { onSelectEngine(it) }
                         )
                     }
                 }

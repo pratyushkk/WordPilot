@@ -15,6 +15,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.RewriteStyle
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -56,6 +57,45 @@ fun RewriteScreen(
                 modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 120.dp),
                 maxLines = 10
             )
+
+            // AI Engine Selector
+            Text(
+                "AI Engine",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = uiState.selectedEngine == AIEngineType.LOCAL_AI,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.LOCAL_AI) },
+                    label = { Text("📱 Local AI (Llama 3.2)") },
+                    leadingIcon = if (uiState.selectedEngine == AIEngineType.LOCAL_AI) {
+                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+
+                FilterChip(
+                    selected = uiState.selectedEngine == AIEngineType.GEMINI_FLASH,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.GEMINI_FLASH) },
+                    label = { Text("⚡ Cloud API (Gemini)") },
+                    leadingIcon = if (uiState.selectedEngine == AIEngineType.GEMINI_FLASH) {
+                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+
+                FilterChip(
+                    selected = uiState.selectedEngine == AIEngineType.RULE_BASED,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.RULE_BASED) },
+                    label = { Text("🛡 Offline Rules") },
+                    leadingIcon = if (uiState.selectedEngine == AIEngineType.RULE_BASED) {
+                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+            }
 
             // Style selector
             Text(

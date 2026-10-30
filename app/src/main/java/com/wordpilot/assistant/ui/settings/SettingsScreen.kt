@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wordpilot.assistant.domain.models.AIEngineType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,9 +97,9 @@ fun SettingsScreen(
             text = {
                 Text(
                     "WordPilot processes all text locally on your device.\n\n" +
-                    "• No text is transmitted to external servers\n" +
+                    "• No text is transmitted to external servers unless you enable Cloud API\n" +
+                    "• Local AI (Meta Llama 3.2) runs 100% on-device with zero network calls\n" +
                     "• No analytics or telemetry data is collected\n" +
-                    "• The optional AI model runs entirely on-device\n" +
                     "• Sensitive fields (passwords, PINs) are never analyzed\n" +
                     "• Document history is disabled by default\n" +
                     "• Text from third-party apps is not stored"
@@ -187,8 +188,53 @@ fun SettingsScreen(
                 )
             }
 
-            // AI
+            // AI & Writing Engine (Local vs API selector)
             SettingsSection(title = "AI & Writing Engine") {
+                Text(
+                    text = "Choose whether WordPilot uses on-device local AI or cloud API for rewrites, tone changes, and style improvements:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+
+                // 1. Local AI Option
+                SettingsEngineOption(
+                    title = "Local AI (Meta Llama 3.2 1B)",
+                    subtitle = "100% on-device neural execution · Total privacy · Works offline without internet or data",
+                    isSelected = uiState.selectedEngine == AIEngineType.LOCAL_AI,
+                    badgeText = if (uiState.isLocalModelInstalled) "Ready On-Device (770 MB)" else "Download required",
+                    badgeOk = uiState.isLocalModelInstalled,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.LOCAL_AI) }
+                )
+
+                // 2. Cloud API Option
+                val hasApiKey = !uiState.geminiApiKey.isNullOrBlank()
+                SettingsEngineOption(
+                    title = "Cloud API (Google Gemini 1.5)",
+                    subtitle = "Fast cloud intelligence · Deep reasoning · Requires Google Gemini API key",
+                    isSelected = uiState.selectedEngine == AIEngineType.GEMINI_FLASH,
+                    badgeText = if (hasApiKey) "API key configured" else "Key required",
+                    badgeOk = hasApiKey,
+                    onClick = {
+                        viewModel.setSelectedEngine(AIEngineType.GEMINI_FLASH)
+                        if (!hasApiKey) {
+                            showGeminiDialog = true
+                        }
+                    }
+                )
+
+                // 3. Rule-Based Offline Option
+                SettingsEngineOption(
+                    title = "Offline Grammar Rules",
+                    subtitle = "Deterministic grammar & spelling rules · Instant (0ms) · Zero battery overhead",
+                    isSelected = uiState.selectedEngine == AIEngineType.RULE_BASED,
+                    badgeText = "Always available",
+                    badgeOk = true,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.RULE_BASED) }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 val apiKey = uiState.geminiApiKey
                 val keySubtitle = if (!apiKey.isNullOrBlank()) {
                     "Configured (${apiKey.take(7)}...)"
@@ -196,13 +242,13 @@ fun SettingsScreen(
                     "Not configured — Tap to enter key"
                 }
                 SettingsClickable(
-                    title = "Gemini API Key",
+                    title = "Configure Gemini API Key",
                     subtitle = keySubtitle,
                     onClick = { showGeminiDialog = true }
                 )
                 SettingsClickable(
                     title = "Manage Local AI Model",
-                    subtitle = "Download, configure, or remove on-device SLM models",
+                    subtitle = if (uiState.isLocalModelInstalled) "Meta Llama 3.2 1B Active (770 MB) — Tap to manage or delete" else "Download on-device Meta Llama 3.2 model (770 MB)",
                     onClick = onNavigateToModel
                 )
             }
@@ -400,6 +446,78 @@ private fun SettingsThemeSelector(
                     onClick = { onThemeSelected(value) },
                     label = { Text(label) }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsEngineOption(
+    title: String,
+    subtitle: String,
+    isSelected: Boolean,
+    badgeText: String,
+    badgeOk: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+        color = if (isSelected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        },
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 1.5.dp else 0.5.dp,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                    color = if (badgeOk) androidx.compose.ui.graphics.Color(0xFFE8F5E9) else androidx.compose.ui.graphics.Color(0xFFFFF3E0)
+                ) {
+                    Text(
+                        text = badgeText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (badgeOk) androidx.compose.ui.graphics.Color(0xFF2E7D32) else androidx.compose.ui.graphics.Color(0xFFE65100),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }

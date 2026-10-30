@@ -3,6 +3,7 @@ package com.wordpilot.assistant.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wordpilot.assistant.WordPilotApp
+import com.wordpilot.assistant.domain.models.AIEngineType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -13,7 +14,9 @@ data class SettingsUiState(
     val autoCheckEnabled: Boolean = true,
     val historyEnabled: Boolean = false,
     val autoPauseBankingEnabled: Boolean = false,
-    val geminiApiKey: String? = null
+    val geminiApiKey: String? = null,
+    val selectedEngine: AIEngineType = AIEngineType.LOCAL_AI,
+    val isLocalModelInstalled: Boolean = false
 )
 
 class SettingsViewModel : ViewModel() {
@@ -24,14 +27,36 @@ class SettingsViewModel : ViewModel() {
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        val checkSettingsFlow = combine(
+            prefs.grammarCheckEnabled,
+            prefs.spellCheckEnabled,
+            prefs.autoCheckEnabled
+        ) { grammar, spell, auto ->
+            Triple(grammar, spell, auto)
+        }
+
+        val extraSettingsFlow = combine(
+            prefs.historyEnabled,
+            prefs.autoPauseBankingEnabled,
+            prefs.geminiApiKey
+        ) { history, autoPause, apiKey ->
+            Triple(history, autoPause, apiKey)
+        }
+
+        val engineFlow = combine(
+            prefs.selectedEngine,
+            app.modelRepository.modelState
+        ) { engineId, _ ->
+            Pair(AIEngineType.fromId(engineId), app.modelRepository.isModelInstalled())
+        }
+
         viewModelScope.launch {
             combine(
                 prefs.theme,
-                prefs.grammarCheckEnabled,
-                prefs.spellCheckEnabled,
-                prefs.autoCheckEnabled,
-                combine(prefs.historyEnabled, prefs.autoPauseBankingEnabled, prefs.geminiApiKey) { h, b, k -> Triple(h, b, k) }
-            ) { theme, grammar, spell, auto, (history, autoPause, apiKey) ->
+                checkSettingsFlow,
+                extraSettingsFlow,
+                engineFlow
+            ) { theme, (grammar, spell, auto), (history, autoPause, apiKey), (selectedEngine, isModelInstalled) ->
                 SettingsUiState(
                     theme = theme,
                     grammarCheckEnabled = grammar,
@@ -39,11 +64,20 @@ class SettingsViewModel : ViewModel() {
                     autoCheckEnabled = auto,
                     historyEnabled = history,
                     autoPauseBankingEnabled = autoPause,
-                    geminiApiKey = apiKey
+                    geminiApiKey = apiKey,
+                    selectedEngine = selectedEngine,
+                    isLocalModelInstalled = isModelInstalled
                 )
             }.collect { state ->
                 _uiState.value = state
             }
+        }
+    }
+
+    fun setSelectedEngine(engine: AIEngineType) {
+        viewModelScope.launch {
+            prefs.setSelectedEngine(engine.id)
+            app.rewriteCoordinator.setEngineType(engine)
         }
     }
 

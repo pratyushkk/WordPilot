@@ -70,6 +70,16 @@ class KeyboardSuggestionController(
                 _uiState.update { it.copy(hapticEnabled = he) }
             }
         }
+        scope.launch {
+            rewriteCoordinator.selectedEngine.collect { engine ->
+                _uiState.update { state ->
+                    val session = state.assistantSession ?: return@update state
+                    state.copy(
+                        assistantSession = session.copy(selectedEngine = engine)
+                    )
+                }
+            }
+        }
     }
 
     fun setInputConnection(ic: InputConnection?) {
@@ -472,6 +482,9 @@ class KeyboardSuggestionController(
 
     fun selectAssistantEngine(engine: AIEngineType) {
         rewriteCoordinator.setEngineType(engine)
+        scope.launch {
+            userPrefs.setSelectedEngine(engine.id)
+        }
         _uiState.update { state ->
             val session = state.assistantSession ?: return@update state
             state.copy(

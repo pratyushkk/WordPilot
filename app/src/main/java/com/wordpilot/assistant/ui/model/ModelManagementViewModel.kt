@@ -3,6 +3,7 @@ package com.wordpilot.assistant.ui.model
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wordpilot.assistant.WordPilotApp
+import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.ModelState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,13 +25,15 @@ data class ModelUiState(
     val errorMessage: String? = null,
     val memoryMb: Long = 0,
     val loadTimeMs: Long = 0,
-    val inferenceMs: Long = 0
+    val inferenceMs: Long = 0,
+    val selectedEngine: AIEngineType = AIEngineType.LOCAL_AI
 )
 
 class ModelManagementViewModel : ViewModel() {
     private val app = WordPilotApp.instance
     private val repo = app.modelRepository
     private val localEngine = app.aiEngine
+    private val rewriteCoordinator = app.rewriteCoordinator
 
     private val _uiState = MutableStateFlow(ModelUiState())
     val uiState: StateFlow<ModelUiState> = _uiState.asStateFlow()
@@ -38,18 +41,23 @@ class ModelManagementViewModel : ViewModel() {
     init {
         viewModelScope.launch {
             combine(
-                repo.modelState,
-                repo.downloadProgress,
-                repo.downloadedBytes,
-                repo.totalBytes,
-                repo.downloadErrorMessage
-            ) { state, progress, downloaded, total, error ->
+                combine(
+                    repo.modelState,
+                    repo.downloadProgress,
+                    repo.downloadedBytes,
+                    repo.totalBytes,
+                    repo.downloadErrorMessage
+                ) { state, progress, downloaded, total, error ->
+                    ModelDownloadData(state, progress, downloaded, total, error)
+                },
+                rewriteCoordinator.selectedEngine
+            ) { downloadData, currentEngine ->
                 val info = repo.getModelInfo()
                 val resourceUsage = localEngine.getResourceUsage()
-                val isInstalled = state == ModelState.INSTALLED || repo.isModelInstalled()
+                val isInstalled = downloadData.state == ModelState.INSTALLED || repo.isModelInstalled()
 
-                val statusText = when (state) {
-                    ModelState.DOWNLOADING -> "Downloading (${(progress * 100).toInt()}%)"
+                val statusText = when (downloadData.state) {
+                    ModelState.DOWNLOADING -> "Downloading (${(downloadData.progress * 100).toInt()}%)"
                     ModelState.INSTALLED, ModelState.READY -> "Model Ready & Active"
                     ModelState.ERROR -> "Download Failed"
                     else -> if (isInstalled) "Model Ready & Active" else "Ready to Download"
@@ -57,23 +65,39 @@ class ModelManagementViewModel : ViewModel() {
 
                 ModelUiState(
                     isInstalled = isInstalled,
-                    modelState = state,
+                    modelState = downloadData.state,
                     modelName = info.name,
                     modelSource = info.source,
                     modelLicense = info.license,
                     storageMb = info.installedSizeMb,
-                    downloadProgress = progress,
-                    downloadedMb = downloaded / (1024 * 1024),
-                    totalMb = if (total > 0) total / (1024 * 1024) else 770L,
+                    downloadProgress = downloadData.progress,
+                    downloadedMb = downloadData.downloaded / (1024 * 1024),
+                    totalMb = if (downloadData.total > 0) downloadData.total / (1024 * 1024) else 770L,
                     statusText = statusText,
-                    errorMessage = error,
+                    errorMessage = downloadData.error,
                     memoryMb = resourceUsage.memoryUsageMb,
                     loadTimeMs = resourceUsage.loadTimeMs,
-                    inferenceMs = resourceUsage.lastInferenceTimeMs
+                    inferenceMs = resourceUsage.lastInferenceTimeMs,
+                    selectedEngine = currentEngine
                 )
             }.collect {
                 _uiState.value = it
             }
+        }
+    }
+
+    private data class ModelDownloadData(
+        val state: ModelState,
+        val progress: Float,
+        val downloaded: Long,
+        val total: Long,
+        val error: String?
+    )
+
+    fun setSelectedEngine(engine: AIEngineType) {
+        viewModelScope.launch {
+            app.userPreferences.setSelectedEngine(engine.id)
+            rewriteCoordinator.setEngineType(engine)
         }
     }
 
