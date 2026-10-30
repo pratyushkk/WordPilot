@@ -8,6 +8,11 @@ enum class KeyboardMode {
     QWERTY,
     NUMBERS,
     SYMBOLS,
+    EMOJI,
+    TEXT_EDITING,
+    CLIPBOARD,
+    EDIT_SETTINGS,
+    RESIZE,
     EXPANDED_ASSISTANT
 }
 
@@ -53,5 +58,13 @@ data class KeyboardUiState(
     val isCorrectionCardExpanded: Boolean = false,
     val isSensitiveField: Boolean = false,
     val isAnalyzing: Boolean = false,
-    val assistantSession: AssistantSessionState? = null
+    val assistantSession: AssistantSessionState? = null,
+    // Gboard Customization & Preferences
+    val showNumberRow: Boolean = true,
+    val showKeyHints: Boolean = true,
+    val keyHeightDp: Int = 46,
+    val bottomPaddingDp: Int = 0,
+    val sidePaddingDp: Int = 0,
+    val hapticEnabled: Boolean = true,
+    val clipboardHistory: List<String> = emptyList()
 )

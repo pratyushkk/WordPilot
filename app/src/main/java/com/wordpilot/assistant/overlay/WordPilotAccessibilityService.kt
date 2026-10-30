@@ -79,7 +79,8 @@ class WordPilotAccessibilityService : AccessibilityService(),
             AccessibilityEvent.TYPE_VIEW_FOCUSED or
             AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED or
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
             AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
@@ -92,27 +93,34 @@ class WordPilotAccessibilityService : AccessibilityService(),
         if (event == null) return
 
         when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                handleWindowStateChanged(event)
+            }
+
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
             AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 handleTextInputEvent(event)
             }
-
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                handleWindowStateChanged(event)
-            }
         }
     }
 
     private fun handleTextInputEvent(event: AccessibilityEvent) {
+        // STRICT: Bubble must ONLY appear when keyboard is actually open
+        if (!isKeyboardVisible()) {
+            floatingController.hideAssistant()
+            return
+        }
+
         val node = findActiveInputNode(event)
 
         if (node != null && !node.isPassword) {
             // Cancel any pending dismissal
             hideJob?.cancel()
 
-            // Keep assistant always present on the left while keyboard / input is active
+            // Keep assistant visible on screen while keyboard is open
             floatingController.showAssistant()
 
             val text = extractNodeText(node)
@@ -127,34 +135,48 @@ class WordPilotAccessibilityService : AccessibilityService(),
                     analyzeText(text, node)
                 }
             }
-        } else if (isKeyboardVisible()) {
-            // Keyboard is active on screen, make sure assistant remains present
-            hideJob?.cancel()
-            floatingController.showAssistant()
+        } else {
+            floatingController.hideAssistant()
         }
     }
 
     private fun handleWindowStateChanged(event: AccessibilityEvent) {
-        val inputActive = isKeyboardVisible() || findActiveInputNodeAcrossAllWindows() != null
-        if (!inputActive) {
-            // Debounce hiding to avoid flickering during quick window shifts
+        if (!isKeyboardVisible()) {
+            // Keyboard is not visible: hide immediately with brief debounce
             hideJob?.cancel()
             hideJob = serviceScope.launch {
-                delay(600L)
-                val stillActive = isKeyboardVisible() || findActiveInputNodeAcrossAllWindows() != null
-                if (!stillActive) {
+                delay(120L)
+                if (!isKeyboardVisible()) {
                     floatingController.hideAssistant()
                 }
             }
         } else {
-            hideJob?.cancel()
-            floatingController.showAssistant()
+            val node = findActiveInputNodeAcrossAllWindows()
+            if (node != null && !node.isPassword) {
+                hideJob?.cancel()
+                floatingController.showAssistant()
+            } else {
+                floatingController.hideAssistant()
+            }
         }
     }
 
     private fun isKeyboardVisible(): Boolean {
+        if (com.wordpilot.assistant.utils.KeyboardVisibilityTracker.isWordPilotImeVisible) {
+            return true
+        }
         return try {
-            windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+            val winList = windows
+            if (winList.isNullOrEmpty()) return false
+            winList.any { win ->
+                if (win.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
+                    val bounds = android.graphics.Rect()
+                    win.getBoundsInScreen(bounds)
+                    bounds.height() > 150 && bounds.width() > 200
+                } else {
+                    false
+                }
+            }
         } catch (e: Exception) {
             false
         }
@@ -262,6 +284,10 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
             withContext(Dispatchers.Main) {
                 floatingController.setChecking(false)
+                if (!isKeyboardVisible()) {
+                    floatingController.hideAssistant()
+                    return@withContext
+                }
                 if (topCorrection != null) {
                     Log.d(TAG, "Showing correction: ${topCorrection.originalText} -> ${topCorrection.suggestedReplacement}")
                     floatingController.showCorrection(

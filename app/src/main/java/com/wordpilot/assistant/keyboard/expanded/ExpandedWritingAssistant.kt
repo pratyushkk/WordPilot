@@ -60,14 +60,18 @@ fun ExpandedWritingAssistant(
     val coroutineScope = rememberCoroutineScope()
     val isDark = isSystemInDarkTheme()
 
-    var editableResultText by remember(session.rewrittenText) {
-        mutableStateOf(session.rewrittenText)
+    var editableResultText by remember { mutableStateOf(session.rewrittenText) }
+
+    LaunchedEffect(session.rewrittenText) {
+        if (session.rewrittenText.isNotBlank()) {
+            editableResultText = session.rewrittenText
+        }
     }
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Preview, 1: Diff
-    var showModelMenu by remember { mutableStateOf(false) }
+    var showModelDialog by remember { mutableStateOf(false) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
-    var apiKeyInput by remember { mutableStateOf("") }
+    var apiKeyInput by remember { mutableStateOf(WordPilotApp.instance.cachedGeminiApiKey ?: "") }
     var copyConfirmation by remember { mutableStateOf(false) }
 
     val panelBackground = if (isDark) Color(0xFF14171A) else Color(0xFFFBFBFD)
@@ -75,24 +79,25 @@ fun ExpandedWritingAssistant(
     val cardBorder = if (isDark) Color(0xFF333842) else Color(0xFFE2E4E8)
     val primaryBlue = Color(0xFF1976D2)
 
-    Surface(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 265.dp, max = 295.dp),
-        color = panelBackground
+            .heightIn(min = 280.dp, max = 320.dp)
+            .background(panelBackground)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .padding(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 10.dp)
+                .navigationBarsPadding()
         ) {
             // -------------------------------------------------------------
-            // 1. HEADER ROW: Logo, Brand, Engine Selector, Close Button
+            // 1. HEADER ROW: Logo, Brand, Engine Selector Pill, Close Button
             // -------------------------------------------------------------
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(38.dp),
+                    .height(36.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -127,100 +132,35 @@ fun ExpandedWritingAssistant(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Engine Selector Pill
-                    Box {
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = if (isDark) Color(0xFF282D35) else Color(0xFFEEF2F6),
-                            border = BorderStroke(1.dp, if (isDark) Color(0xFF3E4550) else Color(0xFFD4DAE2)),
-                            modifier = Modifier
-                                .clickable { showModelMenu = true }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isDark) Color(0xFF282D35) else Color(0xFFEEF2F6),
+                        border = BorderStroke(1.dp, if (isDark) Color(0xFF3E4550) else Color(0xFFD4DAE2)),
+                        modifier = Modifier
+                            .clickable { showModelDialog = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                val engineIcon = when (session.selectedEngine) {
-                                    AIEngineType.GEMINI_FLASH -> "⚡"
-                                    AIEngineType.LOCAL_AI -> "📱"
-                                    AIEngineType.RULE_BASED -> "🛡"
-                                }
-                                Text(
-                                    text = "$engineIcon ${session.selectedEngine.shortName}",
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Select engine",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            val engineIcon = when (session.selectedEngine) {
+                                AIEngineType.GEMINI_FLASH -> "⚡"
+                                AIEngineType.LOCAL_AI -> "📱"
+                                AIEngineType.RULE_BASED -> "🛡"
                             }
-                        }
-
-                        // Engine Dropdown Menu
-                        DropdownMenu(
-                            expanded = showModelMenu,
-                            onDismissRequest = { showModelMenu = false }
-                        ) {
-                            for (engine in AIEngineType.entries) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = engine.displayName,
-                                                    fontWeight = if (session.selectedEngine == engine) FontWeight.Bold else FontWeight.Normal,
-                                                    fontSize = 13.sp
-                                                )
-                                                Surface(
-                                                    shape = RoundedCornerShape(4.dp),
-                                                    color = if (engine == AIEngineType.GEMINI_FLASH) primaryBlue.copy(alpha = 0.15f)
-                                                    else MaterialTheme.colorScheme.surfaceVariant,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                                ) {
-                                                    Text(
-                                                        text = engine.badge,
-                                                        fontSize = 9.5.sp,
-                                                        color = if (engine == AIEngineType.GEMINI_FLASH) primaryBlue
-                                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.padding(horizontal = 3.dp)
-                                                    )
-                                                }
-                                            }
-                                            if (engine == AIEngineType.GEMINI_FLASH && WordPilotApp.instance.cachedGeminiApiKey.isNullOrBlank()) {
-                                                Text(
-                                                    text = "Tap to configure API key",
-                                                    fontSize = 10.sp,
-                                                    color = MaterialTheme.colorScheme.error
-                                                )
-                                            }
-                                        }
-                                    },
-                                    onClick = {
-                                        showModelMenu = false
-                                        onSelectEngine(engine)
-                                        if (engine == AIEngineType.GEMINI_FLASH && WordPilotApp.instance.cachedGeminiApiKey.isNullOrBlank()) {
-                                            showApiKeyDialog = true
-                                        }
-                                    },
-                                    leadingIcon = {
-                                        if (session.selectedEngine == engine) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = "Selected",
-                                                tint = primaryBlue,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                )
-                            }
+                            Text(
+                                text = "$engineIcon ${session.selectedEngine.shortName}",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Select engine",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
@@ -241,7 +181,7 @@ fun ExpandedWritingAssistant(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             // -------------------------------------------------------------
             // 2. SCROLLABLE WORKSPACE CONTENT
@@ -333,12 +273,12 @@ fun ExpandedWritingAssistant(
                             maxLines = 3,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 36.dp, max = 68.dp)
+                                .heightIn(min = 34.dp, max = 64.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(5.dp))
 
                 // B. OPERATIONS CHIPS (Horizontal Scroll)
                 Row(
@@ -399,7 +339,7 @@ fun ExpandedWritingAssistant(
                         OutlinedTextField(
                             value = session.customInstruction,
                             onValueChange = onCustomInstructionChanged,
-                            placeholder = { Text("e.g. Make it more persuasive, sound like Steve Jobs...", fontSize = 11.sp) },
+                            placeholder = { Text("e.g. Make it more persuasive...", fontSize = 11.sp) },
                             textStyle = LocalTextStyle.current.copy(fontSize = 12.sp),
                             singleLine = true,
                             modifier = Modifier
@@ -418,7 +358,7 @@ fun ExpandedWritingAssistant(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(5.dp))
 
                 // C. RESULT PREVIEW & COMPARISON SECTION
                 Surface(
@@ -440,7 +380,8 @@ fun ExpandedWritingAssistant(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
-                            if (session.rewrittenText.isNotBlank() && !session.isProcessing) {
+                            val displayText = if (editableResultText.isNotBlank()) editableResultText else session.rewrittenText
+                            if (displayText.isNotBlank() && !session.isProcessing) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     // View Mode Tabs: Preview vs Diff
                                     TabRow(
@@ -490,9 +431,38 @@ fun ExpandedWritingAssistant(
                             }
                         }
 
+                        // Informational banner if Gemini key is missing
+                        if (session.selectedEngine == AIEngineType.GEMINI_FLASH && WordPilotApp.instance.cachedGeminiApiKey.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFFFF3E0))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Offline rules active. Add Gemini key for Cloud AI.",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFE65100)
+                                )
+                                Text(
+                                    text = "Add Key",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = primaryBlue,
+                                    modifier = Modifier.clickable { showApiKeyDialog = true }
+                                )
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(4.dp))
 
                         // State Display: Loading, Error, or Result
+                        val targetResultText = if (editableResultText.isNotBlank()) editableResultText else session.rewrittenText
+
                         if (session.isProcessing) {
                             Row(
                                 modifier = Modifier
@@ -513,47 +483,14 @@ fun ExpandedWritingAssistant(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        } else if (session.errorMessage != null && session.rewrittenText.isBlank()) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = session.errorMessage,
-                                    fontSize = 11.5.sp,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    if (session.selectedEngine == AIEngineType.GEMINI_FLASH) {
-                                        Button(
-                                            onClick = { showApiKeyDialog = true },
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier.height(30.dp)
-                                        ) {
-                                            Text("Set Gemini Key", fontSize = 11.sp)
-                                        }
-                                    }
-                                    OutlinedButton(
-                                        onClick = { onSelectEngine(AIEngineType.RULE_BASED) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                        modifier = Modifier.height(30.dp)
-                                    ) {
-                                        Text("Use Offline Engine", fontSize = 11.sp)
-                                    }
-                                }
-                            }
-                        } else if (session.rewrittenText.isNotBlank()) {
+                        } else if (targetResultText.isNotBlank()) {
                             if (selectedTab == 0) {
                                 // Editable Preview Field
                                 OutlinedTextField(
-                                    value = editableResultText,
+                                    value = targetResultText,
                                     onValueChange = { editableResultText = it },
                                     textStyle = LocalTextStyle.current.copy(
-                                        fontSize = 14.sp,
+                                        fontSize = 13.5.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = if (isDark) Color(0xFF90CAF9) else Color(0xFF0D47A1)
                                     ),
@@ -566,16 +503,67 @@ fun ExpandedWritingAssistant(
                                     maxLines = 4,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(min = 40.dp, max = 80.dp)
+                                        .heightIn(min = 36.dp, max = 74.dp)
                                 )
                             } else {
                                 // Diff View
                                 SuggestionDiffView(
                                     originalText = session.currentEditText.ifBlank { session.originalText },
-                                    rewrittenText = editableResultText,
+                                    rewrittenText = targetResultText,
                                     isDark = isDark,
                                     modifier = Modifier.fillMaxWidth()
                                 )
+                            }
+                        } else if (!session.errorMessage.isNullOrBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.ErrorOutline,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "AI Notice",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.5.sp,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = session.errorMessage,
+                                        fontSize = 11.5.sp,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { showApiKeyDialog = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(26.dp)
+                                        ) {
+                                            Text("Set Valid Key", fontSize = 10.5.sp)
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onSelectEngine(AIEngineType.RULE_BASED) },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(26.dp)
+                                        ) {
+                                            Text("Use Offline Engine", fontSize = 10.5.sp)
+                                        }
+                                    }
+                                }
                             }
                         } else {
                             Text(
@@ -597,18 +585,18 @@ fun ExpandedWritingAssistant(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp),
+                    .height(40.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 // Cancel
                 TextButton(
                     onClick = onClose,
-                    modifier = Modifier.height(38.dp)
+                    modifier = Modifier.height(36.dp)
                 ) {
                     Text(
                         text = "Cancel",
-                        fontSize = 12.5.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -621,23 +609,23 @@ fun ExpandedWritingAssistant(
                     IconButton(
                         onClick = onRetry,
                         enabled = !session.isProcessing,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(34.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Try again",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                     }
 
                     // Copy to clipboard
+                    val currentResult = if (editableResultText.isNotBlank()) editableResultText else session.rewrittenText
                     OutlinedButton(
                         onClick = {
-                            val targetText = editableResultText.ifBlank { session.rewrittenText }
-                            if (targetText.isNotBlank()) {
+                            if (currentResult.isNotBlank()) {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("WordPilot rewrite", targetText)
+                                val clip = ClipData.newPlainText("WordPilot rewrite", currentResult)
                                 clipboard.setPrimaryClip(clip)
                                 copyConfirmation = true
                                 coroutineScope.launch {
@@ -647,105 +635,263 @@ fun ExpandedWritingAssistant(
                             }
                         },
                         shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(36.dp)
+                        contentPadding = PaddingValues(horizontal = 9.dp, vertical = 3.dp),
+                        modifier = Modifier.height(34.dp)
                     ) {
                         Icon(
                             imageVector = if (copyConfirmation) Icons.Outlined.Check else Icons.Outlined.ContentCopy,
                             contentDescription = "Copy",
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (copyConfirmation) "Copied!" else "Copy",
-                            fontSize = 12.sp
+                            fontSize = 11.5.sp
                         )
                     }
 
                     // Apply Button (Primary)
                     Button(
                         onClick = {
-                            val textToApply = editableResultText.ifBlank { session.rewrittenText }
-                            if (textToApply.isNotBlank()) {
-                                onApply(textToApply)
+                            if (currentResult.isNotBlank()) {
+                                onApply(currentResult)
                             }
                         },
-                        enabled = !session.isProcessing && (editableResultText.isNotBlank() || session.rewrittenText.isNotBlank()),
+                        enabled = !session.isProcessing && currentResult.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = primaryBlue,
                             contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                        modifier = Modifier.height(36.dp)
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 3.dp),
+                        modifier = Modifier.height(34.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Check,
                             contentDescription = "Apply",
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Apply",
-                            fontSize = 13.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
         }
-    }
 
-    // -------------------------------------------------------------
-    // API KEY DIALOG
-    // -------------------------------------------------------------
-    if (showApiKeyDialog) {
-        AlertDialog(
-            onDismissRequest = { showApiKeyDialog = false },
-            title = {
-                Text(
-                    text = "Configure Gemini API",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column {
+        // =============================================================
+        // INLINE MODEL SELECTOR OVERLAY (100% Token-safe, no Dialog/Window errors!)
+        // =============================================================
+        AnimatedVisibility(
+            visible = showModelDialog,
+            enter = fadeIn() + slideInVertically { it / 3 },
+            exit = fadeOut() + slideOutVertically { it / 3 }
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = panelBackground
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Select Writing Engine",
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        IconButton(
+                            onClick = { showModelDialog = false },
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    for (engine in AIEngineType.entries) {
+                        val isSelected = session.selectedEngine == engine
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) primaryBlue.copy(alpha = 0.12f)
+                            else if (isDark) Color(0xFF282C34) else Color(0xFFF1F3F5),
+                            border = BorderStroke(
+                                if (isSelected) 1.5.dp else 1.dp,
+                                if (isSelected) primaryBlue else cardBorder
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelectEngine(engine)
+                                    showModelDialog = false
+                                    if (engine == AIEngineType.GEMINI_FLASH && WordPilotApp.instance.cachedGeminiApiKey.isNullOrBlank()) {
+                                        showApiKeyDialog = true
+                                    }
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val icon = when (engine) {
+                                    AIEngineType.GEMINI_FLASH -> "⚡"
+                                    AIEngineType.LOCAL_AI -> "📱"
+                                    AIEngineType.RULE_BASED -> "🛡"
+                                }
+                                Text(icon, fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = engine.displayName,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    )
+                                    val desc = when (engine) {
+                                        AIEngineType.GEMINI_FLASH -> if (WordPilotApp.instance.cachedGeminiApiKey.isNullOrBlank())
+                                            "API key needed · Tap to configure" else "Cloud AI · Gemini 1.5 Flash active"
+                                        AIEngineType.LOCAL_AI -> "On-device SLM execution"
+                                        AIEngineType.RULE_BASED -> "100% Offline & Private · Zero network"
+                                    }
+                                    Text(
+                                        text = desc,
+                                        fontSize = 10.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = primaryBlue,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // =============================================================
+        // INLINE GEMINI API KEY OVERLAY (100% Token-safe, no Dialog/Window errors!)
+        // =============================================================
+        AnimatedVisibility(
+            visible = showApiKeyDialog,
+            enter = fadeIn() + slideInVertically { it / 3 },
+            exit = fadeOut() + slideOutVertically { it / 3 }
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = panelBackground
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Configure Gemini API",
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        IconButton(
+                            onClick = { showApiKeyDialog = false },
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = "Enter your Google Gemini API key to enable instant cloud AI grammar fixes, tone rewrites, and explanations.",
-                        fontSize = 12.5.sp,
+                        text = "Paste your Google Gemini API key to activate instant cloud AI rewriting. You can get a free key from Google AI Studio (aistudio.google.com).",
+                        fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     OutlinedTextField(
                         value = apiKeyInput,
                         onValueChange = { apiKeyInput = it },
                         placeholder = { Text("AIzaSy...", fontSize = 12.sp) },
                         singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 12.sp),
-                        modifier = Modifier.fillMaxWidth()
+                        textStyle = LocalTextStyle.current.copy(fontSize = 12.5.sp),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
                     )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val key = apiKeyInput.trim()
-                        if (key.isNotBlank()) {
-                            WordPilotApp.instance.updateGeminiApiKey(key)
-                            showApiKeyDialog = false
-                            onRetry()
+
+                    if (apiKeyInput.isNotBlank() && !apiKeyInput.trim().startsWith("AIzaSy")) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "⚠️ Notice: Official Google AI Studio keys start with 'AIzaSy' (~39 characters). Keys starting with anything else will be rejected by Google's API.",
+                            fontSize = 11.sp,
+                            color = Color(0xFFE65100),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = { showApiKeyDialog = false },
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Cancel", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                val key = apiKeyInput.trim()
+                                if (key.isNotBlank()) {
+                                    WordPilotApp.instance.updateGeminiApiKey(key)
+                                    showApiKeyDialog = false
+                                    onRetry()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Save & Connect", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
-                ) {
-                    Text("Save & Connect")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showApiKeyDialog = false }) {
-                    Text("Cancel")
                 }
             }
-        )
+        }
     }
 }

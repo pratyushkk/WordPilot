@@ -55,8 +55,8 @@ class GeminiAIEngine(
         style: RewriteStyle,
         customInstruction: String?
     ): RewriteResult = withContext(Dispatchers.IO) {
-        val apiKey = apiKeyProvider()
-        if (apiKey.isNullOrBlank()) {
+        val rawApiKey = apiKeyProvider()?.trim()
+        if (rawApiKey.isNullOrBlank()) {
             return@withContext RewriteResult(
                 originalText = text,
                 rewrittenText = text,
@@ -81,11 +81,12 @@ class GeminiAIEngine(
         val prompt = buildPrompt(text, style, customInstruction)
 
         try {
-            val url = URL("$BASE_URL?key=$apiKey")
+            val url = URL("$BASE_URL?key=$rawApiKey")
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 setRequestProperty("Accept", "application/json")
+                setRequestProperty("x-goog-api-key", rawApiKey)
                 connectTimeout = 15000
                 readTimeout = 20000
                 doOutput = true
@@ -303,20 +304,20 @@ class GeminiAIEngine(
             if (error != null) {
                 val message = error.optString("message", "")
                 val status = error.optString("status", "")
-                if (status == "INVALID_ARGUMENT" || code == 400) {
-                    return "Invalid Gemini API key or request. Please verify your key."
+                if (message.contains("API_KEY_INVALID", ignoreCase = true) || status == "INVALID_ARGUMENT" || code == 400) {
+                    return "Invalid Gemini API key. Please verify your key from Google AI Studio (aistudio.google.com/app/apikey). Valid keys usually start with 'AIzaSy'."
                 }
                 if (status == "PERMISSION_DENIED" || code == 403) {
-                    return "Permission denied. Check that your Gemini API key has Gemini 1.5 Flash enabled."
+                    return "Permission denied (HTTP 403). Make sure the Generative Language API is enabled for this API key in Google Cloud/AI Studio."
                 }
                 if (status == "RESOURCE_EXHAUSTED" || code == 429) {
-                    return "Gemini API quota exceeded. Please wait a moment."
+                    return "Gemini API quota exceeded (HTTP 429). Please wait a moment."
                 }
                 if (message.isNotBlank()) return message
             }
         } catch (e: Exception) {
             // fallback
         }
-        return "Gemini request failed (HTTP $code). Verify your API key or internet connection."
+        return "Gemini request failed (HTTP $code). Verify your API key from aistudio.google.com or check your internet connection."
     }
 }

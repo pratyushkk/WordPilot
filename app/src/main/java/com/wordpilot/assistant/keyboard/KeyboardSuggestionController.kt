@@ -37,6 +37,41 @@ class KeyboardSuggestionController(
     private var lastAnalyzedText: String = ""
     private var assistantRewriteJob: Job? = null
 
+    private val userPrefs = app.userPreferences
+
+    init {
+        scope.launch {
+            userPrefs.keyboardHeightDp.collect { h ->
+                _uiState.update { it.copy(keyHeightDp = h) }
+            }
+        }
+        scope.launch {
+            userPrefs.keyboardBottomPaddingDp.collect { b ->
+                _uiState.update { it.copy(bottomPaddingDp = b) }
+            }
+        }
+        scope.launch {
+            userPrefs.keyboardSidePaddingDp.collect { s ->
+                _uiState.update { it.copy(sidePaddingDp = s) }
+            }
+        }
+        scope.launch {
+            userPrefs.keyboardShowNumberRow.collect { n ->
+                _uiState.update { it.copy(showNumberRow = n) }
+            }
+        }
+        scope.launch {
+            userPrefs.keyboardShowKeyHints.collect { kh ->
+                _uiState.update { it.copy(showKeyHints = kh) }
+            }
+        }
+        scope.launch {
+            userPrefs.keyboardHapticEnabled.collect { he ->
+                _uiState.update { it.copy(hapticEnabled = he) }
+            }
+        }
+    }
+
     fun setInputConnection(ic: InputConnection?) {
         currentInputConnection = ic
     }
@@ -206,6 +241,128 @@ class KeyboardSuggestionController(
         if (_uiState.value.shiftState == ShiftState.SHIFTED) {
             _uiState.update { it.copy(shiftState = ShiftState.OFF) }
         }
+    }
+
+    // =========================================================================
+    // GBOARD TEXT EDITING & CONFIGURATION
+    // =========================================================================
+
+    var isSelecting = false
+        private set
+
+    fun moveCursor(direction: Int) {
+        val ic = currentInputConnection ?: return
+        val keycode = when (direction) {
+            -1 -> android.view.KeyEvent.KEYCODE_DPAD_LEFT
+            1 -> android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+            -2 -> android.view.KeyEvent.KEYCODE_DPAD_UP
+            2 -> android.view.KeyEvent.KEYCODE_DPAD_DOWN
+            else -> return
+        }
+        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, keycode))
+        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, keycode))
+    }
+
+    fun jumpToStart() {
+        val ic = currentInputConnection ?: return
+        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MOVE_HOME))
+        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MOVE_HOME))
+    }
+
+    fun jumpToEnd() {
+        val ic = currentInputConnection ?: return
+        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MOVE_END))
+        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MOVE_END))
+    }
+
+    fun selectAll() {
+        currentInputConnection?.performContextMenuAction(android.R.id.selectAll)
+    }
+
+    fun cutText() {
+        currentInputConnection?.performContextMenuAction(android.R.id.cut)
+    }
+
+    fun copyText() {
+        currentInputConnection?.performContextMenuAction(android.R.id.copy)
+    }
+
+    fun pasteText() {
+        currentInputConnection?.performContextMenuAction(android.R.id.paste)
+    }
+
+    fun toggleSelectionMode() {
+        isSelecting = !isSelecting
+    }
+
+    fun toggleNumberRow(enabled: Boolean) {
+        _uiState.update { it.copy(showNumberRow = enabled) }
+        scope.launch { userPrefs.setKeyboardShowNumberRow(enabled) }
+    }
+
+    fun toggleKeyHints(enabled: Boolean) {
+        _uiState.update { it.copy(showKeyHints = enabled) }
+        scope.launch { userPrefs.setKeyboardShowKeyHints(enabled) }
+    }
+
+    fun setKeyHeight(heightDp: Int) {
+        _uiState.update { it.copy(keyHeightDp = heightDp) }
+        scope.launch { userPrefs.setKeyboardHeightDp(heightDp) }
+    }
+
+    fun setBottomPadding(paddingDp: Int) {
+        _uiState.update { it.copy(bottomPaddingDp = paddingDp) }
+        scope.launch { userPrefs.setKeyboardBottomPaddingDp(paddingDp) }
+    }
+
+    fun setSidePadding(paddingDp: Int) {
+        _uiState.update { it.copy(sidePaddingDp = paddingDp) }
+        scope.launch { userPrefs.setKeyboardSidePaddingDp(paddingDp) }
+    }
+
+    fun setKeyboardDimensions(heightDp: Int, bottomPaddingDp: Int, sidePaddingDp: Int) {
+        _uiState.update { 
+            it.copy(
+                keyHeightDp = heightDp,
+                bottomPaddingDp = bottomPaddingDp,
+                sidePaddingDp = sidePaddingDp,
+                mode = KeyboardMode.QWERTY
+            )
+        }
+        scope.launch {
+            userPrefs.setKeyboardHeightDp(heightDp)
+            userPrefs.setKeyboardBottomPaddingDp(bottomPaddingDp)
+            userPrefs.setKeyboardSidePaddingDp(sidePaddingDp)
+        }
+    }
+
+    fun resetKeyboardDimensions() {
+        _uiState.update { 
+            it.copy(
+                keyHeightDp = 46,
+                bottomPaddingDp = 0,
+                sidePaddingDp = 0
+            )
+        }
+        scope.launch {
+            userPrefs.setKeyboardHeightDp(46)
+            userPrefs.setKeyboardBottomPaddingDp(0)
+            userPrefs.setKeyboardSidePaddingDp(0)
+        }
+    }
+
+    fun toggleHaptic(enabled: Boolean) {
+        _uiState.update { it.copy(hapticEnabled = enabled) }
+        scope.launch { userPrefs.setKeyboardHapticEnabled(enabled) }
+    }
+
+    fun pasteClipboardText(text: String) {
+        currentInputConnection?.commitText(text, 1)
+        setMode(KeyboardMode.QWERTY)
+    }
+
+    fun clearClipboard() {
+        _uiState.update { it.copy(clipboardHistory = emptyList()) }
     }
 
     // =========================================================================

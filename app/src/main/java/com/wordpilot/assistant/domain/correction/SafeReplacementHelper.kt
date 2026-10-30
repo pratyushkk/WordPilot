@@ -20,7 +20,7 @@ class SafeReplacementHelper {
         if (correction.startOffset >= correction.endOffset) return false
         
         val currentText = text.substring(correction.startOffset, correction.endOffset)
-        return currentText == correction.originalText
+        return currentText == correction.originalText || currentText.equals(correction.originalText, ignoreCase = true)
     }
 
     fun applyMultipleCorrections(text: String, corrections: List<Correction>): String {

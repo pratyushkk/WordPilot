@@ -46,6 +46,8 @@ class WordPilotApp : Application() {
         private set
 
     // Engines
+    lateinit var offlineGrammarFacade: com.wordpilot.assistant.engine.offline.OfflineGrammarEngineFacade
+        private set
     lateinit var spellEngine: TrieSpellEngine
         private set
     lateinit var grammarEngine: RuleBasedGrammarEngine
@@ -91,8 +93,9 @@ class WordPilotApp : Application() {
         modelRepository = ModelRepositoryImpl(File(filesDir, "models"))
 
         // Engines
-        spellEngine = TrieSpellEngine(this)
-        grammarEngine = RuleBasedGrammarEngine()
+        offlineGrammarFacade = com.wordpilot.assistant.engine.offline.OfflineGrammarEngineFacade(this)
+        spellEngine = TrieSpellEngine(this, offlineGrammarFacade)
+        grammarEngine = RuleBasedGrammarEngine(this, offlineGrammarFacade)
         aiEngine = StubAIEngine()
         correctionCoordinator = CorrectionCoordinator(spellEngine, grammarEngine)
         sentenceAnalyzer = SentenceAnalyzer()
@@ -114,6 +117,13 @@ class WordPilotApp : Application() {
         rewriteUseCase = RewriteUseCase(rewriteCoordinator)
 
         // Preload API key and preferred engine from preferences
+        applicationScope.launch {
+            try {
+                val words = dictionaryRepository.getAllWords()
+                words.forEach { offlineGrammarFacade.addCustomWord(it) }
+            } catch (_: Exception) {}
+        }
+
         applicationScope.launch {
             userPreferences.geminiApiKey.collect { key ->
                 cachedGeminiApiKey = key

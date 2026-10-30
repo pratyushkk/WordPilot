@@ -36,10 +36,22 @@ class RewriteCoordinator(
                     // Fall back to rule-based engine if user has not configured API key yet
                     val offlineResult = ruleEngine.rewrite(text, style, customInstruction)
                     offlineResult.copy(
-                        errorMessage = "Gemini API key is not configured. (Applied offline rules instead)"
+                        errorMessage = "Gemini API key is not configured. (Applied offline grammar rules instead)"
                     )
                 } else {
-                    geminiEngine.rewrite(text, style, customInstruction)
+                    val result = geminiEngine.rewrite(text, style, customInstruction)
+                    if (!result.isSuccess) {
+                        val offlineFallback = ruleEngine.rewrite(text, style, customInstruction)
+                        if (offlineFallback.isSuccess && offlineFallback.rewrittenText != text) {
+                            offlineFallback.copy(
+                                errorMessage = "${result.errorMessage} (Applied offline rules as fallback)"
+                            )
+                        } else {
+                            result
+                        }
+                    } else {
+                        result
+                    }
                 }
             }
             AIEngineType.LOCAL_AI -> {

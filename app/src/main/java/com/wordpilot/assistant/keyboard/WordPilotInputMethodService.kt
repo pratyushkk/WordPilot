@@ -5,6 +5,7 @@ import android.inputmethodservice.InputMethodService
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -87,6 +88,9 @@ class WordPilotInputMethodService : InputMethodService(),
                     WordPilotKeyboardView(
                         uiState = uiState,
                         onKeyClicked = { action -> handleKeyAction(action, uiState) },
+                        onCommitCharacter = { char ->
+                            currentInputConnection?.commitText(char, 1)
+                        },
                         onAcceptCorrection = { correction ->
                             suggestionController.acceptCorrection(correction)
                         },
@@ -131,6 +135,85 @@ class WordPilotInputMethodService : InputMethodService(),
                         },
                         onRetryAssistantRewrite = {
                             suggestionController.executeAssistantRewrite()
+                        },
+                        onResizeClicked = {
+                            suggestionController.setMode(KeyboardMode.RESIZE)
+                        },
+                        onOpenResizeMode = {
+                            suggestionController.setMode(KeyboardMode.RESIZE)
+                        },
+                        onSaveResizeDimensions = { height, bottom, side ->
+                            suggestionController.setKeyboardDimensions(height, bottom, side)
+                        },
+                        onResetResizeDimensions = {
+                            suggestionController.resetKeyboardDimensions()
+                        },
+                        onChangeBottomPadding = {
+                            suggestionController.setBottomPadding(it)
+                        },
+                        onChangeSidePadding = {
+                            suggestionController.setSidePadding(it)
+                        },
+                        onTextEditingClicked = {
+                            suggestionController.setMode(KeyboardMode.TEXT_EDITING)
+                        },
+                        onClipboardClicked = {
+                            suggestionController.setMode(KeyboardMode.CLIPBOARD)
+                        },
+                        onSettingsClicked = {
+                            suggestionController.setMode(KeyboardMode.EDIT_SETTINGS)
+                        },
+                        onHideKeyboard = {
+                            requestHideSelf(0)
+                        },
+                        onMoveCursor = { dir ->
+                            suggestionController.moveCursor(dir)
+                        },
+                        onJumpToStart = {
+                            suggestionController.jumpToStart()
+                        },
+                        onJumpToEnd = {
+                            suggestionController.jumpToEnd()
+                        },
+                        onSelectAll = {
+                            suggestionController.selectAll()
+                        },
+                        onToggleSelect = {
+                            suggestionController.toggleSelectionMode()
+                        },
+                        isSelecting = suggestionController.isSelecting,
+                        onCut = {
+                            suggestionController.cutText()
+                        },
+                        onCopy = {
+                            suggestionController.copyText()
+                        },
+                        onPaste = {
+                            suggestionController.pasteText()
+                        },
+                        onToggleNumberRow = {
+                            suggestionController.toggleNumberRow(it)
+                        },
+                        onToggleKeyHints = {
+                            suggestionController.toggleKeyHints(it)
+                        },
+                        onChangeKeyHeight = {
+                            suggestionController.setKeyHeight(it)
+                        },
+                        onToggleHaptic = {
+                            suggestionController.toggleHaptic(it)
+                        },
+                        onPasteClip = {
+                            suggestionController.pasteClipboardText(it)
+                        },
+                        onClearClips = {
+                            suggestionController.clearClipboard()
+                        },
+                        onEmojiClicked = { emoji ->
+                            currentInputConnection?.commitText(emoji, 1)
+                        },
+                        onClosePanel = {
+                            suggestionController.setMode(KeyboardMode.QWERTY)
                         }
                     )
                 }
@@ -143,6 +226,13 @@ class WordPilotInputMethodService : InputMethodService(),
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         suggestionController.setInputConnection(currentInputConnection)
+
+        if (!restarting) {
+            val currentMode = suggestionController.uiState.value.mode
+            if (currentMode != KeyboardMode.EXPANDED_ASSISTANT) {
+                suggestionController.setMode(KeyboardMode.QWERTY)
+            }
+        }
 
         val isSensitive = SensitiveInputGuard.isSensitiveField(info)
         suggestionController.setSensitiveField(isSensitive)
@@ -189,6 +279,9 @@ class WordPilotInputMethodService : InputMethodService(),
                     ic.commitText("", 1)
                 }
             }
+            is KeyAction.DeleteWord -> {
+                deleteWord(ic)
+            }
             is KeyAction.Enter -> {
                 val editorInfo = currentInputEditorInfo
                 val imeOptions = editorInfo?.imeOptions ?: 0
@@ -211,10 +304,57 @@ class WordPilotInputMethodService : InputMethodService(),
             is KeyAction.SwitchToSymbols -> {
                 suggestionController.setMode(KeyboardMode.SYMBOLS)
             }
+            is KeyAction.Emoji -> {
+                suggestionController.setMode(KeyboardMode.EMOJI)
+            }
+            is KeyAction.TextEditing -> {
+                suggestionController.setMode(KeyboardMode.TEXT_EDITING)
+            }
+            is KeyAction.Clipboard -> {
+                suggestionController.setMode(KeyboardMode.CLIPBOARD)
+            }
+            is KeyAction.EditKeyboard -> {
+                suggestionController.setMode(KeyboardMode.EDIT_SETTINGS)
+            }
+            is KeyAction.ResizeKeyboard -> {
+                suggestionController.setMode(KeyboardMode.RESIZE)
+            }
             is KeyAction.WordPilotAssistant -> {
                 suggestionController.openExpandedAssistant()
             }
         }
+    }
+
+    private fun deleteWord(ic: InputConnection) {
+        val selected = ic.getSelectedText(0)
+        if (!selected.isNullOrEmpty()) {
+            ic.commitText("", 1)
+            return
+        }
+
+        val textBefore = ic.getTextBeforeCursor(100, 0)?.toString() ?: ""
+        if (textBefore.isEmpty()) {
+            ic.deleteSurroundingText(1, 0)
+            return
+        }
+
+        var i = textBefore.length - 1
+        while (i >= 0 && textBefore[i].isWhitespace()) {
+            i--
+        }
+
+        if (i >= 0 && !textBefore[i].isLetterOrDigit()) {
+            while (i >= 0 && !textBefore[i].isLetterOrDigit() && !textBefore[i].isWhitespace()) {
+                i--
+            }
+        } else {
+            while (i >= 0 && (textBefore[i].isLetterOrDigit() || textBefore[i] == '_')) {
+                i--
+            }
+        }
+
+        val count = (textBefore.length - (i + 1)).coerceAtLeast(1)
+        ic.deleteSurroundingText(count, 0)
     }
 
     private fun applyWordSuggestion(suggestion: String) {
@@ -228,7 +368,18 @@ class WordPilotInputMethodService : InputMethodService(),
         ic.commitText("$suggestion ", 1)
     }
 
+    override fun onWindowShown() {
+        super.onWindowShown()
+        com.wordpilot.assistant.utils.KeyboardVisibilityTracker.isWordPilotImeVisible = true
+    }
+
+    override fun onWindowHidden() {
+        super.onWindowHidden()
+        com.wordpilot.assistant.utils.KeyboardVisibilityTracker.isWordPilotImeVisible = false
+    }
+
     override fun onDestroy() {
+        com.wordpilot.assistant.utils.KeyboardVisibilityTracker.isWordPilotImeVisible = false
         super.onDestroy()
         if (activeInstance == this) {
             activeInstance = null

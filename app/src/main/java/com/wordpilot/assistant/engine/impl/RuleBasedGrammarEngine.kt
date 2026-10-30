@@ -1,51 +1,26 @@
 package com.wordpilot.assistant.engine.impl
 
+import android.content.Context
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.engine.GrammarEngine
-import com.wordpilot.assistant.engine.SentenceAnalyzer
-import com.wordpilot.assistant.engine.rules.ArticleRule
-import com.wordpilot.assistant.engine.rules.CapitalizationRule
-import com.wordpilot.assistant.engine.rules.ConfusedWordsRule
-import com.wordpilot.assistant.engine.rules.GrammarRule
-import com.wordpilot.assistant.engine.rules.PunctuationSpacingRule
-import com.wordpilot.assistant.engine.rules.RepeatedWordRule
-import com.wordpilot.assistant.engine.rules.SubjectVerbAgreementRule
+import com.wordpilot.assistant.engine.SentenceSpan
+import com.wordpilot.assistant.engine.offline.OfflineGrammarEngineFacade
 
-class RuleBasedGrammarEngine : GrammarEngine {
-    
-    private val sentenceAnalyzer = SentenceAnalyzer()
-    
-    private val allRules: List<GrammarRule> = listOf(
-        RepeatedWordRule(),
-        CapitalizationRule(),
-        PunctuationSpacingRule(),
-        ArticleRule(),
-        SubjectVerbAgreementRule(),
-        ConfusedWordsRule()
-    )
-
-    private var disabledRules: Set<String> = emptySet()
+class RuleBasedGrammarEngine(
+    context: Context? = null,
+    val facade: OfflineGrammarEngineFacade = OfflineGrammarEngineFacade(context)
+) : GrammarEngine {
 
     override suspend fun check(text: String): List<Correction> {
         if (text.isBlank()) return emptyList()
-
-        val sentences = sentenceAnalyzer.splitSentences(text)
-        val activeRules = allRules.filter { it.id !in disabledRules }
-
-        return activeRules.flatMap { rule ->
-            try {
-                rule.check(text, sentences)
-            } catch (e: Exception) {
-                emptyList()
-            }
-        }
+        return facade.checkText(text)
     }
 
     override fun isAvailable(): Boolean = true
 
-    override fun getSupportedRuleIds(): List<String> = allRules.map { it.id }
+    override fun getSupportedRuleIds(): List<String> = facade.getSupportedRuleIds()
 
     override fun setDisabledRules(ruleIds: Set<String>) {
-        disabledRules = ruleIds
+        facade.setDisabledRules(ruleIds)
     }
 }
