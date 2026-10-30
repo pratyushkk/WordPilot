@@ -52,7 +52,7 @@ data class AppearanceSettings(
     val autoDimOpacity: Float = 0.35f,
 
     // Behavior
-    val autoHideWhenKeyboardClosed: Boolean = false,
+    val autoHideWhenKeyboardClosed: Boolean = true,
 
     // Glass Surface
     val glassOpacity: Float = AssistantColors.DefaultGlassOpacity,
@@ -182,7 +182,7 @@ data class AppearanceSettings(
                 autoDimEnabled = sp.getBoolean(KEY_AUTO_DIM_ENABLED, defaultInst.autoDimEnabled),
                 autoDimDelaySeconds = sp.getInt(KEY_AUTO_DIM_DELAY, defaultInst.autoDimDelaySeconds),
                 autoDimOpacity = sp.getFloat(KEY_AUTO_DIM_OPACITY, defaultInst.autoDimOpacity),
-                autoHideWhenKeyboardClosed = sp.getBoolean(KEY_AUTO_HIDE_KEYBOARD, defaultInst.autoHideWhenKeyboardClosed),
+                autoHideWhenKeyboardClosed = sp.getBoolean(KEY_AUTO_HIDE_KEYBOARD, true),
 
                 glassOpacity = sp.getFloat(KEY_GLASS_OPACITY, defaultInst.glassOpacity),
                 glassTintArgb = sp.getInt(KEY_GLASS_TINT, defaultInst.glassTintArgb),

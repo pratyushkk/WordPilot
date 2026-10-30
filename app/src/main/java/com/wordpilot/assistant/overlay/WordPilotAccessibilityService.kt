@@ -108,8 +108,11 @@ class WordPilotAccessibilityService : AccessibilityService(),
         info.notificationTimeout = 50
         serviceInfo = info
 
-        serviceScope.launch(Dispatchers.Main) {
-            floatingController.showAssistant()
+        val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
+        if (!autoHide || isKeyboardVisible()) {
+            serviceScope.launch(Dispatchers.Main) {
+                floatingController.showAssistant()
+            }
         }
         com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, true)
     }
@@ -234,7 +237,8 @@ class WordPilotAccessibilityService : AccessibilityService(),
         }
 
         val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
-        if (autoHide && !isKeyboardVisible()) {
+        val isTyping = event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+        if (autoHide && !isKeyboardVisible() && !isTyping) {
             floatingController.hideAssistant()
             return
         }

@@ -34,11 +34,8 @@ class WordPilotTileService : TileService() {
             val success = setAccessibilityServiceEnabledDirectly(newState)
             if (success) {
                 updateTileState(isActive = newState)
-                val msg = if (newState) "WordPilot Assistant Activated" else "WordPilot Paused for Banking"
+                val msg = if (newState) "WordPilot Active — Ready when typing" else "WordPilot Paused"
                 Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-                if (newState) {
-                    WordPilotAccessibilityService.instance?.floatingController?.showAssistant()
-                }
                 com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, newState)
                 return
             }

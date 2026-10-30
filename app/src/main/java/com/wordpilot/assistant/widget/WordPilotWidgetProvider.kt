@@ -45,12 +45,8 @@ class WordPilotWidgetProvider : AppWidgetProvider() {
             val success = setAccessibilityServiceEnabledDirectly(context, newState)
             if (success) {
                 updateAllWidgets(context, isActiveOverride = newState)
-                val msg = if (newState) "WordPilot Assistant Activated" else "WordPilot Paused for Banking"
+                val msg = if (newState) "WordPilot Active — Ready when typing" else "WordPilot Paused"
                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-
-                if (newState) {
-                    WordPilotAccessibilityService.instance?.floatingController?.showAssistant()
-                }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     try {
