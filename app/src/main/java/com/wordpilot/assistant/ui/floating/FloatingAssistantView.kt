@@ -1,14 +1,20 @@
 package com.wordpilot.assistant.ui.floating
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.domain.models.CorrectionCategory
@@ -59,15 +65,103 @@ fun FloatingAssistantView(
         null -> AssistantColors.BadgeGrammar
     }
 
+    val isExpanded = uiState == FloatingUiState.EXPANDED
+    val bubbleSize = settings.bubbleSizeDp.dp
+    val toolbarHeight = settings.toolbarHeightDp.dp
+    val toolbarMaxWidth = settings.toolbarMaxWidthDp.dp
+
+    // Morphing Pill Dimensions - Emphasized organic curves
+    val animatedWidth by animateDpAsState(
+        targetValue = if (isExpanded) toolbarMaxWidth else bubbleSize,
+        animationSpec = if (isExpanded) {
+            tween(durationMillis = 280, easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f))
+        } else {
+            tween(durationMillis = 220, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f))
+        },
+        label = "pillWidth"
+    )
+
+    val animatedHeight by animateDpAsState(
+        targetValue = if (isExpanded) toolbarHeight else bubbleSize,
+        animationSpec = if (isExpanded) {
+            tween(durationMillis = 280, easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f))
+        } else {
+            tween(durationMillis = 220, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f))
+        },
+        label = "pillHeight"
+    )
+
+    val animatedCornerRadius by animateDpAsState(
+        targetValue = if (isExpanded) settings.glassCornerRadiusDp.dp else (bubbleSize / 2),
+        animationSpec = if (isExpanded) {
+            tween(durationMillis = 280, easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f))
+        } else {
+            tween(durationMillis = 220, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f))
+        },
+        label = "pillCornerRadius"
+    )
+
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (isExpanded) 1f else 0f,
+        animationSpec = if (isExpanded) {
+            tween(durationMillis = 180, delayMillis = 70, easing = LinearOutSlowInEasing)
+        } else {
+            tween(durationMillis = 100, easing = FastOutLinearInEasing)
+        },
+        label = "contentAlpha"
+    )
+
+    val pillGlassOpacity by animateFloatAsState(
+        targetValue = if (isExpanded) settings.glassOpacity else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "pillGlassOpacity"
+    )
+
+    val pillBorderOpacity by animateFloatAsState(
+        targetValue = if (isExpanded) settings.glassBorderOpacity else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "pillBorderOpacity"
+    )
+
+    val pillElevation by animateDpAsState(
+        targetValue = if (isExpanded) settings.glassShadowElevationDp.dp else 0.dp,
+        animationSpec = tween(durationMillis = 200),
+        label = "pillElevation"
+    )
+
+    // Panels enter / exit transitions
+    val panelEnterAnim = fadeIn(
+        animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)
+    ) + expandVertically(
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        expandFrom = Alignment.Bottom
+    ) + scaleIn(
+        initialScale = 0.92f,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        transformOrigin = if (isNearRightEdge) TransformOrigin(1f, 1f) else TransformOrigin(0f, 1f)
+    )
+
+    val panelExitAnim = fadeOut(
+        animationSpec = tween(durationMillis = 140, easing = FastOutLinearInEasing)
+    ) + shrinkVertically(
+        animationSpec = tween(durationMillis = 160, easing = FastOutLinearInEasing),
+        shrinkTowards = Alignment.Bottom
+    ) + scaleOut(
+        targetScale = 0.92f,
+        animationSpec = tween(durationMillis = 160, easing = FastOutLinearInEasing),
+        transformOrigin = if (isNearRightEdge) TransformOrigin(1f, 1f) else TransformOrigin(0f, 1f)
+    )
+
     Column(
         modifier = modifier.wrapContentSize(),
-        horizontalAlignment = if (isNearRightEdge) Alignment.End else Alignment.Start
+        horizontalAlignment = if (isNearRightEdge) Alignment.End else Alignment.Start,
+        verticalArrangement = Arrangement.Bottom
     ) {
-        // Upper Panels: More Options or Preview appear above/beside the toolbar if active
+        // Upper Panels: More Options or Preview appear above the morphing pill
         AnimatedVisibility(
             visible = uiState == FloatingUiState.MORE_OPTIONS,
-            enter = fadeIn(tween(200)) + expandVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
-            exit = fadeOut(tween(150)) + shrinkVertically()
+            enter = panelEnterAnim,
+            exit = panelExitAnim
         ) {
             Box(modifier = Modifier.padding(bottom = 6.dp)) {
                 MoreOptionsPanel(
@@ -82,8 +176,8 @@ fun FloatingAssistantView(
 
         AnimatedVisibility(
             visible = uiState == FloatingUiState.PREVIEW,
-            enter = fadeIn(tween(200)) + expandVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
-            exit = fadeOut(tween(150)) + shrinkVertically()
+            enter = panelEnterAnim,
+            exit = panelExitAnim
         ) {
             Box(modifier = Modifier.padding(bottom = 6.dp)) {
                 SuggestionPreview(
@@ -104,80 +198,94 @@ fun FloatingAssistantView(
             }
         }
 
-        // Main Horizontal Row: Bubble Anchor + Horizontally Expanding Toolbar
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = if (isNearRightEdge) Arrangement.End else Arrangement.Start,
-            modifier = Modifier.wrapContentSize()
+        // The Unified Morphing Pill Container
+        GlassBackground(
+            modifier = Modifier
+                .size(width = animatedWidth, height = animatedHeight),
+            opacity = pillGlassOpacity,
+            baseColor = Color(settings.glassTintArgb),
+            cornerRadius = animatedCornerRadius,
+            borderWidth = settings.glassBorderWidthDp.dp,
+            borderOpacity = pillBorderOpacity,
+            highlightOpacity = if (isExpanded) settings.glassHighlightOpacity else 0f,
+            shadowElevation = pillElevation
         ) {
-            if (isNearRightEdge) {
-                // Expanding to the left: Toolbar on left, Bubble on right
-                AnimatedVisibility(
-                    visible = uiState == FloatingUiState.EXPANDED,
-                    enter = expandHorizontally(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        ),
-                        expandFrom = Alignment.End
-                    ) + fadeIn(tween(180)),
-                    exit = shrinkHorizontally(
-                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        shrinkTowards = Alignment.End
-                    ) + fadeOut(tween(150))
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ExpandedToolbar(
-                            settings = settings,
-                            onActionClick = onActionClick,
-                            onCollapse = onCollapse,
-                            isExpandedToLeft = true
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (isNearRightEdge) Arrangement.End else Arrangement.Start
+            ) {
+                if (isNearRightEdge) {
+                    // Expanding to the left:
+                    // Actions on left (revealed smoothly as width grows)
+                    if (animatedWidth > bubbleSize + 12.dp) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .graphicsLayer { alpha = contentAlpha }
+                                .padding(start = 6.dp, end = 2.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            ToolbarActionsContent(
+                                settings = settings,
+                                onActionClick = onActionClick,
+                                onCollapse = onCollapse,
+                                isExpandedToLeft = true
+                            )
+                        }
                     }
-                }
 
-                FloatingBubble(
-                    settings = settings,
-                    errorCount = errorCount,
-                    isChecking = isChecking,
-                    badgeColor = badgeColor,
-                    onClick = onBubbleClick,
-                    onDrag = onDrag
-                )
-            } else {
-                // Expanding to the right: Bubble on left, Toolbar on right
-                FloatingBubble(
-                    settings = settings,
-                    errorCount = errorCount,
-                    isChecking = isChecking,
-                    badgeColor = badgeColor,
-                    onClick = onBubbleClick,
-                    onDrag = onDrag
-                )
-
-                AnimatedVisibility(
-                    visible = uiState == FloatingUiState.EXPANDED,
-                    enter = expandHorizontally(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        ),
-                        expandFrom = Alignment.Start
-                    ) + fadeIn(tween(180)),
-                    exit = shrinkHorizontally(
-                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        shrinkTowards = Alignment.Start
-                    ) + fadeOut(tween(150))
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        ExpandedToolbar(
+                    // Bubble Anchor at the right edge
+                    Box(
+                        modifier = Modifier.padding(end = if (isExpanded) 5.dp else 0.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        FloatingBubble(
                             settings = settings,
-                            onActionClick = onActionClick,
-                            onCollapse = onCollapse,
-                            isExpandedToLeft = false
+                            isExpanded = isExpanded,
+                            errorCount = errorCount,
+                            isChecking = isChecking,
+                            badgeColor = badgeColor,
+                            onClick = onBubbleClick,
+                            onDrag = onDrag
                         )
+                    }
+                } else {
+                    // Expanding to the right:
+                    // Bubble Anchor at the left edge
+                    Box(
+                        modifier = Modifier.padding(start = if (isExpanded) 5.dp else 0.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        FloatingBubble(
+                            settings = settings,
+                            isExpanded = isExpanded,
+                            errorCount = errorCount,
+                            isChecking = isChecking,
+                            badgeColor = badgeColor,
+                            onClick = onBubbleClick,
+                            onDrag = onDrag
+                        )
+                    }
+
+                    // Actions on right (revealed smoothly as width grows)
+                    if (animatedWidth > bubbleSize + 12.dp) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .graphicsLayer { alpha = contentAlpha }
+                                .padding(start = 2.dp, end = 6.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            ToolbarActionsContent(
+                                settings = settings,
+                                onActionClick = onActionClick,
+                                onCollapse = onCollapse,
+                                isExpandedToLeft = false
+                            )
+                        }
                     }
                 }
             }

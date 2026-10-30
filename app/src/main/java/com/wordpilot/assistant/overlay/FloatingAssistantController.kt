@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.*
@@ -42,8 +43,10 @@ import com.wordpilot.assistant.ui.settings.AppearanceSettings
 import com.wordpilot.assistant.ui.theme.WordPilotTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -123,13 +126,121 @@ class FloatingAssistantController(
     private var onUndoCallback: (() -> Unit)? = null
     private var onAcceptSingleCorrectionCallback: ((Correction) -> Unit)? = null
 
+    private var collapseResizeJob: Job? = null
+    private var bubbleRestingX: Int = 0
+    private var bubbleRestingY: Int = 0
+
     private val appearancePrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         _appearanceSettings.value = AppearanceSettings.load(context)
+        updateWindowLayoutForState(_uiState.value)
     }
 
     init {
         context.getSharedPreferences(AppearanceSettings.PREFS_NAME, Context.MODE_PRIVATE)
             .registerOnSharedPreferenceChangeListener(appearancePrefsListener)
+    }
+
+    fun setUiState(targetState: FloatingUiState) {
+        collapseResizeJob?.cancel()
+        if (targetState == FloatingUiState.COLLAPSED) {
+            _uiState.value = FloatingUiState.COLLAPSED
+            collapseResizeJob = controllerScope.launch {
+                delay(260L)
+                updateWindowLayoutForState(FloatingUiState.COLLAPSED)
+            }
+        } else {
+            updateWindowLayoutForState(targetState)
+            _uiState.value = targetState
+        }
+    }
+
+    private fun updateWindowLayoutForState(state: FloatingUiState) {
+        val view = overlayView ?: return
+        val lp = windowLayoutParams ?: return
+        val displayMetrics = context.resources.displayMetrics
+        val density = displayMetrics.density
+        val screenWidthPx = displayMetrics.widthPixels
+        val screenHeightPx = displayMetrics.heightPixels
+
+        val s = appearanceSettings.value
+        val bubbleSizePx = (s.bubbleSizeDp * density).toInt()
+        val paddingPx = (14 * density).toInt()
+
+        val collapsedWidthPx = bubbleSizePx + paddingPx * 2
+        val collapsedHeightPx = bubbleSizePx + paddingPx * 2
+
+        when (state) {
+            FloatingUiState.COLLAPSED -> {
+                lp.width = collapsedWidthPx
+                lp.height = collapsedHeightPx
+                lp.x = bubbleRestingX
+                lp.y = bubbleRestingY
+            }
+            FloatingUiState.EXPANDED -> {
+                val maxAllowedWidthDp = (screenWidthPx / density) - 24f
+                val expandedWidthDp = s.toolbarMaxWidthDp.coerceAtMost(maxAllowedWidthDp)
+                val expandedWidthPx = ((expandedWidthDp + 16f) * density).toInt()
+                val expandedHeightDp = maxOf(s.toolbarHeightDp, s.bubbleSizeDp) + 16f
+                val expandedHeightPx = (expandedHeightDp * density).toInt()
+
+                lp.width = expandedWidthPx
+                lp.height = expandedHeightPx
+
+                if (_isNearRightEdge.value) {
+                    val bubbleRightEdgePx = bubbleRestingX + collapsedWidthPx
+                    lp.x = (bubbleRightEdgePx - expandedWidthPx).coerceAtLeast((8 * density).toInt())
+                } else {
+                    lp.x = bubbleRestingX.coerceAtMost(screenWidthPx - expandedWidthPx - (8 * density).toInt())
+                }
+                lp.y = bubbleRestingY
+            }
+            FloatingUiState.MORE_OPTIONS -> {
+                val maxAllowedWidthDp = (screenWidthPx / density) - 24f
+                val panelWidthDp = 340f.coerceAtMost(maxAllowedWidthDp)
+                val panelWidthPx = (panelWidthDp * density).toInt()
+                val panelHeightDp = 360f
+                val panelHeightPx = (panelHeightDp * density).toInt()
+
+                lp.width = panelWidthPx
+                lp.height = panelHeightPx
+
+                if (_isNearRightEdge.value) {
+                    val bubbleRightEdgePx = bubbleRestingX + collapsedWidthPx
+                    lp.x = (bubbleRightEdgePx - panelWidthPx).coerceAtLeast((8 * density).toInt())
+                } else {
+                    lp.x = bubbleRestingX.coerceAtMost(screenWidthPx - panelWidthPx - (8 * density).toInt())
+                }
+
+                val maxAvailableY = screenHeightPx - panelHeightPx - (48 * density).toInt()
+                lp.y = bubbleRestingY.coerceAtMost(maxAvailableY).coerceAtLeast((16 * density).toInt())
+            }
+            FloatingUiState.PREVIEW -> {
+                val maxAllowedWidthDp = (screenWidthPx / density) - 24f
+                val previewWidthDp = 340f.coerceAtMost(maxAllowedWidthDp)
+                val previewWidthPx = (previewWidthDp * density).toInt()
+                val previewHeightDp = 420f
+                val previewHeightPx = (previewHeightDp * density).toInt()
+
+                lp.width = previewWidthPx
+                lp.height = previewHeightPx
+
+                if (_isNearRightEdge.value) {
+                    val bubbleRightEdgePx = bubbleRestingX + collapsedWidthPx
+                    lp.x = (bubbleRightEdgePx - previewWidthPx).coerceAtLeast((8 * density).toInt())
+                } else {
+                    lp.x = bubbleRestingX.coerceAtMost(screenWidthPx - previewWidthPx - (8 * density).toInt())
+                }
+
+                val maxAvailableY = screenHeightPx - previewHeightPx - (48 * density).toInt()
+                lp.y = bubbleRestingY.coerceAtMost(maxAvailableY).coerceAtLeast((16 * density).toInt())
+            }
+        }
+
+        try {
+            windowManager.updateViewLayout(view, lp)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating window layout for state $state", e)
+        }
     }
 
     fun canDrawOverlays(): Boolean {
@@ -174,6 +285,7 @@ class FloatingAssistantController(
 
     fun showCorrection(
         correction: Correction,
+        totalErrorCount: Int = 1,
         onAccept: (Correction) -> Unit,
         onAddToDictionary: ((Correction) -> Unit)? = null,
         onIgnoreRule: ((Correction) -> Unit)? = null
@@ -181,7 +293,7 @@ class FloatingAssistantController(
         if (!canDrawOverlays()) return
 
         _activeCorrection.value = correction
-        _errorCount.value = 1
+        _errorCount.value = totalErrorCount.coerceAtLeast(1)
         this.onAcceptSingleCorrectionCallback = onAccept
 
         if (!isViewAttached) {
@@ -196,7 +308,7 @@ class FloatingAssistantController(
 
     fun dismiss() {
         clearCorrection()
-        _uiState.value = FloatingUiState.COLLAPSED
+        setUiState(FloatingUiState.COLLAPSED)
     }
 
     // =========================================================================
@@ -206,10 +318,10 @@ class FloatingAssistantController(
     fun onActionSelected(actionId: String) {
         when (actionId) {
             "more" -> {
-                _uiState.value = FloatingUiState.MORE_OPTIONS
+                setUiState(FloatingUiState.MORE_OPTIONS)
             }
             "back_to_expanded" -> {
-                _uiState.value = FloatingUiState.EXPANDED
+                setUiState(FloatingUiState.EXPANDED)
             }
             "fix_grammar" -> {
                 executeFixGrammar()
@@ -264,7 +376,7 @@ class FloatingAssistantController(
         _previewImprovedText.value = ""
         _previewErrorMessage.value = null
         _isPreviewLoading.value = true
-        _uiState.value = FloatingUiState.PREVIEW
+        setUiState(FloatingUiState.PREVIEW)
 
         controllerScope.launch {
             try {
@@ -306,7 +418,7 @@ class FloatingAssistantController(
         _previewErrorMessage.value = null
         _isPreviewLoading.value = true
         _currentTone.value = toneName
-        _uiState.value = FloatingUiState.PREVIEW
+        setUiState(FloatingUiState.PREVIEW)
 
         controllerScope.launch {
             try {
@@ -354,7 +466,7 @@ class FloatingAssistantController(
 
         onApplySentenceCallback?.invoke(improved)
         _canUndo.value = true
-        _uiState.value = FloatingUiState.COLLAPSED
+        setUiState(FloatingUiState.COLLAPSED)
         clearCorrection()
         Toast.makeText(context, "Text updated", Toast.LENGTH_SHORT).show()
     }
@@ -364,7 +476,7 @@ class FloatingAssistantController(
         if (textToInsert.isBlank()) return
 
         onInsertCallback?.invoke(textToInsert)
-        _uiState.value = FloatingUiState.COLLAPSED
+        setUiState(FloatingUiState.COLLAPSED)
         Toast.makeText(context, "Text inserted", Toast.LENGTH_SHORT).show()
     }
 
@@ -384,7 +496,7 @@ class FloatingAssistantController(
     }
 
     fun openAppearanceSettings() {
-        _uiState.value = FloatingUiState.COLLAPSED
+        setUiState(FloatingUiState.COLLAPSED)
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("navigate_to", Routes.BUBBLE_CUSTOMIZATION)
@@ -417,11 +529,16 @@ class FloatingAssistantController(
         val screenWidth = context.resources.displayMetrics.widthPixels
         val screenHeight = context.resources.displayMetrics.heightPixels
 
-        val newX = (lp.x + deltaX.toInt()).coerceIn(0, (screenWidth - 60).coerceAtLeast(0))
-        val newY = (lp.y - deltaY.toInt()).coerceIn(0, (screenHeight - 80).coerceAtLeast(0))
+        val maxX = (screenWidth - lp.width).coerceAtLeast(0)
+        val maxY = (screenHeight - lp.height).coerceAtLeast(0)
+
+        val newX = (lp.x + deltaX.toInt()).coerceIn(0, maxX)
+        val newY = (lp.y - deltaY.toInt()).coerceIn(0, maxY)
 
         lp.x = newX
         lp.y = newY
+        bubbleRestingX = newX
+        bubbleRestingY = newY
         _isNearRightEdge.value = newX > screenWidth / 2
 
         prefs.edit().putInt(KEY_X_PX, newX).putInt(KEY_Y_PX, newY).apply()
@@ -443,19 +560,28 @@ class FloatingAssistantController(
 
         val savedX = prefs.getInt(KEY_X_PX, defaultMarginX)
         val savedY = prefs.getInt(KEY_Y_PX, defaultY)
+        bubbleRestingX = savedX
+        bubbleRestingY = savedY
 
         _isNearRightEdge.value = savedX > displayMetrics.widthPixels / 2
 
+        val s = appearanceSettings.value
+        val bubbleSizePx = (s.bubbleSizeDp * density).toInt()
+        val paddingPx = (8 * density).toInt()
+        val collapsedWidthPx = bubbleSizePx + paddingPx * 2
+        val collapsedHeightPx = bubbleSizePx + paddingPx * 2
+
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            collapsedWidthPx,
+            collapsedHeightPx,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_PHONE
             },
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
@@ -490,8 +616,8 @@ class FloatingAssistantController(
                 WordPilotTheme {
                     Box(
                         modifier = Modifier
-                            .wrapContentSize()
-                            .padding(4.dp),
+                            .fillMaxSize()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
                         contentAlignment = if (nearRight) Alignment.BottomEnd else Alignment.BottomStart
                     ) {
                         FloatingAssistantView(
@@ -508,10 +634,10 @@ class FloatingAssistantController(
                             canUndo = undoAvailable,
                             currentTone = tone,
                             onBubbleClick = {
-                                _uiState.value = if (currentUiState == FloatingUiState.COLLAPSED) {
-                                    FloatingUiState.EXPANDED
+                                if (currentUiState == FloatingUiState.COLLAPSED) {
+                                    setUiState(FloatingUiState.EXPANDED)
                                 } else {
-                                    FloatingUiState.COLLAPSED
+                                    setUiState(FloatingUiState.COLLAPSED)
                                 }
                             },
                             onDrag = { dx, dy -> onDrag(dx, dy) },
@@ -521,10 +647,10 @@ class FloatingAssistantController(
                             onReplace = { applyPreviewReplacement() },
                             onInsert = { insertPreviewText() },
                             onCopy = { copyPreviewText() },
-                            onCancelPreview = { _uiState.value = FloatingUiState.EXPANDED },
+                            onCancelPreview = { setUiState(FloatingUiState.EXPANDED) },
                             onUndo = { undoLastChange() },
                             onOpenSettings = { openAppearanceSettings() },
-                            onCollapse = { _uiState.value = FloatingUiState.COLLAPSED }
+                            onCollapse = { setUiState(FloatingUiState.COLLAPSED) }
                         )
                     }
                 }
@@ -535,6 +661,7 @@ class FloatingAssistantController(
             windowManager.addView(composeView, params)
             overlayView = composeView
             isViewAttached = true
+            updateWindowLayoutForState(_uiState.value)
             Log.d(TAG, "Overlay attached on screen at x=$savedX, y=$savedY")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to attach overlay", e)
@@ -543,6 +670,7 @@ class FloatingAssistantController(
     }
 
     private fun detachOverlayView() {
+        collapseResizeJob?.cancel()
         if (!isViewAttached || overlayView == null) return
         try {
             windowManager.removeView(overlayView)

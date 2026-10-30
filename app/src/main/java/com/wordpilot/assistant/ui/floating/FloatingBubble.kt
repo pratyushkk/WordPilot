@@ -1,9 +1,12 @@
 package com.wordpilot.assistant.ui.floating
 
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -22,7 +26,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
@@ -35,6 +41,7 @@ fun FloatingBubble(
     onClick: () -> Unit,
     onDrag: (Float, Float) -> Unit,
     modifier: Modifier = Modifier,
+    isExpanded: Boolean = false,
     errorCount: Int = 0,
     isChecking: Boolean = false,
     badgeColor: Color = AssistantColors.BadgeGrammar
@@ -53,41 +60,72 @@ fun FloatingBubble(
         }
     }
 
-    val targetDimMultiplier = if (isDimmed) settings.autoDimOpacity.coerceIn(0.1f, 1f) else 1.0f
+    val targetDimMultiplier = if (isDimmed && !isExpanded) settings.autoDimOpacity.coerceIn(0.1f, 1f) else 1.0f
     val animatedMultiplier by animateFloatAsState(
         targetValue = targetDimMultiplier,
         animationSpec = tween(durationMillis = 350),
         label = "autoDimAnimation"
     )
 
-    val sizeDp = settings.bubbleSizeDp.dp
-    val shape = settings.bubbleShape.toShape(settings.bubbleSizeDp, settings.bubbleCornerRadiusDp)
+    val targetSizeDp = if (isExpanded) {
+        (settings.toolbarHeightDp - 12f).coerceAtLeast(36f).dp
+    } else {
+        settings.bubbleSizeDp.dp
+    }
+
+    val animatedSizeDp by animateDpAsState(
+        targetValue = targetSizeDp,
+        animationSpec = if (isExpanded) {
+            tween(durationMillis = 280, easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f))
+        } else {
+            tween(durationMillis = 220, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f))
+        },
+        label = "bubbleAnchorSize"
+    )
+
+    val targetIconSizeDp = if (isExpanded) 18.dp else settings.iconSizeDp.dp
+    val animatedIconSizeDp by animateDpAsState(
+        targetValue = targetIconSizeDp,
+        animationSpec = tween(durationMillis = 240),
+        label = "bubbleIconSize"
+    )
+
+    val shape = settings.bubbleShape.toShape(
+        sizeDp = animatedSizeDp.value,
+        customRadiusDp = if (isExpanded) animatedSizeDp.value / 2 else settings.bubbleCornerRadiusDp
+    )
 
     // Independent layer alphas modulated by auto-dim
     val effectiveBgAlpha = (settings.backgroundOpacity * animatedMultiplier).coerceIn(0.05f, 1f)
     val effectiveIconAlpha = (settings.iconOpacity * animatedMultiplier).coerceIn(0.05f, 1f)
     val effectiveBorderAlpha = (settings.borderOpacity * animatedMultiplier).coerceIn(0f, 1f)
-    val effectiveShadowElevation = (settings.shadowIntensity * 12f * animatedMultiplier).dp
+    val effectiveShadowElevation = if (isExpanded) 0.dp else (settings.shadowIntensity * 12f * animatedMultiplier).dp
 
     val gradient = settings.getEffectiveGradient()
 
+    val gestureModifier = if (!isExpanded) {
+        Modifier.pointerInput(Unit) {
+            detectDragGestures(
+                onDragStart = {
+                    lastInteractionTimestamp = System.currentTimeMillis()
+                    isDimmed = false
+                },
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    lastInteractionTimestamp = System.currentTimeMillis()
+                    isDimmed = false
+                    onDrag(dragAmount.x, dragAmount.y)
+                }
+            )
+        }
+    } else {
+        Modifier
+    }
+
     Box(
         modifier = modifier
-            .size(sizeDp)
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = {
-                        lastInteractionTimestamp = System.currentTimeMillis()
-                        isDimmed = false
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        lastInteractionTimestamp = System.currentTimeMillis()
-                        isDimmed = false
-                        onDrag(dragAmount.x, dragAmount.y)
-                    }
-                )
-            }
+            .size(animatedSizeDp)
+            .then(gestureModifier)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -124,39 +162,58 @@ fun FloatingBubble(
             ) {
                 if (isChecking) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(settings.iconSizeDp.dp),
+                        modifier = Modifier.size(animatedIconSizeDp),
                         color = Color.White.copy(alpha = effectiveIconAlpha),
                         strokeWidth = 2.dp
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Filled.AutoAwesome,
-                        contentDescription = "WordPilot Assistant",
+                        contentDescription = if (isExpanded) "WordPilot AI Anchor (Collapse)" else "WordPilot Assistant",
                         tint = Color.White.copy(alpha = effectiveIconAlpha),
-                        modifier = Modifier.size(settings.iconSizeDp.dp)
+                        modifier = Modifier.size(animatedIconSizeDp)
                     )
                 }
             }
         }
 
-        // Circular error counter badge on top-right corner
-        if (errorCount > 0 && !isChecking) {
-            val badgeSize = (sizeDp * 0.38f).coerceIn(16.dp, 24.dp)
+        // High-visibility pop-out error counter badge on top-right shoulder of bubble
+        if (errorCount > 0 && !isChecking && !isExpanded) {
+            val badgeBgColor = when (badgeColor) {
+                AssistantColors.BadgeGrammar -> Color(0xFFFF3B30) // Vivid Coral Red for highest contrast and visibility
+                AssistantColors.BadgeSpelling -> Color(0xFFFF2D55) // Vivid Crimson
+                AssistantColors.BadgePunctuation -> Color(0xFF8B5CF6) // Vivid Purple
+                AssistantColors.BadgeCapitalization -> Color(0xFFFF9500) // Vivid Amber
+                else -> Color(0xFFFF3B30)
+            }
+
+            val errorText = if (errorCount > 99) "99+" else errorCount.toString()
+
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = 2.dp, y = (-2).dp)
-                    .size(badgeSize)
-                    .shadow(elevation = 3.dp, shape = CircleShape)
-                    .clip(CircleShape)
-                    .background(badgeColor),
+                    .offset(x = 6.dp, y = (-6).dp)
+                    .shadow(
+                        elevation = 6.dp,
+                        shape = CircleShape,
+                        ambientColor = Color.Black.copy(alpha = 0.5f),
+                        spotColor = Color.Black.copy(alpha = 0.7f)
+                    )
+                    .background(badgeBgColor, shape = CircleShape)
+                    .border(BorderStroke(1.5.dp, Color.White), CircleShape)
+                    .defaultMinSize(minWidth = 22.dp, minHeight = 22.dp)
+                    .padding(horizontal = 5.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (errorCount > 9) "9+" else errorCount.toString(),
+                    text = errorText,
                     color = Color.White,
-                    fontSize = (badgeSize.value * 0.58f).sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    style = LocalTextStyle.current.copy(
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
                 )
             }
         }

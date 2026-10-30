@@ -313,9 +313,10 @@ class WordPilotAccessibilityService : AccessibilityService(),
                     return@withContext
                 }
                 if (topCorrection != null) {
-                    Log.d(TAG, "Showing correction: ${topCorrection.originalText} -> ${topCorrection.suggestedReplacement}")
+                    Log.d(TAG, "Showing correction: ${topCorrection.originalText} -> ${topCorrection.suggestedReplacement} (total: ${validCorrections.size})")
                     floatingController.showCorrection(
                         correction = topCorrection,
+                        totalErrorCount = validCorrections.size,
                         onAccept = { correction ->
                             applyCorrectionToNode(targetNode, text, correction)
                         },
