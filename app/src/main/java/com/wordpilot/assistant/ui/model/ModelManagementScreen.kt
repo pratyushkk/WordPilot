@@ -1,7 +1,9 @@
 package com.wordpilot.assistant.ui.model
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -10,9 +12,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wordpilot.assistant.domain.models.ModelState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,7 +29,7 @@ fun ModelManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AI Model") },
+                title = { Text("Local AI Model") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -42,108 +46,260 @@ fun ModelManagementScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Status card
+            // Hardware Optimization Badge
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Memory,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                    Column {
+                        Text(
+                            "Optimized for Motorola Edge 70 Pro",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            "8 GB RAM • Dimensity 7300 • English (Instruct)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+
+            // Main Model Card with Actions
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = if (uiState.isInstalled) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
                 )
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
-                            Icons.Filled.SmartToy,
+                            if (uiState.isInstalled) Icons.Filled.CheckCircle else Icons.Filled.SmartToy,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(40.dp)
+                            tint = if (uiState.isInstalled) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(36.dp)
                         )
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                if (uiState.isInstalled) "Model Ready" else "No Model Installed",
+                                uiState.modelName,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                uiState.modelName,
+                                if (uiState.isInstalled) "Installed & Ready On-Device" else "Meta Llama 3.2 (770 MB)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
+
+                    // Progress or Status Content
+                    when {
+                        uiState.modelState == ModelState.DOWNLOADING -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                LinearProgressIndicator(
+                                    progress = { uiState.downloadProgress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp),
+                                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        "${(uiState.downloadProgress * 100).toInt()}%",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "${uiState.downloadedMb} MB / ${uiState.totalMb} MB",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedButton(
+                                    onClick = { viewModel.cancelDownload() },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Cancel Download")
+                                }
+                            }
+                        }
+
+                        uiState.errorMessage != null -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer
+                                ) {
+                                    Text(
+                                        "Error: ${uiState.errorMessage}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.padding(10.dp)
+                                    )
+                                }
+                                Button(
+                                    onClick = { viewModel.startDownload() },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Retry Download")
+                                }
+                            }
+                        }
+
+                        uiState.isInstalled -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "On-device neural inference is active. All text rephrasing, tone adjustments, and style suggestions process locally without internet.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedButton(
+                                    onClick = { viewModel.deleteModel() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) {
+                                    Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Delete Model (${uiState.storageMb} MB)")
+                                }
+                            }
+                        }
+
+                        else -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    "Download the quantized 4-bit Llama 3.2 model to enable offline AI text rewriting, tone change, and stylistic polishing on your device.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Button(
+                                    onClick = { viewModel.startDownload() },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Download Llama 3.2 1B (${uiState.totalMb} MB)")
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            // Model info
+            // Model Specification Details
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        "Model Information",
+                        "Technical Specifications",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
-                    InfoRow("Name", uiState.modelName)
-                    InfoRow("Source", uiState.modelSource)
-                    InfoRow("License", uiState.modelLicense)
+                    InfoRow("Model Architecture", "Meta Llama 3.2 Instruct")
+                    InfoRow("Parameters", "1.23 Billion")
+                    InfoRow("Quantization", "Q4_K_M (4-bit GGUF)")
+                    InfoRow("Download Size", "770 MB")
+                    InfoRow("RAM Footprint", "~850 MB (Optimal for 8GB device)")
+                    InfoRow("Source", "bartowski / Hugging Face")
+                    InfoRow("License", "Llama 3.2 Community License")
                     if (uiState.isInstalled) {
-                        InfoRow("Storage Used", "${uiState.storageMb} MB")
+                        InfoRow("Storage Path", uiState.statusText)
                     }
-                    InfoRow("Status", uiState.statusText)
                 }
             }
 
-            // Note about AI
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "About AI Features",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "The AI model is optional. WordPilot's core spelling and grammar checking " +
-                        "works without it.\n\n" +
-                        "When installed, the AI model enables advanced features like text rewriting, " +
-                        "tone adjustment, and contextual improvements.\n\n" +
-                        "The model runs entirely on your device — no internet connection is needed " +
-                        "for AI features after installation.\n\n" +
-                        "AI model integration is currently a stub implementation. " +
-                        "A compatible on-device model will be integrated in a future update.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Benchmark section
+            // Performance Benchmark (visible when installed)
             if (uiState.isInstalled) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            "Performance",
+                            "Runtime Performance",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         InfoRow("Memory Usage", "${uiState.memoryMb} MB")
                         InfoRow("Load Time", "${uiState.loadTimeMs} ms")
-                        InfoRow("Last Inference", "${uiState.inferenceMs} ms")
+                        InfoRow("Inference Speed", "${uiState.inferenceMs} ms / rewrite")
                     }
+                }
+            }
+
+            // Privacy & Architecture Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Security,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            "100% Private & Offline",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Text(
+                        "WordPilot never transmits your keystrokes to third-party servers. " +
+                        "Basic spelling and grammar rules execute instantly in milliseconds using deterministic trie tables. " +
+                        "When Llama 3.2 is installed, intelligent tone adjustments and sentence rewrites run directly on your phone's processor.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

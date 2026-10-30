@@ -13,10 +13,11 @@ import com.wordpilot.assistant.domain.rewriting.RewriteUseCase
 import com.wordpilot.assistant.engine.CorrectionCoordinator
 import com.wordpilot.assistant.engine.RewriteCoordinator
 import com.wordpilot.assistant.engine.SentenceAnalyzer
+import com.wordpilot.assistant.engine.LocalAIEngine
 import com.wordpilot.assistant.engine.impl.GeminiAIEngine
+import com.wordpilot.assistant.engine.impl.LocalAIEngineImpl
 import com.wordpilot.assistant.engine.impl.RuleBasedGrammarEngine
 import com.wordpilot.assistant.engine.impl.RuleBasedRewriteEngine
-import com.wordpilot.assistant.engine.impl.StubAIEngine
 import com.wordpilot.assistant.engine.impl.TrieSpellEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +53,7 @@ class WordPilotApp : Application() {
         private set
     lateinit var grammarEngine: RuleBasedGrammarEngine
         private set
-    lateinit var aiEngine: StubAIEngine
+    lateinit var aiEngine: LocalAIEngine
         private set
     lateinit var geminiEngine: GeminiAIEngine
         private set
@@ -96,12 +97,12 @@ class WordPilotApp : Application() {
         offlineGrammarFacade = com.wordpilot.assistant.engine.offline.OfflineGrammarEngineFacade(this)
         spellEngine = TrieSpellEngine(this, offlineGrammarFacade)
         grammarEngine = RuleBasedGrammarEngine(this, offlineGrammarFacade)
-        aiEngine = StubAIEngine()
         correctionCoordinator = CorrectionCoordinator(spellEngine, grammarEngine)
         sentenceAnalyzer = SentenceAnalyzer()
 
         val safeReplacementHelper = SafeReplacementHelper()
         ruleBasedRewriteEngine = RuleBasedRewriteEngine(correctionCoordinator, safeReplacementHelper)
+        aiEngine = LocalAIEngineImpl(modelRepository, ruleBasedRewriteEngine)
 
         geminiEngine = GeminiAIEngine { cachedGeminiApiKey }
 
