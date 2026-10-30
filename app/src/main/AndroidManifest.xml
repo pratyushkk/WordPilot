@@ -64,6 +64,20 @@
             </intent-filter>
         </service>
 
+        <!-- 1x1 Icon Sized Home Screen Toggle Widget -->
+        <receiver
+            android:name=".widget.WordPilotWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.wordpilot.assistant.widget.ACTION_TOGGLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_wordpilot_info" />
+        </receiver>
+
     </application>
 
 </manifest>

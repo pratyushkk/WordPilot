@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#1E1F35"
+        android:strokeColor="#7C4DFF"
+        android:strokeWidth="2"
+        android:pathData="M32,4 A28,28 0 1,0 32,60 A28,28 0 1,0 32,4 Z" />
+    <!-- Sparkle Stars -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,22l1.67,-3.67L49.33,16.67l-3.67,-1.67L44,11.33l-1.67,3.67L38.67,16.67l3.67,1.67L44,22zM34,22.67L30.67,15.33L27.33,22.67L20,26l7.33,3.33L30.67,36.67l3.33,-7.33L41.33,26l-7.33,-3.33zM44,30.67l-1.67,3.67L38.67,36l3.67,1.67L44,41.33l1.67,-3.67L49.33,36l-3.67,-1.67L44,30.67z" />
+    <!-- Active Green Indicator -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M49,15 A4,4 0 1,0 49,23 A4,4 0 1,0 49,15 Z" />
+</vector>

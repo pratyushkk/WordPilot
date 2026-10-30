@@ -111,6 +111,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
         serviceScope.launch(Dispatchers.Main) {
             floatingController.showAssistant()
         }
+        com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, true)
     }
 
     private fun isExcludedPackage(packageName: String?): Boolean {
@@ -614,6 +615,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
     override fun onDestroy() {
         super.onDestroy()
         instance = null
+        com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, false)
         Log.d(TAG, "onDestroy: service destroyed")
         floatingController.destroy()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)

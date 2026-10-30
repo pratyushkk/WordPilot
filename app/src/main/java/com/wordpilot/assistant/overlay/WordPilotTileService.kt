@@ -39,6 +39,7 @@ class WordPilotTileService : TileService() {
                 if (newState) {
                     WordPilotAccessibilityService.instance?.floatingController?.showAssistant()
                 }
+                com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, newState)
                 return
             }
         }
@@ -47,6 +48,7 @@ class WordPilotTileService : TileService() {
         if (isCurrentlyActive) {
             WordPilotAccessibilityService.instance?.disableSelf()
             updateTileState(isActive = false)
+            com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, false)
             Toast.makeText(this, "WordPilot Paused for Banking", Toast.LENGTH_SHORT).show()
         } else {
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
