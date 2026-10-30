@@ -31,6 +31,11 @@ class UserPreferences(private val context: Context) {
         val KEYBOARD_SHOW_NUMBER_ROW = booleanPreferencesKey("keyboard_show_number_row")
         val KEYBOARD_SHOW_KEY_HINTS = booleanPreferencesKey("keyboard_show_key_hints")
         val KEYBOARD_HAPTIC_ENABLED = booleanPreferencesKey("keyboard_haptic_enabled")
+        val AUTO_PAUSE_BANKING_ENABLED = booleanPreferencesKey("auto_pause_banking_enabled")
+    }
+
+    val autoPauseBankingEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[AUTO_PAUSE_BANKING_ENABLED] ?: false
     }
 
     val geminiApiKey: Flow<String?> = context.dataStore.data.map { prefs ->
@@ -158,6 +163,12 @@ class UserPreferences(private val context: Context) {
     suspend fun setSelectedEngine(engine: String) {
         context.dataStore.edit { prefs ->
             prefs[SELECTED_ENGINE] = engine
+        }
+    }
+
+    suspend fun setAutoPauseBankingEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[AUTO_PAUSE_BANKING_ENABLED] = enabled
         }
     }
 

@@ -207,6 +207,69 @@ fun SettingsScreen(
                 )
             }
 
+            // Banking & App Shield (Grammarly-Style Privacy & Security)
+            SettingsSection(title = "Banking & App Shield") {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.Security,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                "50+ Financial Apps Automatically Shielded",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Google Pay, PhonePe, Paytm, YONO SBI, HDFC, ICICI, Axis, Chase, and password fields are strictly blocked from being monitored or inspected.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                SettingsSwitch(
+                    title = "Auto-Pause in Banking Apps",
+                    subtitle = "Automatically deactivates the accessibility service when a banking app opens. Re-enable with 1 tap from Quick Settings.",
+                    checked = uiState.autoPauseBankingEnabled,
+                    onCheckedChange = { viewModel.setAutoPauseBankingEnabled(it) }
+                )
+
+                SettingsClickable(
+                    title = "Accessibility Settings",
+                    subtitle = "Manage or toggle the Floating Assistant service",
+                    onClick = {
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        try { context.startActivity(intent) } catch (e: Exception) {}
+                    }
+                )
+
+                SettingsClickable(
+                    title = "Prefer Zero Warnings? Switch to Keyboard",
+                    subtitle = "The WordPilot Keyboard uses standard Android IME APIs (like Gboard) and never triggers accessibility warnings in any banking app.",
+                    onClick = onNavigateToOnboarding
+                )
+            }
+
             // Privacy & Data
             SettingsSection(title = "Privacy & Data") {
                 SettingsClickable(

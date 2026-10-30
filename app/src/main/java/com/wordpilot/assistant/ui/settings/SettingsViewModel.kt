@@ -12,6 +12,7 @@ data class SettingsUiState(
     val spellCheckEnabled: Boolean = true,
     val autoCheckEnabled: Boolean = true,
     val historyEnabled: Boolean = false,
+    val autoPauseBankingEnabled: Boolean = false,
     val geminiApiKey: String? = null
 )
 
@@ -29,14 +30,15 @@ class SettingsViewModel : ViewModel() {
                 prefs.grammarCheckEnabled,
                 prefs.spellCheckEnabled,
                 prefs.autoCheckEnabled,
-                combine(prefs.historyEnabled, prefs.geminiApiKey) { h, k -> Pair(h, k) }
-            ) { theme, grammar, spell, auto, (history, apiKey) ->
+                combine(prefs.historyEnabled, prefs.autoPauseBankingEnabled, prefs.geminiApiKey) { h, b, k -> Triple(h, b, k) }
+            ) { theme, grammar, spell, auto, (history, autoPause, apiKey) ->
                 SettingsUiState(
                     theme = theme,
                     grammarCheckEnabled = grammar,
                     spellCheckEnabled = spell,
                     autoCheckEnabled = auto,
                     historyEnabled = history,
+                    autoPauseBankingEnabled = autoPause,
                     geminiApiKey = apiKey
                 )
             }.collect { state ->
@@ -69,6 +71,10 @@ class SettingsViewModel : ViewModel() {
 
     fun setHistoryEnabled(enabled: Boolean) {
         viewModelScope.launch { prefs.setHistoryEnabled(enabled) }
+    }
+
+    fun setAutoPauseBankingEnabled(enabled: Boolean) {
+        viewModelScope.launch { prefs.setAutoPauseBankingEnabled(enabled) }
     }
 
     fun clearAllData() {

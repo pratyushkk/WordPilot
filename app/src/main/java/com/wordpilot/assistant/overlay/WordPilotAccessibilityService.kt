@@ -7,6 +7,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -61,6 +62,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
     private var hideJob: Job? = null
     private var lastOriginalTextBeforeUndo: String? = null
     private var lastActiveSentenceSpan: SentenceSpan? = null
+    private var isAutoPauseBankingEnabled: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
@@ -70,6 +72,16 @@ class WordPilotAccessibilityService : AccessibilityService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+
+        serviceScope.launch {
+            try {
+                WordPilotApp.instance.userPreferences.autoPauseBankingEnabled.collect {
+                    isAutoPauseBankingEnabled = it
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error collecting autoPauseBankingEnabled", e)
+            }
+        }
 
         floatingController = FloatingAssistantController(
             context = this,
@@ -183,6 +195,11 @@ class WordPilotAccessibilityService : AccessibilityService(),
             hideJob?.cancel()
             floatingController.hideAssistant()
             floatingController.clearCorrection()
+
+            if (isAutoPauseBankingEnabled) {
+                Toast.makeText(this, "WordPilot paused for banking app. Tap Quick Tile to re-enable.", Toast.LENGTH_LONG).show()
+                disableSelf()
+            }
             return
         }
 
@@ -254,6 +271,19 @@ class WordPilotAccessibilityService : AccessibilityService(),
     }
 
     private fun handleWindowStateChanged(event: AccessibilityEvent) {
+        val packageName = event.packageName?.toString()
+        if (isExcludedPackage(packageName)) {
+            hideJob?.cancel()
+            floatingController.hideAssistant()
+            floatingController.clearCorrection()
+
+            if (isAutoPauseBankingEnabled) {
+                Toast.makeText(this, "WordPilot paused for banking app. Tap Quick Tile to re-enable.", Toast.LENGTH_LONG).show()
+                disableSelf()
+            }
+            return
+        }
+
         if (!isKeyboardVisible()) {
             // Keyboard is not visible: hide immediately with brief debounce
             hideJob?.cancel()
