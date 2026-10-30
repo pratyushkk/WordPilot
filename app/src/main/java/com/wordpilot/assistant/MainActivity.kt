@@ -17,13 +17,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        val startDest = intent?.getStringExtra("navigate_to") ?: com.wordpilot.assistant.ui.navigation.Routes.HOME
         setContent {
             val app = application as WordPilotApp
             val theme by app.userPreferences.theme.collectAsState(initial = "system")
 
             WordPilotTheme(themePreference = theme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    WordPilotNavGraph()
+                    WordPilotNavGraph(startDestination = startDest)
                 }
             }
         }

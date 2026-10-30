@@ -2,6 +2,9 @@ package com.wordpilot.assistant.overlay
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -54,6 +57,8 @@ class WordPilotAccessibilityService : AccessibilityService(),
     private lateinit var floatingController: FloatingAssistantController
     private var lastAnalyzedText: String = ""
     private var hideJob: Job? = null
+    private var lastOriginalTextBeforeUndo: String? = null
+    private var lastActiveSentenceSpan: SentenceSpan? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -128,6 +133,25 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 floatingController.clearCorrection()
                 return
             }
+
+            val app = WordPilotApp.instance
+            val sentence = app.sentenceAnalyzer.findCurrentSentence(text, text.length)
+                ?: SentenceSpan(0, text.length, text)
+            lastActiveSentenceSpan = sentence
+
+            floatingController.updateTextContext(
+                fullText = text,
+                sentenceText = sentence.text,
+                onApplySentence = { newSentence ->
+                    applySentenceReplacementToNode(node, text, sentence, newSentence)
+                },
+                onUndo = {
+                    undoLastReplacement(node)
+                },
+                onInsert = { textToInsert ->
+                    insertTextToNode(node, text, textToInsert)
+                }
+            )
 
             if (text != lastAnalyzedText) {
                 Log.d(TAG, "Text changed in ${event.packageName}: \"$text\"")
@@ -354,6 +378,86 @@ class WordPilotAccessibilityService : AccessibilityService(),
             floatingController.clearCorrection()
         } catch (e: Exception) {
             Log.e(TAG, "Error applying correction", e)
+        }
+    }
+
+    private fun applySentenceReplacementToNode(
+        targetNode: AccessibilityNodeInfo,
+        originalFullText: String,
+        sentence: SentenceSpan,
+        newSentence: String
+    ) {
+        try {
+            val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
+            val currentText = extractNodeText(node).ifBlank { originalFullText }
+            lastOriginalTextBeforeUndo = currentText
+
+            val updatedText = if (sentence.start <= currentText.length && sentence.end <= currentText.length) {
+                currentText.substring(0, sentence.start) + newSentence + currentText.substring(sentence.end)
+            } else {
+                newSentence
+            }
+
+            Log.d(TAG, "Applying sentence replacement: \"$currentText\" -> \"$updatedText\"")
+            val arguments = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updatedText)
+            }
+            val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            Log.d(TAG, "ACTION_SET_TEXT result: $success")
+
+            if (success) {
+                val newCursor = (sentence.start + newSentence.length).coerceIn(0, updatedText.length)
+                val cursorArgs = Bundle().apply {
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
+                }
+                node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
+                lastAnalyzedText = updatedText
+            } else {
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("WordPilot Text", newSentence))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error applying sentence replacement", e)
+        }
+    }
+
+    private fun undoLastReplacement(targetNode: AccessibilityNodeInfo) {
+        try {
+            val prevText = lastOriginalTextBeforeUndo ?: return
+            val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
+            val arguments = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, prevText)
+            }
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            lastAnalyzedText = prevText
+            lastOriginalTextBeforeUndo = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in undoLastReplacement", e)
+        }
+    }
+
+    private fun insertTextToNode(
+        targetNode: AccessibilityNodeInfo,
+        currentFullText: String,
+        textToInsert: String
+    ) {
+        try {
+            val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
+            val currentText = extractNodeText(node).ifBlank { currentFullText }
+            lastOriginalTextBeforeUndo = currentText
+            val updatedText = if (currentText.isNotEmpty() && !currentText.endsWith(" ")) {
+                "$currentText $textToInsert"
+            } else {
+                "$currentText$textToInsert"
+            }
+            val arguments = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updatedText)
+            }
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            lastAnalyzedText = updatedText
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in insertTextToNode", e)
         }
     }
 

@@ -172,9 +172,9 @@ fun HomeScreen(
             )
 
             HomeActionCard(
-                icon = Icons.Outlined.Tune,
-                title = "Resize & Reshape Assistant",
-                description = "Sliders for width, height, shape, text size with live preview",
+                icon = Icons.Outlined.Palette,
+                title = "Appearance & Layout Studio",
+                description = "Customize floating AI bubble, multicolor gradients, glassmorphism & actions",
                 onClick = onNavigateToBubbleCustomization
             )
 

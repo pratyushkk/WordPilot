@@ -13,6 +13,7 @@ import com.wordpilot.assistant.ui.home.HomeScreen
 import com.wordpilot.assistant.ui.model.ModelManagementScreen
 import com.wordpilot.assistant.ui.onboarding.OnboardingScreen
 import com.wordpilot.assistant.ui.rewrite.RewriteScreen
+import com.wordpilot.assistant.ui.settings.AppearanceSettingsScreen
 import com.wordpilot.assistant.ui.settings.BubbleCustomizationScreen
 import com.wordpilot.assistant.ui.settings.SettingsScreen
 
@@ -27,13 +28,14 @@ object Routes {
     const val REWRITE = "rewrite"
     const val MODEL_MANAGEMENT = "model_management"
     const val BUBBLE_CUSTOMIZATION = "bubble_customization"
+    const val APPEARANCE_STUDIO = "bubble_customization"
 }
 
 @Composable
-fun WordPilotNavGraph() {
+fun WordPilotNavGraph(startDestination: String = Routes.HOME) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Routes.HOME) {
+    NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.HOME) {
             HomeScreen(
                 onNavigateToEditor = { navController.navigate(Routes.EDITOR) },
@@ -76,7 +78,7 @@ fun WordPilotNavGraph() {
             )
         }
         composable(Routes.BUBBLE_CUSTOMIZATION) {
-            BubbleCustomizationScreen(onNavigateBack = { navController.popBackStack() })
+            AppearanceSettingsScreen(onNavigateBack = { navController.popBackStack() })
         }
         composable(Routes.DICTIONARY) {
             DictionaryScreen(onNavigateBack = { navController.popBackStack() })

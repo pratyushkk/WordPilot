@@ -135,8 +135,8 @@ fun SettingsScreen(
                     onThemeSelected = { viewModel.setTheme(it) }
                 )
                 SettingsClickable(
-                    title = "Popup Size & Reshape",
-                    subtitle = "Sliders for width, height, shape, text size with live preview",
+                    title = "Appearance & Layout Studio",
+                    subtitle = "Customize floating AI bubble, multicolor gradients, glassmorphism & actions",
                     onClick = onNavigateToBubbleCustomization
                 )
             }

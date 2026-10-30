@@ -1,14 +1,20 @@
 package com.wordpilot.assistant.overlay
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
@@ -24,11 +30,25 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.wordpilot.assistant.MainActivity
+import com.wordpilot.assistant.WordPilotApp
+import com.wordpilot.assistant.domain.correction.SafeReplacementHelper
 import com.wordpilot.assistant.domain.models.Correction
+import com.wordpilot.assistant.domain.models.RewriteStyle
+import com.wordpilot.assistant.ui.floating.FloatingAssistantView
+import com.wordpilot.assistant.ui.floating.FloatingUiState
+import com.wordpilot.assistant.ui.navigation.Routes
+import com.wordpilot.assistant.ui.settings.AppearanceSettings
 import com.wordpilot.assistant.ui.theme.WordPilotTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FloatingAssistantController(
     private val context: Context,
@@ -57,77 +77,59 @@ class FloatingAssistantController(
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    private val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    private val safeReplacementHelper = SafeReplacementHelper()
+    private val controllerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private var overlayView: View? = null
     private var isViewAttached = false
     private var windowLayoutParams: WindowManager.LayoutParams? = null
 
+    // Appearance settings loaded persistently
+    private val _appearanceSettings = MutableStateFlow(AppearanceSettings.load(context))
+    val appearanceSettings: StateFlow<AppearanceSettings> = _appearanceSettings.asStateFlow()
+
+    // Floating UI state machine
+    private val _uiState = MutableStateFlow(FloatingUiState.COLLAPSED)
+    val uiState: StateFlow<FloatingUiState> = _uiState.asStateFlow()
+
+    private val _isNearRightEdge = MutableStateFlow(false)
+    val isNearRightEdge: StateFlow<Boolean> = _isNearRightEdge.asStateFlow()
+
+    // Context & Text detection state
+    private val _currentFullText = MutableStateFlow("")
+    private val _currentSentence = MutableStateFlow("")
     private val _activeCorrection = MutableStateFlow<Correction?>(null)
     val activeCorrection: StateFlow<Correction?> = _activeCorrection.asStateFlow()
+
+    private val _errorCount = MutableStateFlow(0)
+    val errorCount: StateFlow<Int> = _errorCount.asStateFlow()
 
     private val _isChecking = MutableStateFlow(false)
     val isChecking: StateFlow<Boolean> = _isChecking.asStateFlow()
 
-    private val _isExpanded = MutableStateFlow(false)
-    val isExpanded: StateFlow<Boolean> = _isExpanded.asStateFlow()
+    // Suggestion Preview State
+    private val _previewOriginalText = MutableStateFlow("")
+    private val _previewImprovedText = MutableStateFlow("")
+    private val _isPreviewLoading = MutableStateFlow(false)
+    private val _previewErrorMessage = MutableStateFlow<String?>(null)
+    private val _canUndo = MutableStateFlow(false)
+    private val _currentTone = MutableStateFlow("Default")
 
-    private val _isMinimized = MutableStateFlow(false)
-    val isMinimized: StateFlow<Boolean> = _isMinimized.asStateFlow()
+    // Callbacks provided by WordPilotAccessibilityService
+    private var onApplySentenceCallback: ((String) -> Unit)? = null
+    private var onInsertCallback: ((String) -> Unit)? = null
+    private var onUndoCallback: (() -> Unit)? = null
+    private var onAcceptSingleCorrectionCallback: ((Correction) -> Unit)? = null
 
-    private val _customWidthDp = MutableStateFlow(prefs.getFloat(KEY_CUSTOM_WIDTH_DP, DEFAULT_WIDTH_DP))
-    val customWidthDp: StateFlow<Float> = _customWidthDp.asStateFlow()
-
-    private val _customHeightDp = MutableStateFlow(prefs.getFloat(KEY_CUSTOM_HEIGHT_DP, DEFAULT_HEIGHT_DP))
-    val customHeightDp: StateFlow<Float> = _customHeightDp.asStateFlow()
-
-    private val _customTextSizeSp = MutableStateFlow(prefs.getFloat(KEY_CUSTOM_TEXT_SIZE_SP, DEFAULT_TEXT_SIZE_SP))
-    val customTextSizeSp: StateFlow<Float> = _customTextSizeSp.asStateFlow()
-
-    private val _customCornerRadiusDp = MutableStateFlow(prefs.getFloat(KEY_CUSTOM_CORNER_RADIUS_DP, DEFAULT_CORNER_RADIUS_DP))
-    val customCornerRadiusDp: StateFlow<Float> = _customCornerRadiusDp.asStateFlow()
-
-    private val _customBubbleSizeDp = MutableStateFlow(prefs.getFloat(KEY_CUSTOM_BUBBLE_SIZE_DP, DEFAULT_BUBBLE_SIZE_DP))
-    val customBubbleSizeDp: StateFlow<Float> = _customBubbleSizeDp.asStateFlow()
-
-    private val _isCustomizing = MutableStateFlow(false)
-    val isCustomizing: StateFlow<Boolean> = _isCustomizing.asStateFlow()
-
-    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
-        when (key) {
-            KEY_CUSTOM_WIDTH_DP -> _customWidthDp.value = sp.getFloat(KEY_CUSTOM_WIDTH_DP, DEFAULT_WIDTH_DP)
-            KEY_CUSTOM_HEIGHT_DP -> _customHeightDp.value = sp.getFloat(KEY_CUSTOM_HEIGHT_DP, DEFAULT_HEIGHT_DP)
-            KEY_CUSTOM_TEXT_SIZE_SP -> _customTextSizeSp.value = sp.getFloat(KEY_CUSTOM_TEXT_SIZE_SP, DEFAULT_TEXT_SIZE_SP)
-            KEY_CUSTOM_CORNER_RADIUS_DP -> _customCornerRadiusDp.value = sp.getFloat(KEY_CUSTOM_CORNER_RADIUS_DP, DEFAULT_CORNER_RADIUS_DP)
-            KEY_CUSTOM_BUBBLE_SIZE_DP -> _customBubbleSizeDp.value = sp.getFloat(KEY_CUSTOM_BUBBLE_SIZE_DP, DEFAULT_BUBBLE_SIZE_DP)
-            KEY_MINIMIZED -> _isMinimized.value = sp.getBoolean(KEY_MINIMIZED, false)
-        }
+    private val appearancePrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        _appearanceSettings.value = AppearanceSettings.load(context)
     }
-
-    private var onAcceptCallback: ((Correction) -> Unit)? = null
-    private var onAddToDictionaryCallback: ((Correction) -> Unit)? = null
-    private var onIgnoreRuleCallback: ((Correction) -> Unit)? = null
 
     init {
-        _isMinimized.value = prefs.getBoolean(KEY_MINIMIZED, false)
-        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
-    }
-
-    fun updateDimensions(w: Float, h: Float, ts: Float, cr: Float, bs: Float) {
-        _customWidthDp.value = w
-        _customHeightDp.value = h
-        _customTextSizeSp.value = ts
-        _customCornerRadiusDp.value = cr
-        _customBubbleSizeDp.value = bs
-        prefs.edit()
-            .putFloat(KEY_CUSTOM_WIDTH_DP, w)
-            .putFloat(KEY_CUSTOM_HEIGHT_DP, h)
-            .putFloat(KEY_CUSTOM_TEXT_SIZE_SP, ts)
-            .putFloat(KEY_CUSTOM_CORNER_RADIUS_DP, cr)
-            .putFloat(KEY_CUSTOM_BUBBLE_SIZE_DP, bs)
-            .apply()
-    }
-
-    fun toggleCustomizing() {
-        _isCustomizing.value = !_isCustomizing.value
+        context.getSharedPreferences(AppearanceSettings.PREFS_NAME, Context.MODE_PRIVATE)
+            .registerOnSharedPreferenceChangeListener(appearancePrefsListener)
     }
 
     fun canDrawOverlays(): Boolean {
@@ -145,8 +147,29 @@ class FloatingAssistantController(
         }
     }
 
+    fun hideAssistant() {
+        _activeCorrection.value = null
+        _errorCount.value = 0
+        _uiState.value = FloatingUiState.COLLAPSED
+        detachOverlayView()
+    }
+
     fun setChecking(checking: Boolean) {
         _isChecking.value = checking
+    }
+
+    fun updateTextContext(
+        fullText: String,
+        sentenceText: String,
+        onApplySentence: (String) -> Unit,
+        onUndo: (() -> Unit)? = null,
+        onInsert: ((String) -> Unit)? = null
+    ) {
+        _currentFullText.value = fullText
+        _currentSentence.value = sentenceText
+        this.onApplySentenceCallback = onApplySentence
+        this.onUndoCallback = onUndo
+        this.onInsertCallback = onInsert
     }
 
     fun showCorrection(
@@ -158,10 +181,8 @@ class FloatingAssistantController(
         if (!canDrawOverlays()) return
 
         _activeCorrection.value = correction
-        _isExpanded.value = false
-        this.onAcceptCallback = onAccept
-        this.onAddToDictionaryCallback = onAddToDictionary
-        this.onIgnoreRuleCallback = onIgnoreRule
+        _errorCount.value = 1
+        this.onAcceptSingleCorrectionCallback = onAccept
 
         if (!isViewAttached) {
             attachOverlayView()
@@ -170,77 +191,239 @@ class FloatingAssistantController(
 
     fun clearCorrection() {
         _activeCorrection.value = null
-        _isExpanded.value = false
+        _errorCount.value = 0
     }
 
     fun dismiss() {
         clearCorrection()
+        _uiState.value = FloatingUiState.COLLAPSED
     }
 
-    fun hideAssistant() {
-        _activeCorrection.value = null
-        _isExpanded.value = false
-        detachOverlayView()
-    }
+    // =========================================================================
+    // ACTION DISPATCHERS
+    // =========================================================================
 
-    fun toggleExpand() {
-        _isExpanded.value = !_isExpanded.value
-    }
-
-    fun toggleMinimize() {
-        val willMinimize = !_isMinimized.value
-        _isMinimized.value = willMinimize
-        prefs.edit().putBoolean(KEY_MINIMIZED, willMinimize).apply()
-
-        val view = overlayView ?: return
-        val lp = windowLayoutParams ?: return
-        val screenWidth = context.resources.displayMetrics.widthPixels
-        val density = context.resources.displayMetrics.density
-
-        if (willMinimize) {
-            // Snap to the extreme closest edge (0 gap on left, or flush on right)
-            lp.x = if (lp.x < screenWidth / 2) {
-                0 // Extreme left edge
-            } else {
-                screenWidth - (48 * density).toInt() // Extreme right edge
+    fun onActionSelected(actionId: String) {
+        when (actionId) {
+            "more" -> {
+                _uiState.value = FloatingUiState.MORE_OPTIONS
             }
-        } else {
-            // Restore comfortable offset or keep at extreme edge
-            if (lp.x > screenWidth / 2) {
-                lp.x = (screenWidth - (310 * density).toInt()).coerceAtLeast(0)
-            } else {
-                lp.x = 0 // Extreme left
+            "back_to_expanded" -> {
+                _uiState.value = FloatingUiState.EXPANDED
+            }
+            "fix_grammar" -> {
+                executeFixGrammar()
+            }
+            "rephrase" -> {
+                executeRewrite(RewriteStyle.REWRITE, "Default")
+            }
+            "professional" -> {
+                executeRewrite(RewriteStyle.MAKE_PROFESSIONAL, "Professional")
+            }
+            "shorten" -> {
+                executeRewrite(RewriteStyle.MAKE_CONCISE, "Concise")
+            }
+            "expand" -> {
+                executeRewrite(RewriteStyle.REWRITE, "Expanded", "Elaborate and expand the following text with richer details:")
+            }
+            "casual" -> {
+                executeRewrite(RewriteStyle.MAKE_CASUAL, "Casual")
+            }
+            "formal" -> {
+                executeRewrite(RewriteStyle.MAKE_PROFESSIONAL, "Formal")
+            }
+            "friendly" -> {
+                executeRewrite(RewriteStyle.MAKE_POLITE, "Friendly")
+            }
+            "summarize" -> {
+                executeRewrite(RewriteStyle.MAKE_CONCISE, "Summary")
+            }
+            "translate" -> {
+                executeRewrite(RewriteStyle.CUSTOM, "Translate", "Translate the following text to natural English:")
+            }
+            "clarity" -> {
+                executeRewrite(RewriteStyle.IMPROVE_CLARITY, "Clarity")
+            }
+            "punctuation" -> {
+                executeFixGrammar()
+            }
+            else -> {
+                executeRewrite(RewriteStyle.REWRITE, "Default")
             }
         }
+    }
 
-        try {
-            windowManager.updateViewLayout(view, lp)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating minimize layout", e)
+    private fun executeFixGrammar() {
+        val targetText = getTargetText()
+        if (targetText.isBlank()) {
+            Toast.makeText(context, "No text detected to fix", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        _previewOriginalText.value = targetText
+        _previewImprovedText.value = ""
+        _previewErrorMessage.value = null
+        _isPreviewLoading.value = true
+        _uiState.value = FloatingUiState.PREVIEW
+
+        controllerScope.launch {
+            try {
+                val app = WordPilotApp.instance
+                val corrections = withContext(Dispatchers.Default) {
+                    app.correctionCoordinator.checkSentence(targetText, 0, targetText.length)
+                }
+
+                var fixed = targetText
+                if (corrections.isNotEmpty()) {
+                    val replaced = safeReplacementHelper.applyMultipleCorrections(targetText, corrections)
+                    if (replaced.isNotBlank()) {
+                        fixed = replaced
+                    }
+                }
+
+                // Sentence mechanics cleanup
+                fixed = cleanSentencePunctuation(fixed)
+
+                _previewImprovedText.value = fixed
+                _isPreviewLoading.value = false
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in executeFixGrammar", e)
+                _previewErrorMessage.value = "Failed to fix grammar: ${e.localizedMessage}"
+                _isPreviewLoading.value = false
+            }
         }
     }
 
-    /**
-     * Move popup anywhere on screen (Free X & Y 2D dragging).
-     * Can go all the way to the extreme 4 corners of the display.
-     */
+    private fun executeRewrite(style: RewriteStyle, toneName: String, customPrompt: String? = null) {
+        val targetText = getTargetText()
+        if (targetText.isBlank()) {
+            Toast.makeText(context, "No text detected to rephrase", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        _previewOriginalText.value = targetText
+        _previewImprovedText.value = ""
+        _previewErrorMessage.value = null
+        _isPreviewLoading.value = true
+        _currentTone.value = toneName
+        _uiState.value = FloatingUiState.PREVIEW
+
+        controllerScope.launch {
+            try {
+                val app = WordPilotApp.instance
+                val result = withContext(Dispatchers.Default) {
+                    app.rewriteCoordinator.rewrite(
+                        text = targetText,
+                        style = style,
+                        customInstruction = customPrompt
+                    )
+                }
+
+                if (result.isSuccess && result.rewrittenText.isNotBlank()) {
+                    _previewImprovedText.value = result.rewrittenText
+                    _previewErrorMessage.value = null
+                } else {
+                    _previewImprovedText.value = result.rewrittenText.ifBlank { targetText }
+                    _previewErrorMessage.value = result.errorMessage
+                }
+                _isPreviewLoading.value = false
+            } catch (e: Exception) {
+                Log.e(TAG, "Error rewriting text", e)
+                _previewErrorMessage.value = "Rewriting failed: ${e.localizedMessage}"
+                _isPreviewLoading.value = false
+            }
+        }
+    }
+
+    fun onCustomPromptSubmit(prompt: String) {
+        executeRewrite(RewriteStyle.CUSTOM, "Custom", prompt)
+    }
+
+    fun onToneSelected(tone: String) {
+        when (tone.lowercase()) {
+            "professional", "formal" -> executeRewrite(RewriteStyle.MAKE_PROFESSIONAL, tone)
+            "casual" -> executeRewrite(RewriteStyle.MAKE_CASUAL, tone)
+            "friendly" -> executeRewrite(RewriteStyle.MAKE_POLITE, tone)
+            else -> executeRewrite(RewriteStyle.REWRITE, "Default")
+        }
+    }
+
+    fun applyPreviewReplacement() {
+        val improved = _previewImprovedText.value
+        if (improved.isBlank()) return
+
+        onApplySentenceCallback?.invoke(improved)
+        _canUndo.value = true
+        _uiState.value = FloatingUiState.COLLAPSED
+        clearCorrection()
+        Toast.makeText(context, "Text updated", Toast.LENGTH_SHORT).show()
+    }
+
+    fun insertPreviewText() {
+        val textToInsert = _previewImprovedText.value
+        if (textToInsert.isBlank()) return
+
+        onInsertCallback?.invoke(textToInsert)
+        _uiState.value = FloatingUiState.COLLAPSED
+        Toast.makeText(context, "Text inserted", Toast.LENGTH_SHORT).show()
+    }
+
+    fun copyPreviewText() {
+        val textToCopy = _previewImprovedText.value.ifBlank { _previewOriginalText.value }
+        if (textToCopy.isNotBlank()) {
+            val clip = ClipData.newPlainText("WordPilot Text", textToCopy)
+            clipboardManager.setPrimaryClip(clip)
+            Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun undoLastChange() {
+        onUndoCallback?.invoke()
+        _canUndo.value = false
+        Toast.makeText(context, "Change undone", Toast.LENGTH_SHORT).show()
+    }
+
+    fun openAppearanceSettings() {
+        _uiState.value = FloatingUiState.COLLAPSED
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", Routes.BUBBLE_CUSTOMIZATION)
+        }
+        context.startActivity(intent)
+    }
+
+    private fun getTargetText(): String {
+        return _currentSentence.value.ifBlank { _currentFullText.value }
+    }
+
+    private fun cleanSentencePunctuation(text: String): String {
+        var res = text.trim()
+        if (res.isNotEmpty() && !res.endsWith('.') && !res.endsWith('!') && !res.endsWith('?')) {
+            res += "."
+        }
+        if (res.isNotEmpty() && res[0].isLowerCase()) {
+            res = res.replaceFirstChar { it.uppercase() }
+        }
+        return res
+    }
+
+    // =========================================================================
+    // WINDOW & OVERLAY MANAGEMENT
+    // =========================================================================
+
     fun onDrag(deltaX: Float, deltaY: Float) {
         val view = overlayView ?: return
         val lp = windowLayoutParams ?: return
         val screenWidth = context.resources.displayMetrics.widthPixels
         val screenHeight = context.resources.displayMetrics.heightPixels
-        val density = context.resources.displayMetrics.density
 
-        val estimatedWidth = if (_isMinimized.value) (48 * density).toInt() else (310 * density).toInt()
-        val estimatedHeight = if (_isMinimized.value) (48 * density).toInt() else (56 * density).toInt()
-
-        // Full 2D range: reaches extreme 0 up to screen borders
-        val newX = (lp.x + deltaX.toInt()).coerceIn(0, (screenWidth - estimatedWidth).coerceAtLeast(0))
-        // Gravity includes Gravity.BOTTOM: positive deltaY means dragging down, which decreases y from bottom
-        val newY = (lp.y - deltaY.toInt()).coerceIn(0, (screenHeight - estimatedHeight).coerceAtLeast(0))
+        val newX = (lp.x + deltaX.toInt()).coerceIn(0, (screenWidth - 60).coerceAtLeast(0))
+        val newY = (lp.y - deltaY.toInt()).coerceIn(0, (screenHeight - 80).coerceAtLeast(0))
 
         lp.x = newX
         lp.y = newY
+        _isNearRightEdge.value = newX > screenWidth / 2
+
         prefs.edit().putInt(KEY_X_PX, newX).putInt(KEY_Y_PX, newY).apply()
 
         try {
@@ -255,11 +438,13 @@ class FloatingAssistantController(
 
         val displayMetrics = context.resources.displayMetrics
         val density = displayMetrics.density
-        val defaultMarginX = (12 * density).toInt()
+        val defaultMarginX = (16 * density).toInt()
         val defaultY = (340 * density).toInt()
 
         val savedX = prefs.getInt(KEY_X_PX, defaultMarginX)
         val savedY = prefs.getInt(KEY_Y_PX, defaultY)
+
+        _isNearRightEdge.value = savedX > displayMetrics.widthPixels / 2
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -288,83 +473,58 @@ class FloatingAssistantController(
             setViewTreeSavedStateRegistryOwner(this@FloatingAssistantController.savedStateRegistryOwner)
 
             setContent {
-                val currentCorrection by activeCorrection.collectAsState()
+                val settings by appearanceSettings.collectAsState()
+                val currentUiState by uiState.collectAsState()
+                val nearRight by isNearRightEdge.collectAsState()
+                val errCount by errorCount.collectAsState()
                 val checking by isChecking.collectAsState()
-                val expanded by isExpanded.collectAsState()
-                val minimized by isMinimized.collectAsState()
-                val customWidth by customWidthDp.collectAsState()
-                val customHeight by customHeightDp.collectAsState()
-                val customTextSize by customTextSizeSp.collectAsState()
-                val customCornerRadius by customCornerRadiusDp.collectAsState()
-                val customBubbleSize by customBubbleSizeDp.collectAsState()
-                val customizing by isCustomizing.collectAsState()
+                val activeCorr by activeCorrection.collectAsState()
+
+                val origText by _previewOriginalText.collectAsState()
+                val imprText by _previewImprovedText.collectAsState()
+                val prevLoading by _isPreviewLoading.collectAsState()
+                val prevError by _previewErrorMessage.collectAsState()
+                val undoAvailable by _canUndo.collectAsState()
+                val tone by _currentTone.collectAsState()
 
                 WordPilotTheme {
                     Box(
                         modifier = Modifier
                             .wrapContentSize()
-                            .padding(
-                                start = if (minimized) 0.dp else 4.dp,
-                                end = if (minimized) 0.dp else 4.dp,
-                                top = 4.dp,
-                                bottom = 4.dp
-                            ),
-                        contentAlignment = Alignment.BottomStart
+                            .padding(4.dp),
+                        contentAlignment = if (nearRight) Alignment.BottomEnd else Alignment.BottomStart
                     ) {
-                        FloatingSuggestionCard(
-                            correction = currentCorrection,
+                        FloatingAssistantView(
+                            settings = settings,
+                            uiState = currentUiState,
+                            isNearRightEdge = nearRight,
+                            errorCount = errCount,
                             isChecking = checking,
-                            isExpanded = expanded,
-                            isMinimized = minimized,
-                            customWidthDp = customWidth,
-                            customHeightDp = customHeight,
-                            customTextSizeSp = customTextSize,
-                            customCornerRadiusDp = customCornerRadius,
-                            customBubbleSizeDp = customBubbleSize,
-                            isCustomizing = customizing,
-                            onToggleCustomize = { toggleCustomizing() },
-                            onUpdateDimensions = { w, h, ts, cr, bs ->
-                                updateDimensions(w, h, ts, cr, bs)
-                            },
-                            onAccept = {
-                                currentCorrection?.let { corr ->
-                                    onAcceptCallback?.invoke(corr)
-                                    clearCorrection()
-                                }
-                            },
-                            onDismiss = { clearCorrection() },
-                            onCloseAssistant = { hideAssistant() },
-                            onToggleMinimize = {
-                                if (_isMinimized.value) {
-                                    val opened = com.wordpilot.assistant.keyboard.WordPilotInputMethodService.requestOpenExpandedAssistant()
-                                    if (!opened) {
-                                        toggleMinimize()
-                                    }
+                            activeCorrection = activeCorr,
+                            previewOriginalText = origText,
+                            previewImprovedText = imprText,
+                            isPreviewLoading = prevLoading,
+                            previewErrorMessage = prevError,
+                            canUndo = undoAvailable,
+                            currentTone = tone,
+                            onBubbleClick = {
+                                _uiState.value = if (currentUiState == FloatingUiState.COLLAPSED) {
+                                    FloatingUiState.EXPANDED
                                 } else {
-                                    toggleMinimize()
+                                    FloatingUiState.COLLAPSED
                                 }
                             },
-                            onToggleExpand = {
-                                val opened = com.wordpilot.assistant.keyboard.WordPilotInputMethodService.requestOpenExpandedAssistant()
-                                if (!opened) {
-                                    toggleExpand()
-                                }
-                            },
-                            onAddToDictionary = {
-                                currentCorrection?.let { corr ->
-                                    onAddToDictionaryCallback?.invoke(corr)
-                                    clearCorrection()
-                                }
-                            },
-                            onIgnoreRule = {
-                                currentCorrection?.let { corr ->
-                                    onIgnoreRuleCallback?.invoke(corr)
-                                    clearCorrection()
-                                }
-                            },
-                            onDrag = { dx, dy ->
-                                onDrag(dx, dy)
-                            }
+                            onDrag = { dx, dy -> onDrag(dx, dy) },
+                            onActionClick = { actionId -> onActionSelected(actionId) },
+                            onCustomPromptSubmit = { prompt -> onCustomPromptSubmit(prompt) },
+                            onSelectTone = { selectedTone -> onToneSelected(selectedTone) },
+                            onReplace = { applyPreviewReplacement() },
+                            onInsert = { insertPreviewText() },
+                            onCopy = { copyPreviewText() },
+                            onCancelPreview = { _uiState.value = FloatingUiState.EXPANDED },
+                            onUndo = { undoLastChange() },
+                            onOpenSettings = { openAppearanceSettings() },
+                            onCollapse = { _uiState.value = FloatingUiState.COLLAPSED }
                         )
                     }
                 }
@@ -396,5 +556,8 @@ class FloatingAssistantController(
 
     fun destroy() {
         hideAssistant()
+        controllerScope.cancel()
+        context.getSharedPreferences(AppearanceSettings.PREFS_NAME, Context.MODE_PRIVATE)
+            .unregisterOnSharedPreferenceChangeListener(appearancePrefsListener)
     }
 }
