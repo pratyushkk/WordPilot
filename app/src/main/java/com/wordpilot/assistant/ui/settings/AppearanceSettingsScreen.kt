@@ -372,6 +372,30 @@ private fun BubbleSettingsSection(
             suffix = "%"
         ) { onUpdate(settings.copy(autoDimOpacity = it / 100f)) }
     }
+
+    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+    Text("Visibility Behavior", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    Spacer(modifier = Modifier.height(6.dp))
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+            Text("Hide When Keyboard Closed", fontSize = 13.sp)
+            Text(
+                "Only display the floating bubble while typing. Turn off to keep it docked on screen when active.",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = settings.autoHideWhenKeyboardClosed,
+            onCheckedChange = { onUpdate(settings.copy(autoHideWhenKeyboardClosed = it)) }
+        )
+    }
 }
 
 @Composable

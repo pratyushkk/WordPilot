@@ -51,6 +51,9 @@ data class AppearanceSettings(
     val autoDimDelaySeconds: Int = 5,
     val autoDimOpacity: Float = 0.35f,
 
+    // Behavior
+    val autoHideWhenKeyboardClosed: Boolean = false,
+
     // Glass Surface
     val glassOpacity: Float = AssistantColors.DefaultGlassOpacity,
     val glassTintArgb: Int = 0xFF17191F.toInt(),
@@ -107,6 +110,7 @@ data class AppearanceSettings(
         private const val KEY_AUTO_DIM_ENABLED = "appr_auto_dim_enabled"
         private const val KEY_AUTO_DIM_DELAY = "appr_auto_dim_delay"
         private const val KEY_AUTO_DIM_OPACITY = "appr_auto_dim_opacity"
+        private const val KEY_AUTO_HIDE_KEYBOARD = "appr_auto_hide_keyboard"
 
         private const val KEY_GLASS_OPACITY = "appr_glass_opacity"
         private const val KEY_GLASS_TINT = "appr_glass_tint"
@@ -178,6 +182,7 @@ data class AppearanceSettings(
                 autoDimEnabled = sp.getBoolean(KEY_AUTO_DIM_ENABLED, defaultInst.autoDimEnabled),
                 autoDimDelaySeconds = sp.getInt(KEY_AUTO_DIM_DELAY, defaultInst.autoDimDelaySeconds),
                 autoDimOpacity = sp.getFloat(KEY_AUTO_DIM_OPACITY, defaultInst.autoDimOpacity),
+                autoHideWhenKeyboardClosed = sp.getBoolean(KEY_AUTO_HIDE_KEYBOARD, defaultInst.autoHideWhenKeyboardClosed),
 
                 glassOpacity = sp.getFloat(KEY_GLASS_OPACITY, defaultInst.glassOpacity),
                 glassTintArgb = sp.getInt(KEY_GLASS_TINT, defaultInst.glassTintArgb),
@@ -223,6 +228,7 @@ data class AppearanceSettings(
             editor.putBoolean(KEY_AUTO_DIM_ENABLED, settings.autoDimEnabled)
             editor.putInt(KEY_AUTO_DIM_DELAY, settings.autoDimDelaySeconds)
             editor.putFloat(KEY_AUTO_DIM_OPACITY, settings.autoDimOpacity)
+            editor.putBoolean(KEY_AUTO_HIDE_KEYBOARD, settings.autoHideWhenKeyboardClosed)
 
             editor.putFloat(KEY_GLASS_OPACITY, settings.glassOpacity)
             editor.putInt(KEY_GLASS_TINT, settings.glassTintArgb)

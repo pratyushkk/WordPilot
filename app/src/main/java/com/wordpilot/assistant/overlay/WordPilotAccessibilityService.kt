@@ -57,7 +57,8 @@ class WordPilotAccessibilityService : AccessibilityService(),
     private val debouncer = Debouncer(serviceScope, 250L)
     private val safeReplacementHelper = SafeReplacementHelper()
 
-    private lateinit var floatingController: FloatingAssistantController
+    lateinit var floatingController: FloatingAssistantController
+        private set
     private var lastAnalyzedText: String = ""
     private var hideJob: Job? = null
     private var lastOriginalTextBeforeUndo: String? = null
@@ -106,6 +107,10 @@ class WordPilotAccessibilityService : AccessibilityService(),
         info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         info.notificationTimeout = 50
         serviceInfo = info
+
+        serviceScope.launch(Dispatchers.Main) {
+            floatingController.showAssistant()
+        }
     }
 
     private fun isExcludedPackage(packageName: String?): Boolean {
@@ -219,8 +224,16 @@ class WordPilotAccessibilityService : AccessibilityService(),
     }
 
     private fun handleTextInputEvent(event: AccessibilityEvent) {
-        // STRICT: Bubble must ONLY appear when keyboard is actually open
-        if (!isKeyboardVisible()) {
+        val packageName = event.packageName?.toString()
+        if (isExcludedPackage(packageName)) {
+            hideJob?.cancel()
+            floatingController.hideAssistant()
+            floatingController.clearCorrection()
+            return
+        }
+
+        val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
+        if (autoHide && !isKeyboardVisible()) {
             floatingController.hideAssistant()
             return
         }
@@ -231,7 +244,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
             // Cancel any pending dismissal
             hideJob?.cancel()
 
-            // Keep assistant visible on screen while keyboard is open
+            // Keep assistant visible on screen
             floatingController.showAssistant()
 
             val text = extractNodeText(node)
@@ -266,7 +279,11 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 }
             }
         } else {
-            floatingController.hideAssistant()
+            if (autoHide) {
+                floatingController.hideAssistant()
+            } else {
+                floatingController.clearCorrection()
+            }
         }
     }
 
@@ -284,23 +301,29 @@ class WordPilotAccessibilityService : AccessibilityService(),
             return
         }
 
-        if (!isKeyboardVisible()) {
-            // Keyboard is not visible: hide immediately with brief debounce
-            hideJob?.cancel()
-            hideJob = serviceScope.launch {
-                delay(120L)
-                if (!isKeyboardVisible()) {
+        val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
+        if (autoHide) {
+            if (!isKeyboardVisible()) {
+                // Keyboard is not visible: hide immediately with brief debounce
+                hideJob?.cancel()
+                hideJob = serviceScope.launch {
+                    delay(120L)
+                    if (!isKeyboardVisible()) {
+                        floatingController.hideAssistant()
+                    }
+                }
+            } else {
+                val node = findActiveInputNodeAcrossAllWindows()
+                if (node != null && !node.isPassword) {
+                    hideJob?.cancel()
+                    floatingController.showAssistant()
+                } else {
                     floatingController.hideAssistant()
                 }
             }
         } else {
-            val node = findActiveInputNodeAcrossAllWindows()
-            if (node != null && !node.isPassword) {
-                hideJob?.cancel()
-                floatingController.showAssistant()
-            } else {
-                floatingController.hideAssistant()
-            }
+            hideJob?.cancel()
+            floatingController.showAssistant()
         }
     }
 

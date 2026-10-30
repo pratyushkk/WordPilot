@@ -1,5 +1,6 @@
 package com.wordpilot.assistant.overlay
 
+import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -244,6 +245,7 @@ class FloatingAssistantController(
     }
 
     fun canDrawOverlays(): Boolean {
+        if (context is AccessibilityService) return true
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Settings.canDrawOverlays(context)
         } else {
@@ -571,15 +573,19 @@ class FloatingAssistantController(
         val collapsedWidthPx = bubbleSizePx + paddingPx * 2
         val collapsedHeightPx = bubbleSizePx + paddingPx * 2
 
+        val overlayType = if (context is AccessibilityService) {
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+
         val params = WindowManager.LayoutParams(
             collapsedWidthPx,
             collapsedHeightPx,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            },
+            overlayType,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
