@@ -1,15 +1,23 @@
 package com.wordpilot.assistant.overlay
 
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import android.util.Log
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 
 @RequiresApi(Build.VERSION_CODES.N)
 class WordPilotTileService : TileService() {
+
+    companion object {
+        private const val TAG = "WordPilotTile"
+    }
 
     override fun onStartListening() {
         super.onStartListening()
@@ -18,13 +26,26 @@ class WordPilotTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val serviceInstance = WordPilotAccessibilityService.instance
-        if (serviceInstance != null) {
-            // Service is currently active: disable it cleanly with disableSelf() for banking security
-            serviceInstance.disableSelf()
+        val isCurrentlyActive = WordPilotAccessibilityService.instance != null
+
+        if (hasWriteSecureSettings()) {
+            // Direct 1-tap hardware toggle without navigating away from current app
+            val newState = !isCurrentlyActive
+            val success = setAccessibilityServiceEnabledDirectly(newState)
+            if (success) {
+                updateTileState(isActive = newState)
+                val msg = if (newState) "WordPilot Assistant Activated" else "WordPilot Paused for Banking"
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
+        // Standard OS fallback if WRITE_SECURE_SETTINGS is not granted
+        if (isCurrentlyActive) {
+            WordPilotAccessibilityService.instance?.disableSelf()
             updateTileState(isActive = false)
+            Toast.makeText(this, "WordPilot Paused for Banking", Toast.LENGTH_SHORT).show()
         } else {
-            // Service is inactive: open Accessibility Settings directly so user can re-enable with one tap
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
@@ -37,6 +58,47 @@ class WordPilotTileService : TileService() {
                 @Suppress("DEPRECATION")
                 startActivityAndCollapse(intent)
             }
+        }
+    }
+
+    private fun hasWriteSecureSettings(): Boolean {
+        return checkCallingOrSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun setAccessibilityServiceEnabledDirectly(enable: Boolean): Boolean {
+        val serviceComponent = ComponentName(this, WordPilotAccessibilityService::class.java).flattenToString()
+        val resolver = contentResolver
+
+        return try {
+            val enabledServices = Settings.Secure.getString(
+                resolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: ""
+
+            val servicesList = enabledServices.split(":").filter { it.isNotBlank() }.toMutableSet()
+
+            if (enable) {
+                servicesList.add(serviceComponent)
+            } else {
+                servicesList.remove(serviceComponent)
+            }
+
+            val updatedServices = servicesList.joinToString(":")
+
+            Settings.Secure.putString(
+                resolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                updatedServices
+            )
+            Settings.Secure.putString(
+                resolver,
+                Settings.Secure.ACCESSIBILITY_ENABLED,
+                if (servicesList.isNotEmpty()) "1" else "0"
+            )
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write secure settings directly", e)
+            false
         }
     }
 
