@@ -9,7 +9,7 @@ data class Correction(
     val originalText: String,
     val suggestedReplacement: String?,
     val category: CorrectionCategory,
-    val explanation: String,
+    val explanation: String = "",
     val severity: CorrectionSeverity,
     val confidence: Float = 1.0f,
     val ruleId: String,

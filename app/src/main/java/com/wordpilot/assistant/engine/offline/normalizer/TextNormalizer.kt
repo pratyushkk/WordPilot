@@ -20,21 +20,32 @@ class TextNormalizer {
             val currentNormIdx = normBuilder.length
             origToNorm[origIdx] = currentNormIdx
 
-            when (ch) {
+            when {
+                // UTF-16 surrogate pairs (e.g. emojis)
+                Character.isHighSurrogate(ch) && origIdx + 1 < rawText.length && Character.isLowSurrogate(rawText[origIdx + 1]) -> {
+                    val low = rawText[origIdx + 1]
+                    normToOrig.add(origIdx)
+                    normToOrig.add(origIdx + 1)
+                    normBuilder.append(ch)
+                    normBuilder.append(low)
+                    origToNorm[origIdx] = currentNormIdx
+                    origToNorm[origIdx + 1] = currentNormIdx
+                    origIdx += 2
+                }
                 // Curly single quotes / apostrophes
-                '’', '‘', 'ʼ', 'ʻ', '′', '`' -> {
+                ch in setOf('’', '‘', 'ʼ', 'ʻ', '′', '`') -> {
                     normToOrig.add(origIdx)
                     normBuilder.append('\'')
                     origIdx++
                 }
                 // Curly double quotes
-                '“', '”', '«', '»', '″' -> {
+                ch in setOf('“', '”', '«', '»', '″') -> {
                     normToOrig.add(origIdx)
                     normBuilder.append('"')
                     origIdx++
                 }
                 // Ellipsis character
-                '…' -> {
+                ch == '…' -> {
                     // Map all 3 dots back to the single original char index
                     normToOrig.add(origIdx)
                     normToOrig.add(origIdx)
@@ -43,19 +54,19 @@ class TextNormalizer {
                     origIdx++
                 }
                 // Em/En dashes
-                '—', '–', '―' -> {
+                ch in setOf('—', '–', '―') -> {
                     normToOrig.add(origIdx)
                     normBuilder.append('-')
                     origIdx++
                 }
                 // Non-breaking spaces and exotic whitespace
-                '\u00A0', '\u2007', '\u202F', '\uFEFF' -> {
+                ch in setOf('\u00A0', '\u2007', '\u202F', '\uFEFF') -> {
                     normToOrig.add(origIdx)
                     normBuilder.append(' ')
                     origIdx++
                 }
                 // Zero-width space
-                '\u200B', '\u200C', '\u200D' -> {
+                ch in setOf('\u200B', '\u200C', '\u200D') -> {
                     // Skip in normalized text, but keep map aligned
                     origIdx++
                 }

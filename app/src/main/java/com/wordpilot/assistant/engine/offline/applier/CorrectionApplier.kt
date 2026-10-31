@@ -33,6 +33,14 @@ class CorrectionApplier {
         if (correction.startOffset < 0 || correction.endOffset > text.length) return false
         if (correction.startOffset >= correction.endOffset) return false
 
+        // Prevent severing UTF-16 surrogate pairs
+        if (correction.startOffset > 0 && Character.isLowSurrogate(text[correction.startOffset]) && Character.isHighSurrogate(text[correction.startOffset - 1])) {
+            return false
+        }
+        if (correction.endOffset < text.length && Character.isHighSurrogate(text[correction.endOffset - 1]) && Character.isLowSurrogate(text[correction.endOffset])) {
+            return false
+        }
+
         val currentSpan = text.substring(correction.startOffset, correction.endOffset)
         return currentSpan.equals(correction.originalText, ignoreCase = false) ||
                currentSpan.equals(correction.originalText, ignoreCase = true)
