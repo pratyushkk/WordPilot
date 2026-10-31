@@ -13,7 +13,7 @@ import java.nio.LongBuffer
 class GectorOnnxEngine(
     private val modelFile: File? = null,
     private val vocabFile: File? = null,
-    private val tagVocab: List<String> = emptyList()
+    private var tagVocab: List<String> = emptyList()
 ) {
     companion object {
         private const val TAG = "GectorOnnxEngine"
@@ -39,6 +39,26 @@ class GectorOnnxEngine(
         }
 
         try {
+            // Load label vocabulary if available
+            val labelFile = vocabFile ?: (modelFile.parentFile?.let { File(it, "labels.json") })
+            if (labelFile != null && labelFile.exists()) {
+                try {
+                    val jsonStr = labelFile.readText()
+                    val json = org.json.JSONObject(jsonStr)
+                    if (json.has("labels")) {
+                        val arr = json.getJSONArray("labels")
+                        val list = ArrayList<String>(arr.length())
+                        for (i in 0 until arr.length()) {
+                            list.add(arr.getString(i))
+                        }
+                        tagVocab = list
+                        Log.d(TAG, "Loaded ${tagVocab.size} GECToR tag labels from ${labelFile.name}")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse labels.json", e)
+                }
+            }
+
             val env = OrtEnvironment.getEnvironment()
             ortEnv = env
             val sessionOptions = OrtSession.SessionOptions().apply {
