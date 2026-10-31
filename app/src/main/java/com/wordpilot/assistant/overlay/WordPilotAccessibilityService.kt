@@ -278,7 +278,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
             )
 
             if (text != lastAnalyzedText) {
-                Log.d(TAG, "Text changed in ${event.packageName}: \"$text\"")
+                Log.d(TAG, "Text changed in ${event.packageName} (len=${text.length})")
                 debouncer.debounce {
                     analyzeText(text, node)
                 }
@@ -456,10 +456,8 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 floatingController.setChecking(false)
                 if (!isKeyboardVisible()) {
                     floatingController.hideAssistant()
-                    return@withContext
-                }
-                if (topCorrection != null) {
-                    Log.d(TAG, "Showing correction: ${topCorrection.originalText} -> ${topCorrection.suggestedReplacement} (total: ${validCorrections.size})")
+                } else if (topCorrection != null) {
+                    Log.d(TAG, "Showing correction (rule: ${topCorrection.ruleId}, total: ${validCorrections.size})")
                     floatingController.showCorrection(
                         correction = topCorrection,
                         totalErrorCount = validCorrections.size,
