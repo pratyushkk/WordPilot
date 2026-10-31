@@ -4,6 +4,7 @@ import android.content.Context
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.engine.offline.applier.CorrectionApplier
 import com.wordpilot.assistant.engine.offline.dictionary.EnglishDictionary
+import com.wordpilot.assistant.engine.offline.model.AnalysisOptions
 import com.wordpilot.assistant.engine.offline.model.AnalyzedSentence
 import com.wordpilot.assistant.engine.offline.model.GrammarError
 import com.wordpilot.assistant.engine.offline.morphology.MorphologyAnalyzer
@@ -31,12 +32,14 @@ class OfflineGrammarEngineFacade(
     val ranker = SuggestionRanker(dictionary)
     val applier = CorrectionApplier()
 
-    suspend fun checkText(
+    suspend fun analyze(
         rawText: String,
+        options: AnalysisOptions = AnalysisOptions(),
         cursorOffset: Int? = null,
         minConfidence: Float = 0.70f
     ): List<Correction> = withContext(Dispatchers.Default) {
         if (rawText.isBlank()) return@withContext emptyList()
+        if (!options.includeSpelling && !options.includeGrammar) return@withContext emptyList()
 
         // 1. Text normalization with offset mapping
         val normResult = normalizer.normalize(rawText)
@@ -61,22 +64,38 @@ class OfflineGrammarEngineFacade(
             )
 
             // Spelling checks
-            val spellErrors = spellingChecker.checkTokens(taggedTokens)
-            allErrors.addAll(spellErrors)
+            if (options.includeSpelling) {
+                val spellErrors = spellingChecker.checkTokens(taggedTokens)
+                allErrors.addAll(spellErrors)
+            }
 
             // Grammar and punctuation rule checks
-            val grammarErrors = ruleEngine.checkSentence(analyzedSentence)
-            allErrors.addAll(grammarErrors)
+            if (options.includeGrammar) {
+                val grammarErrors = ruleEngine.checkSentence(analyzedSentence)
+                allErrors.addAll(grammarErrors)
+            }
         }
 
         // 4. Rank, filter, and suppress
         ranker.rankAndFilter(allErrors, cursorOffset, minConfidence)
     }
 
+    suspend fun checkText(
+        rawText: String,
+        cursorOffset: Int? = null,
+        minConfidence: Float = 0.70f
+    ): List<Correction> = analyze(
+        rawText = rawText,
+        options = AnalysisOptions(includeSpelling = true, includeGrammar = true),
+        cursorOffset = cursorOffset,
+        minConfidence = minConfidence
+    )
+
     suspend fun checkSentenceSpan(
         rawText: String,
         sentenceStart: Int,
         sentenceEnd: Int,
+        options: AnalysisOptions = AnalysisOptions(),
         cursorOffset: Int? = null,
         minConfidence: Float = 0.70f
     ): List<Correction> = withContext(Dispatchers.Default) {
@@ -86,7 +105,12 @@ class OfflineGrammarEngineFacade(
         val boundedEnd = sentenceEnd.coerceIn(boundedStart, rawText.length)
         val sentenceSubstring = rawText.substring(boundedStart, boundedEnd)
 
-        val corrections = checkText(sentenceSubstring, cursorOffset?.let { it - boundedStart }, minConfidence)
+        val corrections = analyze(
+            rawText = sentenceSubstring,
+            options = options,
+            cursorOffset = cursorOffset?.let { it - boundedStart },
+            minConfidence = minConfidence
+        )
 
         // Adjust offsets back to full raw document
         corrections.map { c ->

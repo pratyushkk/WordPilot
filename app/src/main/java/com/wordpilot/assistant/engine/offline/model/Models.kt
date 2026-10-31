@@ -122,6 +122,11 @@ data class GrammarError(
     )
 }
 
+data class AnalysisOptions(
+    val includeSpelling: Boolean = true,
+    val includeGrammar: Boolean = true
+)
+
 data class NormalizedResult(
     val normalizedText: String,
     val originalToNormalizedMap: IntArray,

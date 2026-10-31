@@ -5,6 +5,7 @@ import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.domain.models.CorrectionCategory
 import com.wordpilot.assistant.engine.SpellEngine
 import com.wordpilot.assistant.engine.offline.OfflineGrammarEngineFacade
+import com.wordpilot.assistant.engine.offline.model.AnalysisOptions
 
 class TrieSpellEngine(
     private val context: Context? = null,
@@ -31,7 +32,9 @@ class TrieSpellEngine(
 
     override suspend fun check(text: String): List<Correction> {
         if (text.isBlank()) return emptyList()
-        val all = facade.checkText(text)
-        return all.filter { it.category == CorrectionCategory.SPELLING }
+        return facade.analyze(
+            rawText = text,
+            options = AnalysisOptions(includeSpelling = true, includeGrammar = false)
+        )
     }
 }

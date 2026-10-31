@@ -5,6 +5,7 @@ import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.engine.GrammarEngine
 import com.wordpilot.assistant.engine.SentenceSpan
 import com.wordpilot.assistant.engine.offline.OfflineGrammarEngineFacade
+import com.wordpilot.assistant.engine.offline.model.AnalysisOptions
 
 class RuleBasedGrammarEngine(
     context: Context? = null,
@@ -13,7 +14,10 @@ class RuleBasedGrammarEngine(
 
     override suspend fun check(text: String): List<Correction> {
         if (text.isBlank()) return emptyList()
-        return facade.checkText(text)
+        return facade.analyze(
+            rawText = text,
+            options = AnalysisOptions(includeSpelling = false, includeGrammar = true)
+        )
     }
 
     override fun isAvailable(): Boolean = true

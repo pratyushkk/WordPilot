@@ -2,6 +2,9 @@ package com.wordpilot.assistant.engine
 
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.domain.models.CorrectionSeverity
+import com.wordpilot.assistant.engine.impl.RuleBasedGrammarEngine
+import com.wordpilot.assistant.engine.impl.TrieSpellEngine
+import com.wordpilot.assistant.engine.offline.model.AnalysisOptions
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
@@ -11,6 +14,18 @@ class CorrectionCoordinator(
 ) {
     suspend fun checkText(text: String): List<Correction> = coroutineScope {
         if (text.isBlank()) return@coroutineScope emptyList()
+
+        // Fast path: if both engines share the same offline facade, run single-pass analysis
+        if (spellEngine is TrieSpellEngine && grammarEngine is RuleBasedGrammarEngine && spellEngine.facade === grammarEngine.facade) {
+            val corrections = spellEngine.facade.analyze(
+                rawText = text,
+                options = AnalysisOptions(
+                    includeSpelling = spellEngine.isAvailable(),
+                    includeGrammar = grammarEngine.isAvailable()
+                )
+            )
+            return@coroutineScope resolveOverlaps(corrections)
+        }
 
         val spellJob = async { 
             try { spellEngine.check(text) } catch (e: Exception) { emptyList() }
@@ -53,6 +68,21 @@ class CorrectionCoordinator(
     }
 
     suspend fun checkSentence(text: String, sentenceStart: Int, sentenceEnd: Int): List<Correction> {
+        if (text.isBlank() || sentenceStart >= sentenceEnd) return emptyList()
+
+        if (spellEngine is TrieSpellEngine && grammarEngine is RuleBasedGrammarEngine && spellEngine.facade === grammarEngine.facade) {
+            val corrections = spellEngine.facade.checkSentenceSpan(
+                rawText = text,
+                sentenceStart = sentenceStart,
+                sentenceEnd = sentenceEnd,
+                options = AnalysisOptions(
+                    includeSpelling = spellEngine.isAvailable(),
+                    includeGrammar = grammarEngine.isAvailable()
+                )
+            )
+            return resolveOverlaps(corrections)
+        }
+
         val sentence = text.substring(sentenceStart, sentenceEnd.coerceAtMost(text.length))
         val corrections = checkText(sentence)
         // Adjust offsets to absolute positions
