@@ -102,6 +102,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
 
+    // ONNX Runtime for GECToR on-device neural grammar correction
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.11")
