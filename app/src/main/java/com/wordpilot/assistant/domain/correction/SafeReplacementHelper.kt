@@ -17,7 +17,7 @@ class SafeReplacementHelper {
 
     fun validateCorrection(text: String, correction: Correction): Boolean {
         if (correction.startOffset < 0 || correction.endOffset > text.length) return false
-        if (correction.startOffset >= correction.endOffset) return false
+        if (correction.startOffset > correction.endOffset) return false
         
         // Prevent severing UTF-16 surrogate pairs
         if (correction.startOffset > 0 && Character.isLowSurrogate(text[correction.startOffset]) && Character.isHighSurrogate(text[correction.startOffset - 1])) {
@@ -25,6 +25,10 @@ class SafeReplacementHelper {
         }
         if (correction.endOffset < text.length && Character.isHighSurrogate(text[correction.endOffset - 1]) && Character.isLowSurrogate(text[correction.endOffset])) {
             return false
+        }
+
+        if (correction.startOffset == correction.endOffset) {
+            return correction.originalText.isEmpty()
         }
 
         val currentText = text.substring(correction.startOffset, correction.endOffset)

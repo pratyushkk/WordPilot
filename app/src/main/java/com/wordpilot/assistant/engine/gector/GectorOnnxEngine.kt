@@ -97,6 +97,8 @@ class GectorOnnxEngine(
         }
     }
 
+    fun getTokenizer(): GectorTokenizer = tokenizer
+
     suspend fun check(
         text: String,
         maxIterations: Int = 2,

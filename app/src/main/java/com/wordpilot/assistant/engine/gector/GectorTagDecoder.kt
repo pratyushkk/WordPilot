@@ -72,10 +72,11 @@ class GectorTagDecoder(
                 tag.startsWith(PREFIX_REPLACE) -> {
                     val replacement = tag.removePrefix(PREFIX_REPLACE)
                     val original = rawText.substring(tokenSpan.startOffset, tokenSpan.endOffset)
-                    val category = if (isSpellingError(original, replacement)) {
-                        CorrectionCategory.SPELLING
-                    } else {
-                        CorrectionCategory.GRAMMAR
+                    val isPunct = replacement in setOf(",", ".", "!", "?", ";", ":") || original in setOf(",", ".", "!", "?", ";", ":")
+                    val category = when {
+                        isPunct -> CorrectionCategory.PUNCTUATION
+                        isSpellingError(original, replacement) -> CorrectionCategory.SPELLING
+                        else -> CorrectionCategory.GRAMMAR
                     }
 
                     corrections.add(
@@ -86,9 +87,9 @@ class GectorTagDecoder(
                             originalText = original,
                             suggestedReplacement = matchCase(original, replacement),
                             category = category,
-                            explanation = "Replace \"$original\" with \"$replacement\"",
+                            explanation = if (isPunct) "Change punctuation to \"$replacement\"" else "Replace \"$original\" with \"$replacement\"",
                             severity = if (category == CorrectionCategory.SPELLING) CorrectionSeverity.ERROR else CorrectionSeverity.WARNING,
-                            ruleId = "GECTOR_REPLACE",
+                            ruleId = if (isPunct) "GECTOR_PUNCTUATION" else "GECTOR_REPLACE",
                             isSafeToApply = true
                         )
                     )
@@ -96,17 +97,25 @@ class GectorTagDecoder(
 
                 tag.startsWith(PREFIX_APPEND) -> {
                     val appendedWord = tag.removePrefix(PREFIX_APPEND)
+                    val isPunctuation = appendedWord in setOf(",", ".", "!", "?", ";", ":", "'", "\"")
+                    val original = rawText.substring(tokenSpan.startOffset, tokenSpan.endOffset)
+                    val replacement = if (isPunctuation) {
+                        "$original$appendedWord"
+                    } else {
+                        "$original $appendedWord"
+                    }
+
                     corrections.add(
                         Correction(
                             id = UUID.randomUUID().toString(),
-                            startOffset = tokenSpan.endOffset,
+                            startOffset = tokenSpan.startOffset,
                             endOffset = tokenSpan.endOffset,
-                            originalText = "",
-                            suggestedReplacement = " $appendedWord",
-                            category = CorrectionCategory.GRAMMAR,
-                            explanation = "Missing word \"$appendedWord\"",
+                            originalText = original,
+                            suggestedReplacement = replacement,
+                            category = if (isPunctuation) CorrectionCategory.PUNCTUATION else CorrectionCategory.GRAMMAR,
+                            explanation = if (isPunctuation) "Add punctuation '$appendedWord'" else "Add missing word '$appendedWord'",
                             severity = CorrectionSeverity.SUGGESTION,
-                            ruleId = "GECTOR_APPEND",
+                            ruleId = if (isPunctuation) "GECTOR_PUNCTUATION" else "GECTOR_APPEND",
                             isSafeToApply = true
                         )
                     )

@@ -46,6 +46,42 @@ class GectorIntegrationTest {
             println("Correction: '${c.originalText}' -> '${c.suggestedReplacement}' [${c.startOffset}..${c.endOffset}] (${c.category}, ${c.ruleId})")
         }
 
+        // Test 4: End to end test on punctuation & capitalization with CorrectionCoordinator
+        val dummySpell = object : com.wordpilot.assistant.engine.SpellEngine {
+            override suspend fun check(text: String) = emptyList<com.wordpilot.assistant.domain.models.Correction>()
+            override fun isAvailable() = true
+            override fun addWord(word: String) {}
+            override fun removeWord(word: String) {}
+            override fun isKnownWord(word: String) = true
+            override fun getSuggestions(word: String, maxResults: Int) = emptyList<String>()
+        }
+        val dummyGrammar = object : com.wordpilot.assistant.engine.GrammarEngine {
+            override suspend fun check(text: String) = emptyList<com.wordpilot.assistant.domain.models.Correction>()
+            override fun isAvailable() = true
+            override fun getSupportedRuleIds() = emptyList<String>()
+            override fun setDisabledRules(ruleIds: Set<String>) {}
+        }
+        val coordinator = com.wordpilot.assistant.engine.CorrectionCoordinator(dummySpell, dummyGrammar, engine, useGectorOnly = true)
+        val safeHelper = com.wordpilot.assistant.domain.correction.SafeReplacementHelper()
+
+        val fullCases = listOf(
+            "she go to school." to "She went to school.",
+            "I have apples oranges and bananas." to "I have apples, oranges and bananas.",
+            "i like dogs" to "I like dogs.",
+            "However I like it" to "However, I like it."
+        )
+
+        for ((input, expected) in fullCases) {
+            val corrections = coordinator.checkText(input)
+            println("=== Test Coordinator on '$input' ===")
+            for (c in corrections) {
+                println("  Correction: '${c.originalText}' -> '${c.suggestedReplacement}' [${c.startOffset}..${c.endOffset}] (${c.category}, ${c.ruleId})")
+            }
+            val replaced = safeHelper.applyMultipleCorrections(input, corrections)
+            println("  Final text: '$replaced' (expected '$expected')")
+            assertEquals("Replacement should match expected", expected, replaced)
+        }
+
         engine.close()
     }
 }

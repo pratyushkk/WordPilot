@@ -1,6 +1,7 @@
 package com.wordpilot.assistant.engine
 
 import com.wordpilot.assistant.domain.models.Correction
+import com.wordpilot.assistant.domain.models.CorrectionCategory
 import com.wordpilot.assistant.domain.models.CorrectionSeverity
 import com.wordpilot.assistant.engine.gector.GectorOnnxEngine
 import com.wordpilot.assistant.engine.impl.RuleBasedGrammarEngine
@@ -8,6 +9,7 @@ import com.wordpilot.assistant.engine.impl.TrieSpellEngine
 import com.wordpilot.assistant.engine.offline.model.AnalysisOptions
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import java.util.UUID
 
 class CorrectionCoordinator(
     private val spellEngine: SpellEngine,
@@ -21,28 +23,46 @@ class CorrectionCoordinator(
 
         if (useGectorOnly && gectorEngine != null && gectorEngine.isAvailable()) {
             val sentenceSpans = sentenceAnalyzer.splitSentences(text)
-            if (sentenceSpans.size > 1) {
-                val allResults = mutableListOf<Correction>()
-                for (span in sentenceSpans) {
-                    try {
-                        val corrections = gectorEngine.check(span.text).map { it.copy(
-                            startOffset = it.startOffset + span.start,
-                            endOffset = it.endOffset + span.start
-                        )}
-                        allResults.addAll(corrections)
-                    } catch (e: Exception) {
-                        // Continue checking subsequent sentences
+            val allResults = mutableListOf<Correction>()
+            val spans = if (sentenceSpans.isNotEmpty()) sentenceSpans else listOf(SentenceSpan(0, text.length, text))
+
+            for (span in spans) {
+                try {
+                    val rawSentence = span.text
+                    val capPunctCorrections = checkCapitalizationAndPunctuation(rawSentence, listOf(SentenceSpan(0, rawSentence.length, rawSentence)))
+                    
+                    // Apply capitalization to help GECToR produce optimal grammar & agreement predictions
+                    var normalizedForGector = rawSentence
+                    for (c in capPunctCorrections.filter { it.category == CorrectionCategory.CAPITALIZATION }.sortedByDescending { it.startOffset }) {
+                        val repl = c.suggestedReplacement ?: continue
+                        if (c.originalText.length == repl.length) {
+                            normalizedForGector = normalizedForGector.substring(0, c.startOffset) + repl + normalizedForGector.substring(c.endOffset)
+                        }
                     }
-                }
-                return@coroutineScope resolveOverlaps(allResults)
-            } else {
-                val gectorCorrections = try {
-                    gectorEngine.check(text)
+                    if (!normalizedForGector.endsWith(".") && !normalizedForGector.endsWith("?") && !normalizedForGector.endsWith("!")) {
+                        normalizedForGector = "$normalizedForGector."
+                    }
+
+                    val gectorCorrections = gectorEngine.check(normalizedForGector).mapNotNull {
+                        // If correction is beyond rawSentence length (due to added period), adjust or skip
+                        if (it.startOffset >= rawSentence.length) null
+                        else it.copy(
+                            startOffset = (it.startOffset + span.start).coerceAtMost(span.end),
+                            endOffset = (it.endOffset + span.start).coerceAtMost(span.end)
+                        )
+                    }
+
+                    allResults.addAll(gectorCorrections)
+                    allResults.addAll(capPunctCorrections.map { it.copy(
+                        startOffset = it.startOffset + span.start,
+                        endOffset = it.endOffset + span.start
+                    )})
                 } catch (e: Exception) {
-                    emptyList()
+                    // Continue checking subsequent sentences
                 }
-                return@coroutineScope resolveOverlaps(gectorCorrections)
             }
+
+            return@coroutineScope resolveOverlaps(allResults)
         }
 
         if (useGectorOnly) {
@@ -91,6 +111,115 @@ class CorrectionCoordinator(
         }
 
         return result
+    }
+
+    private fun checkCapitalizationAndPunctuation(rawText: String, sentenceSpans: List<SentenceSpan>): List<Correction> {
+        val list = mutableListOf<Correction>()
+        val spans = if (sentenceSpans.isNotEmpty()) sentenceSpans else listOf(SentenceSpan(0, rawText.length, rawText))
+
+        for (span in spans) {
+            val sentence = span.text
+            if (sentence.isBlank()) continue
+
+            // 1. Sentence-initial capitalization
+            var firstWordStart = 0
+            while (firstWordStart < sentence.length && sentence[firstWordStart].isWhitespace()) {
+                firstWordStart++
+            }
+            if (firstWordStart < sentence.length && sentence[firstWordStart].isLowerCase()) {
+                var firstWordEnd = firstWordStart
+                while (firstWordEnd < sentence.length && sentence[firstWordEnd].isLetter()) {
+                    firstWordEnd++
+                }
+                val word = sentence.substring(firstWordStart, firstWordEnd)
+                val capitalized = word.replaceFirstChar { it.uppercaseChar() }
+                list.add(
+                    Correction(
+                        id = UUID.randomUUID().toString(),
+                        startOffset = span.start + firstWordStart,
+                        endOffset = span.start + firstWordEnd,
+                        originalText = word,
+                        suggestedReplacement = capitalized,
+                        category = CorrectionCategory.CAPITALIZATION,
+                        explanation = "Capitalize the first word of the sentence",
+                        severity = CorrectionSeverity.WARNING,
+                        ruleId = "GECTOR_CAPITAL",
+                        isSafeToApply = true
+                    )
+                )
+            }
+
+            // 2. Standalone pronoun "i" and contractions ("i'm", "i've", "i'll", "i'd")
+            val pronounPattern = Regex("""\b(i)('m|'ve|'ll|'d)?\b""")
+            for (m in pronounPattern.findAll(sentence)) {
+                val fullMatch = m.value
+                val capitalized = fullMatch.replaceFirstChar { it.uppercaseChar() }
+                list.add(
+                    Correction(
+                        id = UUID.randomUUID().toString(),
+                        startOffset = span.start + m.range.first,
+                        endOffset = span.start + m.range.last + 1,
+                        originalText = fullMatch,
+                        suggestedReplacement = capitalized,
+                        category = CorrectionCategory.CAPITALIZATION,
+                        explanation = "Capitalize the pronoun 'I'",
+                        severity = CorrectionSeverity.WARNING,
+                        ruleId = "GECTOR_CAPITAL",
+                        isSafeToApply = true
+                    )
+                )
+            }
+
+            // 3. Sentence-ending punctuation (period '.')
+            val trimmed = sentence.trimEnd()
+            if (trimmed.isNotEmpty() && trimmed.last().isLetterOrDigit()) {
+                val words = trimmed.split("\\s+".toRegex())
+                if (words.size >= 2) {
+                    val lastWord = words.last()
+                    val lastWordOffset = span.start + trimmed.lastIndexOf(lastWord)
+                    list.add(
+                        Correction(
+                            id = UUID.randomUUID().toString(),
+                            startOffset = lastWordOffset,
+                            endOffset = lastWordOffset + lastWord.length,
+                            originalText = lastWord,
+                            suggestedReplacement = "$lastWord.",
+                            category = CorrectionCategory.PUNCTUATION,
+                            explanation = "Add a period at the end of the sentence",
+                            severity = CorrectionSeverity.SUGGESTION,
+                            ruleId = "GECTOR_PUNCTUATION",
+                            isSafeToApply = true
+                        )
+                    )
+                }
+            }
+
+            // 4. Missing comma after introductory transition adverbs
+            val introPattern = Regex("""^(However|Therefore|Furthermore|Moreover|In addition|First|Finally)\s+([A-Za-z])""")
+            val introMatch = introPattern.find(sentence)
+            if (introMatch != null) {
+                val introWord = introMatch.groupValues[1]
+                val introStart = sentence.indexOf(introWord)
+                if (introStart >= 0) {
+                    list.add(
+                        Correction(
+                            id = UUID.randomUUID().toString(),
+                            startOffset = span.start + introStart,
+                            endOffset = span.start + introStart + introWord.length,
+                            originalText = introWord,
+                            suggestedReplacement = "$introWord,",
+                            category = CorrectionCategory.PUNCTUATION,
+                            explanation = "Add a comma after introductory word '$introWord'",
+                            severity = CorrectionSeverity.SUGGESTION,
+                            ruleId = "GECTOR_PUNCTUATION",
+                            isSafeToApply = true
+                        )
+                    )
+                }
+            }
+        }
+
+        return list
     }
 
     private fun severityWeight(severity: CorrectionSeverity): Int = when (severity) {
