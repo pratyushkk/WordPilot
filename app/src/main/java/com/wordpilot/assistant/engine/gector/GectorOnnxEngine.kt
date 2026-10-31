@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.LongBuffer
+import org.json.JSONObject
 
 class GectorOnnxEngine(
     private val modelFile: File? = null,
@@ -17,20 +18,19 @@ class GectorOnnxEngine(
 ) {
     companion object {
         private const val TAG = "GectorOnnxEngine"
-        const val MODEL_FILENAME = "gector.onnx"
+        // Standard GECToR error detection threshold (Omelianchuk et al., 2020)
+        private const val DEFAULT_MIN_ERROR_PROB = 0.45f
     }
 
     private var ortEnv: OrtEnvironment? = null
     private var ortSession: OrtSession? = null
-    private var tokenizer: GectorTokenizer = GectorTokenizer()
-    private val tagDecoder = GectorTagDecoder()
-
-    @Volatile
     private var isInitialized = false
 
-    fun isAvailable(): Boolean {
-        return isInitialized && ortSession != null && modelFile != null && modelFile.exists()
-    }
+    private val conjugator = GectorVerbConjugator()
+    private var tokenizer: GectorTokenizer = GectorTokenizer()
+    private var tagDecoder = GectorTagDecoder(conjugator)
+
+    fun isAvailable(): Boolean = isInitialized && ortSession != null
 
     suspend fun initialize(): Boolean = withContext(Dispatchers.IO) {
         if (modelFile == null || !modelFile.exists() || modelFile.length() < 1024 * 1024) {
@@ -39,12 +39,14 @@ class GectorOnnxEngine(
         }
 
         try {
-            // Load label vocabulary if available
-            val labelFile = vocabFile ?: (modelFile.parentFile?.let { File(it, "labels.json") })
+            val modelDir = modelFile.parentFile
+
+            // 1. Load label vocabulary
+            val labelFile = vocabFile ?: (modelDir?.let { File(it, "labels.json") })
             if (labelFile != null && labelFile.exists()) {
                 try {
                     val jsonStr = labelFile.readText()
-                    val json = org.json.JSONObject(jsonStr)
+                    val json = JSONObject(jsonStr)
                     if (json.has("labels")) {
                         val arr = json.getJSONArray("labels")
                         val list = ArrayList<String>(arr.length())
@@ -59,6 +61,26 @@ class GectorOnnxEngine(
                 }
             }
 
+            // 2. Load RoBERTa BPE tokenizer vocabulary
+            val tokFile = modelDir?.let { File(it, "tokenizer.json") }
+            if (tokFile != null && tokFile.exists()) {
+                val tok = GectorTokenizer()
+                if (tok.loadFromTokenizerJson(tokFile)) {
+                    tokenizer = tok
+                    Log.d(TAG, "RoBERTa tokenizer initialized successfully")
+                }
+            }
+
+            // 3. Load verb conjugation vocabulary
+            val verbFile = modelDir?.let { File(it, "verb-form-vocab.txt") }
+            if (verbFile != null && verbFile.exists()) {
+                if (conjugator.loadFromFile(verbFile)) {
+                    tagDecoder = GectorTagDecoder(conjugator)
+                    Log.d(TAG, "Verb conjugator initialized successfully")
+                }
+            }
+
+            // 4. Initialize ONNX Runtime session
             val env = OrtEnvironment.getEnvironment()
             ortEnv = env
             val sessionOptions = OrtSession.SessionOptions().apply {
@@ -75,7 +97,11 @@ class GectorOnnxEngine(
         }
     }
 
-    suspend fun check(text: String, maxIterations: Int = 2): List<Correction> = withContext(Dispatchers.Default) {
+    suspend fun check(
+        text: String,
+        maxIterations: Int = 2,
+        minErrorProbability: Float = DEFAULT_MIN_ERROR_PROB
+    ): List<Correction> = withContext(Dispatchers.Default) {
         if (!isAvailable() || text.isBlank()) {
             return@withContext emptyList()
         }
@@ -102,17 +128,43 @@ class GectorOnnxEngine(
             )
 
             session.run(inputs).use { results ->
-                val outputTensor = results[0].value as? Array<Array<FloatArray>>
-                    ?: return@withContext emptyList()
+                val labelProbsVal = if (results.size() > 0) results["label_probs"].orElse(null)?.value else null
+                val errorProbsVal = if (results.size() > 1) results["error_probs"].orElse(null)?.value else null
+
+                @Suppress("UNCHECKED_CAST")
+                val labelProbs = (labelProbsVal ?: results[0].value) as? Array<Array<FloatArray>> ?: return@withContext emptyList()
+                @Suppress("UNCHECKED_CAST")
+                val errorProbs = (errorProbsVal ?: if (results.size() > 1) results[1].value else null) as? Array<FloatArray>
 
                 val predictedTags = mutableListOf<String>()
-                // Extract argmax tag for each token excluding [CLS] and [SEP]
-                val batchOutput = outputTensor[0]
-                for (t in 1 until batchOutput.size - 1) {
-                    val logits = batchOutput[t]
-                    val maxIdx = logits.indices.maxByOrNull { logits[it] } ?: 0
-                    val tagName = tagVocab.getOrElse(maxIdx) { GectorTagDecoder.TAG_KEEP }
-                    predictedTags.add(tagName)
+                val batchLabels = labelProbs[0]
+                val batchErrors = errorProbs?.get(0)
+
+                // Loop over tokens (excluding <s> at 0 and </s> at size-1)
+                for (t in 1 until batchLabels.size - 1) {
+                    val probs = batchLabels[t]
+                    val errProb = batchErrors?.getOrNull(t) ?: 0f
+
+                    val predictedTag = if (errProb >= minErrorProbability) {
+                        // Error detected: pick highest non-KEEP tag
+                        var bestNonKeepTag = GectorTagDecoder.TAG_KEEP
+                        var bestNonKeepProb = -1f
+
+                        for (idx in probs.indices) {
+                            val tagName = tagVocab.getOrElse(idx) { GectorTagDecoder.TAG_KEEP }
+                            if (tagName != GectorTagDecoder.TAG_KEEP && tagName != "<OOV>" && probs[idx] > bestNonKeepProb) {
+                                bestNonKeepProb = probs[idx]
+                                bestNonKeepTag = tagName
+                            }
+                        }
+
+                        if (bestNonKeepProb > 0.05f) bestNonKeepTag else GectorTagDecoder.TAG_KEEP
+                    } else {
+                        // Confident correct token
+                        GectorTagDecoder.TAG_KEEP
+                    }
+
+                    predictedTags.add(predictedTag)
                 }
 
                 tagDecoder.decodeTags(tokenized.tokens, predictedTags, text)

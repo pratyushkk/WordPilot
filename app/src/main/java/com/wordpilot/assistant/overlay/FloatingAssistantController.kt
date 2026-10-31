@@ -353,7 +353,7 @@ class FloatingAssistantController(
             try {
                 val app = WordPilotApp.instance
                 val corrections = withContext(Dispatchers.Default) {
-                    app.correctionCoordinator.checkSentence(targetText, 0, targetText.length)
+                    app.correctionCoordinator.checkText(targetText)
                 }
 
                 if (requestId != currentRequestId) return@launch
@@ -365,9 +365,6 @@ class FloatingAssistantController(
                         fixed = replaced
                     }
                 }
-
-                // Sentence mechanics cleanup
-                fixed = cleanSentencePunctuation(fixed)
 
                 if (requestId != currentRequestId) return@launch
                 _previewImprovedText.value = fixed
@@ -381,19 +378,19 @@ class FloatingAssistantController(
         }
     }
 
-    private fun executeRewrite(style: RewriteStyle, toneName: String, customPrompt: String? = null) {
+    private fun executeRewrite(@Suppress("UNUSED_PARAMETER") style: RewriteStyle, @Suppress("UNUSED_PARAMETER") toneName: String, @Suppress("UNUSED_PARAMETER") customPrompt: String? = null) {
         executeFixGrammar()
     }
 
-    fun onCustomPromptSubmit(prompt: String) {
+    fun onCustomPromptSubmit(@Suppress("UNUSED_PARAMETER") prompt: String) {
         executeFixGrammar()
     }
 
-    fun onToneSelected(tone: String) {
+    fun onToneSelected(@Suppress("UNUSED_PARAMETER") tone: String) {
         executeFixGrammar()
     }
 
-    fun onSelectEngine(engine: AIEngineType) {
+    fun onSelectEngine(@Suppress("UNUSED_PARAMETER") engine: AIEngineType) {
         val app = WordPilotApp.instance
         app.rewriteCoordinator.setEngineType(AIEngineType.GECTOR)
         controllerScope.launch {
@@ -502,18 +499,7 @@ class FloatingAssistantController(
     }
 
     private fun getTargetText(): String {
-        return _currentSentence.value.ifBlank { _currentFullText.value }
-    }
-
-    private fun cleanSentencePunctuation(text: String): String {
-        var res = text.trim()
-        if (res.isNotEmpty() && !res.endsWith('.') && !res.endsWith('!') && !res.endsWith('?')) {
-            res += "."
-        }
-        if (res.isNotEmpty() && res[0].isLowerCase()) {
-            res = res.replaceFirstChar { it.uppercase() }
-        }
-        return res
+        return _currentFullText.value.ifBlank { _currentSentence.value }
     }
 
     // =========================================================================

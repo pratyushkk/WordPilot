@@ -458,14 +458,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 floatingController.setChecking(true)
             }
 
-            val sentence = app.sentenceAnalyzer.findCurrentSentence(text, text.length)
-                ?: SentenceSpan(0, text.length, text)
-
-            val corrections = app.correctionCoordinator.checkSentence(
-                text,
-                sentence.start,
-                sentence.end
-            )
+            val corrections = app.correctionCoordinator.checkText(text)
 
             val validCorrections = corrections.filter { correction ->
                 val isIgnored = app.dictionaryRepository.isRuleIgnored(correction.ruleId, correction.originalText)
@@ -581,10 +574,13 @@ class WordPilotAccessibilityService : AccessibilityService(),
             }
 
             val currentText = extractNodeText(node).ifBlank { snapshot.fullText }
-            val updatedText = safeReplacementHelper.replaceSentenceWithSnapshot(currentText, snapshot, newSentence)
-            if (updatedText == null) {
-                Log.w(TAG, "Aborting sentence replacement: text was modified or snapshot stale")
-                return TextOperationResult.StaleSnapshot
+            val isFullFieldTarget = snapshot.sentenceText == snapshot.fullText || 
+                (snapshot.sentenceStart == 0 && snapshot.sentenceEnd >= currentText.length)
+
+            val updatedText = if (isFullFieldTarget) {
+                newSentence
+            } else {
+                safeReplacementHelper.replaceSentenceWithSnapshot(currentText, snapshot, newSentence) ?: newSentence
             }
 
             Log.d(TAG, "Applying sentence replacement at [${snapshot.sentenceStart}, ${snapshot.sentenceEnd})")

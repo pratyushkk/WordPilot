@@ -63,8 +63,14 @@ class ModelRepositoryImpl(private val modelDir: File) {
     fun getGectorModelFile(): File = File(modelDir, GECTOR_FILENAME)
 
     fun isGectorModelInstalled(): Boolean {
-        val file = getGectorModelFile()
-        return file.exists() && file.length() > 1024 * 1024
+        val onnx = getGectorModelFile()
+        val labels = File(modelDir, "labels.json")
+        val tok = File(modelDir, "tokenizer.json")
+        val verb = File(modelDir, "verb-form-vocab.txt")
+        return onnx.exists() && onnx.length() > 50 * 1024 * 1024 &&
+               labels.exists() && labels.length() > 10 * 1024 &&
+               tok.exists() && tok.length() > 100 * 1024 &&
+               verb.exists() && verb.length() > 100 * 1024
     }
 
     fun deleteGectorModel(): Boolean {

@@ -13,18 +13,36 @@ class CorrectionCoordinator(
     private val spellEngine: SpellEngine,
     private val grammarEngine: GrammarEngine,
     private val gectorEngine: GectorOnnxEngine? = null,
-    private val useGectorOnly: Boolean = (gectorEngine != null)
+    private val useGectorOnly: Boolean = (gectorEngine != null),
+    private val sentenceAnalyzer: SentenceAnalyzer = SentenceAnalyzer()
 ) {
     suspend fun checkText(text: String): List<Correction> = coroutineScope {
         if (text.isBlank()) return@coroutineScope emptyList()
 
         if (useGectorOnly && gectorEngine != null && gectorEngine.isAvailable()) {
-            val gectorCorrections = try {
-                gectorEngine.check(text)
-            } catch (e: Exception) {
-                emptyList()
+            val sentenceSpans = sentenceAnalyzer.splitSentences(text)
+            if (sentenceSpans.size > 1) {
+                val allResults = mutableListOf<Correction>()
+                for (span in sentenceSpans) {
+                    try {
+                        val corrections = gectorEngine.check(span.text).map { it.copy(
+                            startOffset = it.startOffset + span.start,
+                            endOffset = it.endOffset + span.start
+                        )}
+                        allResults.addAll(corrections)
+                    } catch (e: Exception) {
+                        // Continue checking subsequent sentences
+                    }
+                }
+                return@coroutineScope resolveOverlaps(allResults)
+            } else {
+                val gectorCorrections = try {
+                    gectorEngine.check(text)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                return@coroutineScope resolveOverlaps(gectorCorrections)
             }
-            return@coroutineScope resolveOverlaps(gectorCorrections)
         }
 
         if (useGectorOnly) {

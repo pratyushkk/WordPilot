@@ -51,6 +51,10 @@ android {
         viewBinding = true
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
@@ -104,9 +108,11 @@ dependencies {
 
     // ONNX Runtime for GECToR on-device neural grammar correction
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.18.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("app.cash.turbine:turbine:1.1.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
