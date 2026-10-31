@@ -143,13 +143,13 @@ fun AppearanceSettingsScreen(
                             canUndo = true,
                             currentTone = "Default",
                             onBubbleClick = {
-                                previewUiState = if (previewUiState == FloatingUiState.COLLAPSED) FloatingUiState.EXPANDED else FloatingUiState.COLLAPSED
+                                previewUiState = if (previewUiState == FloatingUiState.COLLAPSED) FloatingUiState.PREVIEW else FloatingUiState.COLLAPSED
                             },
                             onDrag = { _, _ -> },
                             onActionClick = { actionId ->
                                 when (actionId) {
                                     "more" -> previewUiState = FloatingUiState.MORE_OPTIONS
-                                    "back_to_expanded" -> previewUiState = FloatingUiState.EXPANDED
+                                    "back_to_expanded" -> previewUiState = FloatingUiState.COLLAPSED
                                     else -> previewUiState = FloatingUiState.PREVIEW
                                 }
                             },
@@ -158,7 +158,7 @@ fun AppearanceSettingsScreen(
                             onReplace = {},
                             onInsert = {},
                             onCopy = {},
-                            onCancelPreview = { previewUiState = FloatingUiState.EXPANDED },
+                            onCancelPreview = { previewUiState = FloatingUiState.COLLAPSED },
                             onUndo = {},
                             onOpenSettings = {},
                             onCollapse = { previewUiState = FloatingUiState.COLLAPSED }

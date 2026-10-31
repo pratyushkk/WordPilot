@@ -150,6 +150,16 @@ fun SuggestionPreview(
                             fontWeight = FontWeight.Medium,
                             lineHeight = 18.sp
                         )
+
+                        if (!isLoading && originalText.isNotBlank() && originalText == improvedText) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "✓ No grammar errors detected",
+                                color = AssistantColors.AccentGreen,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
                     }
                 }
             }

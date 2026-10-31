@@ -45,7 +45,7 @@ object OverlayGeometry {
     }
 
     fun getPreviewHeightPx(density: Float): Int {
-        return (420f * density).toInt()
+        return (320f * density).toInt()
     }
 
     fun calculateEdgeAnchoredX(

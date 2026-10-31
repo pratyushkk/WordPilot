@@ -304,11 +304,19 @@ class FloatingAssistantController(
     fun clearCorrection() {
         _activeCorrection.value = null
         _errorCount.value = 0
+        cachedTextCorrections = null
     }
 
     fun dismiss() {
         clearCorrection()
         setUiState(FloatingUiState.COLLAPSED)
+    }
+
+    // Cached analysis results for instant preview
+    private var cachedTextCorrections: Pair<String, List<Correction>>? = null
+
+    fun setCachedCorrections(text: String, corrections: List<Correction>) {
+        cachedTextCorrections = Pair(text, corrections)
     }
 
     // =========================================================================
@@ -327,7 +335,7 @@ class FloatingAssistantController(
                 setUiState(FloatingUiState.MORE_OPTIONS)
             }
             "back_to_expanded" -> {
-                setUiState(FloatingUiState.EXPANDED)
+                setUiState(FloatingUiState.COLLAPSED)
             }
             else -> {
                 executeFixGrammar()
@@ -335,11 +343,25 @@ class FloatingAssistantController(
         }
     }
 
-    private fun executeFixGrammar() {
+    fun executeFixGrammar() {
         val targetText = getTargetText()
         if (targetText.isBlank()) {
             Toast.makeText(context, "No text detected to fix", Toast.LENGTH_SHORT).show()
             return
+        }
+
+        // Fast-path: If accessibility service already analyzed this text, show result instantly
+        val cached = cachedTextCorrections
+        if (cached != null && cached.first == targetText && cached.second.isNotEmpty()) {
+            val fixed = safeReplacementHelper.applyMultipleCorrections(targetText, cached.second)
+            if (fixed.isNotBlank()) {
+                _previewOriginalText.value = targetText
+                _previewImprovedText.value = fixed
+                _previewErrorMessage.value = null
+                _isPreviewLoading.value = false
+                setUiState(FloatingUiState.PREVIEW)
+                return
+            }
         }
 
         val requestId = ++currentRequestId
@@ -627,7 +649,7 @@ class FloatingAssistantController(
                             currentTone = tone,
                             onBubbleClick = {
                                 if (currentUiState == FloatingUiState.COLLAPSED) {
-                                    setUiState(FloatingUiState.EXPANDED)
+                                    executeFixGrammar()
                                 } else {
                                     setUiState(FloatingUiState.COLLAPSED)
                                 }
@@ -639,7 +661,7 @@ class FloatingAssistantController(
                             onReplace = { applyPreviewReplacement() },
                             onInsert = { insertPreviewText() },
                             onCopy = { copyPreviewText() },
-                            onCancelPreview = { setUiState(FloatingUiState.EXPANDED) },
+                            onCancelPreview = { setUiState(FloatingUiState.COLLAPSED) },
                             onUndo = { undoLastChange() },
                             onOpenSettings = { openAppearanceSettings() },
                             onCollapse = { setUiState(FloatingUiState.COLLAPSED) },

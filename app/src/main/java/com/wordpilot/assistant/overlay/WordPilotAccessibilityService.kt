@@ -472,6 +472,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
             withContext(Dispatchers.Main) {
                 floatingController.setChecking(false)
+                floatingController.setCachedCorrections(text, validCorrections)
                 if (!isKeyboardVisible()) {
                     floatingController.hideAssistant()
                 } else if (topCorrection != null) {
