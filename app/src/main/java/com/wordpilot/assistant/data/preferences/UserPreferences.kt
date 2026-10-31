@@ -8,12 +8,16 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.wordpilot.assistant.security.CryptoManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "wordpilot_prefs")
 
-class UserPreferences(private val context: Context) {
+class UserPreferences(
+    private val context: Context,
+    private val cryptoManager: CryptoManager = CryptoManager()
+) {
 
     companion object {
         val THEME_KEY = stringPreferencesKey("theme")
@@ -31,7 +35,8 @@ class UserPreferences(private val context: Context) {
     }
 
     val geminiApiKey: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[GEMINI_API_KEY]
+        val raw = prefs[GEMINI_API_KEY] ?: return@map null
+        cryptoManager.decrypt(raw)
     }
 
     val selectedEngine: Flow<String> = context.dataStore.data.map { prefs ->
@@ -89,8 +94,9 @@ class UserPreferences(private val context: Context) {
     }
 
     suspend fun setGeminiApiKey(apiKey: String) {
+        val encrypted = if (apiKey.isNotBlank()) cryptoManager.encrypt(apiKey.trim()) else ""
         context.dataStore.edit { prefs ->
-            prefs[GEMINI_API_KEY] = apiKey
+            prefs[GEMINI_API_KEY] = encrypted
         }
     }
 
@@ -107,6 +113,7 @@ class UserPreferences(private val context: Context) {
     }
 
     suspend fun clearAll() {
+        cryptoManager.clearKey()
         context.dataStore.edit { it.clear() }
     }
 }
