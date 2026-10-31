@@ -499,10 +499,26 @@ class WordPilotAccessibilityService : AccessibilityService(),
         try {
             // Find the most fresh node instance across windows
             val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
-            val currentText = extractNodeText(node).ifBlank { originalFullText }
-            val updatedText = safeReplacementHelper.applyCorrection(currentText, correction) ?: return
+            val nodePkg = node.packageName?.toString()
+            if (isExcludedPackage(nodePkg)) {
+                Log.w(TAG, "Aborting correction: target package is excluded: $nodePkg")
+                floatingController.clearCorrection()
+                return
+            }
 
-            Log.d(TAG, "Applying correction: \"$currentText\" -> \"$updatedText\"")
+            val currentText = extractNodeText(node).ifBlank { originalFullText }
+            if (!safeReplacementHelper.validateCorrection(currentText, correction)) {
+                Log.w(TAG, "Aborting correction: text snapshot modified or span mismatch")
+                floatingController.clearCorrection()
+                return
+            }
+
+            val updatedText = safeReplacementHelper.applyCorrection(currentText, correction) ?: run {
+                floatingController.clearCorrection()
+                return
+            }
+
+            Log.d(TAG, "Applying correction at [${correction.startOffset}, ${correction.endOffset})")
             val arguments = Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updatedText)
             }
@@ -536,16 +552,22 @@ class WordPilotAccessibilityService : AccessibilityService(),
     ) {
         try {
             val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
-            val currentText = extractNodeText(node).ifBlank { originalFullText }
-            lastOriginalTextBeforeUndo = currentText
-
-            val updatedText = if (sentence.start <= currentText.length && sentence.end <= currentText.length) {
-                currentText.substring(0, sentence.start) + newSentence + currentText.substring(sentence.end)
-            } else {
-                newSentence
+            val nodePkg = node.packageName?.toString()
+            if (isExcludedPackage(nodePkg)) {
+                Log.w(TAG, "Aborting sentence replacement: target package is excluded: $nodePkg")
+                return
             }
 
-            Log.d(TAG, "Applying sentence replacement: \"$currentText\" -> \"$updatedText\"")
+            val currentText = extractNodeText(node).ifBlank { originalFullText }
+            if (sentence.start < 0 || sentence.start > currentText.length || sentence.end > currentText.length || sentence.start >= sentence.end) {
+                Log.w(TAG, "Aborting sentence replacement: sentence span invalid for current text")
+                return
+            }
+            lastOriginalTextBeforeUndo = currentText
+
+            val updatedText = currentText.substring(0, sentence.start) + newSentence + currentText.substring(sentence.end)
+
+            Log.d(TAG, "Applying sentence replacement at [${sentence.start}, ${sentence.end})")
             val arguments = Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updatedText)
             }
@@ -591,6 +613,11 @@ class WordPilotAccessibilityService : AccessibilityService(),
     ) {
         try {
             val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
+            val nodePkg = node.packageName?.toString()
+            if (isExcludedPackage(nodePkg)) {
+                Log.w(TAG, "Aborting insertText: target package is excluded: $nodePkg")
+                return
+            }
             val currentText = extractNodeText(node).ifBlank { currentFullText }
             lastOriginalTextBeforeUndo = currentText
             val updatedText = if (currentText.isNotEmpty() && !currentText.endsWith(" ")) {

@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 
 data class EditorUiState(
     val text: String = "",
+    val documentVersion: Long = 0L,
     val corrections: List<Correction> = emptyList(),
     val isChecking: Boolean = false,
     val wordCount: Int = 0,
@@ -60,6 +61,7 @@ class EditorViewModel : ViewModel() {
             // Push to undo stack
             _uiState.update { it.copy(
                 text = newText,
+                documentVersion = it.documentVersion + 1,
                 wordCount = com.wordpilot.assistant.utils.TextUtils.wordCount(newText),
                 charCount = newText.length,
                 undoStack = (it.undoStack + currentText).takeLast(50),
@@ -96,15 +98,26 @@ class EditorViewModel : ViewModel() {
     }
 
     fun acceptCorrection(correction: Correction) {
-        val text = _uiState.value.text
-        val result = correctionUseCase.applyCorrection(text, correction) ?: return
+        val state = _uiState.value
+        val text = state.text
+        if (!correctionUseCase.validateCorrection(text, correction)) {
+            // Text has changed or span is stale: re-run check and safely abort
+            checkText()
+            return
+        }
+
+        val result = correctionUseCase.applyCorrection(text, correction) ?: run {
+            checkText()
+            return
+        }
 
         val remaining = correctionUseCase.adjustRemainingCorrections(
-            _uiState.value.corrections, correction
+            state.corrections, correction
         )
 
         _uiState.update { it.copy(
             text = result,
+            documentVersion = it.documentVersion + 1,
             corrections = remaining,
             wordCount = com.wordpilot.assistant.utils.TextUtils.wordCount(result),
             charCount = result.length,

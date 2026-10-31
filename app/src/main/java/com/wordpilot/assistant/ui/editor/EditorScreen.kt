@@ -1,11 +1,15 @@
 package com.wordpilot.assistant.ui.editor
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,6 +35,7 @@ fun EditorScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     var showClearDialog by remember { mutableStateOf(false) }
     var showSuggestions by remember { mutableStateOf(false) }
 
@@ -41,7 +47,12 @@ fun EditorScreen(
 
     LaunchedEffect(initialText) {
         if (!initialText.isNullOrBlank() && uiState.text.isBlank()) {
-            viewModel.onTextChanged(initialText)
+            val sanitized = if (initialText.length > 100_000) {
+                initialText.substring(0, 100_000)
+            } else {
+                initialText
+            }
+            viewModel.onTextChanged(sanitized)
             viewModel.checkText()
         }
     }
@@ -81,18 +92,35 @@ fun EditorScreen(
                         onClick = { viewModel.undo() },
                         enabled = uiState.undoStack.isNotEmpty()
                     ) {
-                        Icon(Icons.Filled.Undo, contentDescription = "Undo")
+                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
                     }
                     IconButton(
                         onClick = { viewModel.redo() },
                         enabled = uiState.redoStack.isNotEmpty()
                     ) {
-                        Icon(Icons.Filled.Redo, contentDescription = "Redo")
+                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
                     }
                     IconButton(onClick = {
                         clipboardManager.setText(AnnotatedString(uiState.text))
+                        Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                     }) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = "Copy")
+                    }
+                    IconButton(
+                        onClick = {
+                            if (uiState.text.isNotBlank()) {
+                                val sendIntent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, uiState.text)
+                                    type = "text/plain"
+                                }
+                                val chooser = Intent.createChooser(sendIntent, "Share via")
+                                context.startActivity(chooser)
+                            }
+                        },
+                        enabled = uiState.text.isNotBlank()
+                    ) {
+                        Icon(Icons.Filled.Share, contentDescription = "Share")
                     }
                     IconButton(onClick = {
                         val clip = clipboardManager.getText()
