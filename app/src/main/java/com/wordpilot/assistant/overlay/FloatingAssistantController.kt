@@ -16,6 +16,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
@@ -37,7 +39,10 @@ import com.wordpilot.assistant.WordPilotApp
 import com.wordpilot.assistant.domain.correction.SafeReplacementHelper
 import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.Correction
+import com.wordpilot.assistant.domain.models.EditorSnapshot
 import com.wordpilot.assistant.domain.models.RewriteStyle
+import com.wordpilot.assistant.domain.models.TextOperationResult
+import com.wordpilot.assistant.overlay.OverlayGeometry
 import com.wordpilot.assistant.ui.floating.FloatingAssistantView
 import com.wordpilot.assistant.ui.floating.FloatingUiState
 import com.wordpilot.assistant.ui.navigation.Routes
@@ -123,16 +128,18 @@ class FloatingAssistantController(
     private val _currentTone = MutableStateFlow("Default")
 
     // Callbacks provided by WordPilotAccessibilityService
-    private var onApplySentenceCallback: ((String) -> Unit)? = null
-    private var onInsertCallback: ((String) -> Unit)? = null
-    private var onUndoCallback: (() -> Unit)? = null
+    private var onApplySentenceCallback: ((String) -> TextOperationResult)? = null
+    private var onInsertCallback: ((String) -> TextOperationResult)? = null
+    private var onUndoCallback: (() -> TextOperationResult)? = null
     private var onAcceptSingleCorrectionCallback: ((Correction) -> Unit)? = null
+    private var onAddToDictionaryCallback: ((Correction) -> Unit)? = null
+    private var onIgnoreRuleCallback: ((Correction) -> Unit)? = null
 
-    private var collapseResizeJob: Job? = null
+    private var currentRequestId: Long = 0L
     private var bubbleRestingX: Int = 0
     private var bubbleRestingY: Int = 0
 
-    private val appearancePrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+    private val appearancePrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         _appearanceSettings.value = AppearanceSettings.load(context)
         updateWindowLayoutForState(_uiState.value)
     }
@@ -143,16 +150,19 @@ class FloatingAssistantController(
     }
 
     fun setUiState(targetState: FloatingUiState) {
-        collapseResizeJob?.cancel()
         if (targetState == FloatingUiState.COLLAPSED) {
             _uiState.value = FloatingUiState.COLLAPSED
-            collapseResizeJob = controllerScope.launch {
-                delay(260L)
-                updateWindowLayoutForState(FloatingUiState.COLLAPSED)
-            }
+            // The native window stays at expanded bounds while Compose animates.
+            // onCollapseTransitionCompleted() resizes the WindowManager bounds once Compose finishes!
         } else {
             updateWindowLayoutForState(targetState)
             _uiState.value = targetState
+        }
+    }
+
+    fun onCollapseTransitionCompleted() {
+        if (_uiState.value == FloatingUiState.COLLAPSED) {
+            updateWindowLayoutForState(FloatingUiState.COLLAPSED)
         }
     }
 
@@ -165,76 +175,62 @@ class FloatingAssistantController(
         val screenHeightPx = displayMetrics.heightPixels
 
         val s = appearanceSettings.value
-        val bubbleSizePx = (s.bubbleSizeDp * density).toInt()
-        val paddingPx = (14 * density).toInt()
-
-        val collapsedWidthPx = bubbleSizePx + paddingPx * 2
-        val collapsedHeightPx = bubbleSizePx + paddingPx * 2
+        val collapsedSizePx = OverlayGeometry.getCollapsedSizePx(density, s.bubbleSizeDp)
 
         when (state) {
             FloatingUiState.COLLAPSED -> {
-                lp.width = collapsedWidthPx
-                lp.height = collapsedHeightPx
+                lp.width = collapsedSizePx
+                lp.height = collapsedSizePx
                 lp.x = bubbleRestingX
                 lp.y = bubbleRestingY
             }
             FloatingUiState.EXPANDED -> {
-                val maxAllowedWidthDp = (screenWidthPx / density) - 24f
-                val expandedWidthDp = s.toolbarMaxWidthDp.coerceAtMost(maxAllowedWidthDp)
-                val expandedWidthPx = ((expandedWidthDp + 16f) * density).toInt()
-                val expandedHeightDp = maxOf(s.toolbarHeightDp, s.bubbleSizeDp) + 16f
-                val expandedHeightPx = (expandedHeightDp * density).toInt()
+                val expandedWidthPx = OverlayGeometry.getExpandedWidthPx(density, screenWidthPx, s.toolbarMaxWidthDp)
+                val expandedHeightPx = OverlayGeometry.getExpandedHeightPx(density, s.toolbarHeightDp, s.bubbleSizeDp)
 
                 lp.width = expandedWidthPx
                 lp.height = expandedHeightPx
-
-                if (_isNearRightEdge.value) {
-                    val bubbleRightEdgePx = bubbleRestingX + collapsedWidthPx
-                    lp.x = (bubbleRightEdgePx - expandedWidthPx).coerceAtLeast((8 * density).toInt())
-                } else {
-                    lp.x = bubbleRestingX.coerceAtMost(screenWidthPx - expandedWidthPx - (8 * density).toInt())
-                }
+                lp.x = OverlayGeometry.calculateEdgeAnchoredX(
+                    isNearRightEdge = _isNearRightEdge.value,
+                    bubbleRestingX = bubbleRestingX,
+                    collapsedWidthPx = collapsedSizePx,
+                    targetWidthPx = expandedWidthPx,
+                    screenWidthPx = screenWidthPx,
+                    density = density
+                )
                 lp.y = bubbleRestingY
             }
             FloatingUiState.MORE_OPTIONS -> {
-                val maxAllowedWidthDp = (screenWidthPx / density) - 24f
-                val panelWidthDp = 340f.coerceAtMost(maxAllowedWidthDp)
-                val panelWidthPx = (panelWidthDp * density).toInt()
-                val panelHeightDp = 360f
-                val panelHeightPx = (panelHeightDp * density).toInt()
+                val panelWidthPx = OverlayGeometry.getMoreOptionsWidthPx(density, screenWidthPx)
+                val panelHeightPx = OverlayGeometry.getMoreOptionsHeightPx(density)
 
                 lp.width = panelWidthPx
                 lp.height = panelHeightPx
-
-                if (_isNearRightEdge.value) {
-                    val bubbleRightEdgePx = bubbleRestingX + collapsedWidthPx
-                    lp.x = (bubbleRightEdgePx - panelWidthPx).coerceAtLeast((8 * density).toInt())
-                } else {
-                    lp.x = bubbleRestingX.coerceAtMost(screenWidthPx - panelWidthPx - (8 * density).toInt())
-                }
-
-                val maxAvailableY = screenHeightPx - panelHeightPx - (48 * density).toInt()
-                lp.y = bubbleRestingY.coerceAtMost(maxAvailableY).coerceAtLeast((16 * density).toInt())
+                lp.x = OverlayGeometry.calculateEdgeAnchoredX(
+                    isNearRightEdge = _isNearRightEdge.value,
+                    bubbleRestingX = bubbleRestingX,
+                    collapsedWidthPx = collapsedSizePx,
+                    targetWidthPx = panelWidthPx,
+                    screenWidthPx = screenWidthPx,
+                    density = density
+                )
+                lp.y = OverlayGeometry.clampY(bubbleRestingY, panelHeightPx, screenHeightPx, density)
             }
             FloatingUiState.PREVIEW -> {
-                val maxAllowedWidthDp = (screenWidthPx / density) - 24f
-                val previewWidthDp = 340f.coerceAtMost(maxAllowedWidthDp)
-                val previewWidthPx = (previewWidthDp * density).toInt()
-                val previewHeightDp = 420f
-                val previewHeightPx = (previewHeightDp * density).toInt()
+                val previewWidthPx = OverlayGeometry.getPreviewWidthPx(density, screenWidthPx)
+                val previewHeightPx = OverlayGeometry.getPreviewHeightPx(density)
 
                 lp.width = previewWidthPx
                 lp.height = previewHeightPx
-
-                if (_isNearRightEdge.value) {
-                    val bubbleRightEdgePx = bubbleRestingX + collapsedWidthPx
-                    lp.x = (bubbleRightEdgePx - previewWidthPx).coerceAtLeast((8 * density).toInt())
-                } else {
-                    lp.x = bubbleRestingX.coerceAtMost(screenWidthPx - previewWidthPx - (8 * density).toInt())
-                }
-
-                val maxAvailableY = screenHeightPx - previewHeightPx - (48 * density).toInt()
-                lp.y = bubbleRestingY.coerceAtMost(maxAvailableY).coerceAtLeast((16 * density).toInt())
+                lp.x = OverlayGeometry.calculateEdgeAnchoredX(
+                    isNearRightEdge = _isNearRightEdge.value,
+                    bubbleRestingX = bubbleRestingX,
+                    collapsedWidthPx = collapsedSizePx,
+                    targetWidthPx = previewWidthPx,
+                    screenWidthPx = screenWidthPx,
+                    density = density
+                )
+                lp.y = OverlayGeometry.clampY(bubbleRestingY, previewHeightPx, screenHeightPx, density)
             }
         }
 
@@ -273,14 +269,13 @@ class FloatingAssistantController(
     }
 
     fun updateTextContext(
-        fullText: String,
-        sentenceText: String,
-        onApplySentence: (String) -> Unit,
-        onUndo: (() -> Unit)? = null,
-        onInsert: ((String) -> Unit)? = null
+        snapshot: EditorSnapshot,
+        onApplySentence: (String) -> TextOperationResult,
+        onUndo: (() -> TextOperationResult)? = null,
+        onInsert: ((String) -> TextOperationResult)? = null
     ) {
-        _currentFullText.value = fullText
-        _currentSentence.value = sentenceText
+        _currentFullText.value = snapshot.fullText
+        _currentSentence.value = snapshot.sentenceText
         this.onApplySentenceCallback = onApplySentence
         this.onUndoCallback = onUndo
         this.onInsertCallback = onInsert
@@ -298,6 +293,8 @@ class FloatingAssistantController(
         _activeCorrection.value = correction
         _errorCount.value = totalErrorCount.coerceAtLeast(1)
         this.onAcceptSingleCorrectionCallback = onAccept
+        this.onAddToDictionaryCallback = onAddToDictionary
+        this.onIgnoreRuleCallback = onIgnoreRule
 
         if (!isViewAttached) {
             attachOverlayView()
@@ -375,6 +372,7 @@ class FloatingAssistantController(
             return
         }
 
+        val requestId = ++currentRequestId
         _previewOriginalText.value = targetText
         _previewImprovedText.value = ""
         _previewErrorMessage.value = null
@@ -388,6 +386,8 @@ class FloatingAssistantController(
                     app.correctionCoordinator.checkSentence(targetText, 0, targetText.length)
                 }
 
+                if (requestId != currentRequestId) return@launch
+
                 var fixed = targetText
                 if (corrections.isNotEmpty()) {
                     val replaced = safeReplacementHelper.applyMultipleCorrections(targetText, corrections)
@@ -399,9 +399,11 @@ class FloatingAssistantController(
                 // Sentence mechanics cleanup
                 fixed = cleanSentencePunctuation(fixed)
 
+                if (requestId != currentRequestId) return@launch
                 _previewImprovedText.value = fixed
                 _isPreviewLoading.value = false
             } catch (e: Exception) {
+                if (requestId != currentRequestId) return@launch
                 Log.e(TAG, "Error in executeFixGrammar", e)
                 _previewErrorMessage.value = "Failed to fix grammar: ${e.localizedMessage}"
                 _isPreviewLoading.value = false
@@ -416,6 +418,7 @@ class FloatingAssistantController(
             return
         }
 
+        val requestId = ++currentRequestId
         _previewOriginalText.value = targetText
         _previewImprovedText.value = ""
         _previewErrorMessage.value = null
@@ -434,6 +437,8 @@ class FloatingAssistantController(
                     )
                 }
 
+                if (requestId != currentRequestId) return@launch
+
                 if (result.isSuccess && result.rewrittenText.isNotBlank()) {
                     _previewImprovedText.value = result.rewrittenText
                     _previewErrorMessage.value = null
@@ -443,6 +448,7 @@ class FloatingAssistantController(
                 }
                 _isPreviewLoading.value = false
             } catch (e: Exception) {
+                if (requestId != currentRequestId) return@launch
                 Log.e(TAG, "Error rewriting text", e)
                 _previewErrorMessage.value = "Rewriting failed: ${e.localizedMessage}"
                 _isPreviewLoading.value = false
@@ -484,20 +490,59 @@ class FloatingAssistantController(
         val improved = _previewImprovedText.value
         if (improved.isBlank()) return
 
-        onApplySentenceCallback?.invoke(improved)
-        _canUndo.value = true
-        setUiState(FloatingUiState.COLLAPSED)
-        clearCorrection()
-        Toast.makeText(context, "Text updated", Toast.LENGTH_SHORT).show()
+        val callback = onApplySentenceCallback
+        if (callback != null) {
+            val result = callback(improved)
+            when (result) {
+                is TextOperationResult.Success -> {
+                    _canUndo.value = true
+                    setUiState(FloatingUiState.COLLAPSED)
+                    clearCorrection()
+                    Toast.makeText(context, "Text updated", Toast.LENGTH_SHORT).show()
+                }
+                is TextOperationResult.StaleSnapshot -> {
+                    Toast.makeText(context, "Editor text was modified. Please review.", Toast.LENGTH_LONG).show()
+                }
+                is TextOperationResult.EditorModified -> {
+                    Toast.makeText(context, "Editor was modified", Toast.LENGTH_SHORT).show()
+                }
+                is TextOperationResult.UnsupportedEditor -> {
+                    copyPreviewText()
+                    Toast.makeText(context, "Direct edit unsupported. Text copied to clipboard.", Toast.LENGTH_LONG).show()
+                }
+                is TextOperationResult.Failure -> {
+                    Toast.makeText(context, result.reason, Toast.LENGTH_LONG).show()
+                }
+            }
+        } else {
+            copyPreviewText()
+        }
     }
 
     fun insertPreviewText() {
         val textToInsert = _previewImprovedText.value
         if (textToInsert.isBlank()) return
 
-        onInsertCallback?.invoke(textToInsert)
-        setUiState(FloatingUiState.COLLAPSED)
-        Toast.makeText(context, "Text inserted", Toast.LENGTH_SHORT).show()
+        val callback = onInsertCallback
+        if (callback != null) {
+            val result = callback(textToInsert)
+            when (result) {
+                is TextOperationResult.Success -> {
+                    _canUndo.value = true
+                    setUiState(FloatingUiState.COLLAPSED)
+                    Toast.makeText(context, "Text inserted", Toast.LENGTH_SHORT).show()
+                }
+                is TextOperationResult.Failure -> {
+                    Toast.makeText(context, result.reason, Toast.LENGTH_LONG).show()
+                }
+                else -> {
+                    copyPreviewText()
+                    Toast.makeText(context, "Direct insert unsupported. Copied to clipboard.", Toast.LENGTH_LONG).show()
+                }
+            }
+        } else {
+            copyPreviewText()
+        }
     }
 
     fun copyPreviewText() {
@@ -510,9 +555,26 @@ class FloatingAssistantController(
     }
 
     fun undoLastChange() {
-        onUndoCallback?.invoke()
-        _canUndo.value = false
-        Toast.makeText(context, "Change undone", Toast.LENGTH_SHORT).show()
+        val callback = onUndoCallback
+        if (callback != null) {
+            val result = callback()
+            when (result) {
+                is TextOperationResult.Success -> {
+                    _canUndo.value = false
+                    Toast.makeText(context, "Change undone", Toast.LENGTH_SHORT).show()
+                }
+                is TextOperationResult.EditorModified -> {
+                    _canUndo.value = false
+                    Toast.makeText(context, "Cannot undo: editor text has changed", Toast.LENGTH_LONG).show()
+                }
+                is TextOperationResult.Failure -> {
+                    Toast.makeText(context, result.reason, Toast.LENGTH_SHORT).show()
+                }
+                else -> {
+                    _canUndo.value = false
+                }
+            }
+        }
     }
 
     fun openAppearanceSettings() {
@@ -586,10 +648,7 @@ class FloatingAssistantController(
         _isNearRightEdge.value = savedX > displayMetrics.widthPixels / 2
 
         val s = appearanceSettings.value
-        val bubbleSizePx = (s.bubbleSizeDp * density).toInt()
-        val paddingPx = (8 * density).toInt()
-        val collapsedWidthPx = bubbleSizePx + paddingPx * 2
-        val collapsedHeightPx = bubbleSizePx + paddingPx * 2
+        val collapsedSizePx = OverlayGeometry.getCollapsedSizePx(density, s.bubbleSizeDp)
 
         val overlayType = if (context is AccessibilityService) {
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
@@ -601,8 +660,8 @@ class FloatingAssistantController(
         }
 
         val params = WindowManager.LayoutParams(
-            collapsedWidthPx,
-            collapsedHeightPx,
+            collapsedSizePx,
+            collapsedSizePx,
             overlayType,
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -642,7 +701,14 @@ class FloatingAssistantController(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                            .pointerInput(currentUiState) {
+                                if (currentUiState != FloatingUiState.COLLAPSED) {
+                                    detectTapGestures {
+                                        setUiState(FloatingUiState.COLLAPSED)
+                                    }
+                                }
+                            }
+                            .padding(horizontal = OverlayGeometry.CONTENT_PADDING_DP.dp, vertical = OverlayGeometry.CONTENT_PADDING_DP.dp),
                         contentAlignment = if (nearRight) Alignment.BottomEnd else Alignment.BottomStart
                     ) {
                         FloatingAssistantView(
@@ -676,6 +742,7 @@ class FloatingAssistantController(
                             onUndo = { undoLastChange() },
                             onOpenSettings = { openAppearanceSettings() },
                             onCollapse = { setUiState(FloatingUiState.COLLAPSED) },
+                            onCollapseTransitionCompleted = { onCollapseTransitionCompleted() },
                             selectedEngine = activeEngine,
                             onSelectEngine = { onSelectEngine(it) }
                         )
@@ -697,7 +764,6 @@ class FloatingAssistantController(
     }
 
     private fun detachOverlayView() {
-        collapseResizeJob?.cancel()
         if (!isViewAttached || overlayView == null) return
         try {
             windowManager.removeView(overlayView)

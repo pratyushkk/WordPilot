@@ -55,6 +55,7 @@ fun FloatingAssistantView(
     onUndo: () -> Unit,
     onOpenSettings: () -> Unit,
     onCollapse: () -> Unit,
+    onCollapseTransitionCompleted: () -> Unit = {},
     selectedEngine: AIEngineType = AIEngineType.LOCAL_AI,
     onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
@@ -80,6 +81,11 @@ fun FloatingAssistantView(
             tween(durationMillis = 280, easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f))
         } else {
             tween(durationMillis = 220, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f))
+        },
+        finishedListener = { finalWidth ->
+            if (!isExpanded && finalWidth <= bubbleSize + 1.dp) {
+                onCollapseTransitionCompleted()
+            }
         },
         label = "pillWidth"
     )

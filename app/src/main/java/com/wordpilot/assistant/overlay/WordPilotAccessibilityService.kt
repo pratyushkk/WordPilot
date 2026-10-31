@@ -23,6 +23,8 @@ import com.wordpilot.assistant.WordPilotApp
 import com.wordpilot.assistant.domain.correction.SafeReplacementHelper
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.domain.models.CorrectionCategory
+import com.wordpilot.assistant.domain.models.EditorSnapshot
+import com.wordpilot.assistant.domain.models.TextOperationResult
 import com.wordpilot.assistant.engine.SentenceSpan
 import com.wordpilot.assistant.utils.Debouncer
 import kotlinx.coroutines.CoroutineScope
@@ -57,12 +59,19 @@ class WordPilotAccessibilityService : AccessibilityService(),
     private val debouncer = Debouncer(serviceScope, 250L)
     private val safeReplacementHelper = SafeReplacementHelper()
 
+    data class UndoRecord(
+        val fullTextBefore: String,
+        val fullTextAfter: String,
+        val selectionBefore: Int
+    )
+
     lateinit var floatingController: FloatingAssistantController
         private set
     private var lastAnalyzedText: String = ""
     private var hideJob: Job? = null
-    private var lastOriginalTextBeforeUndo: String? = null
+    private var lastUndoRecord: UndoRecord? = null
     private var lastActiveSentenceSpan: SentenceSpan? = null
+    private var currentSnapshot: EditorSnapshot? = null
     private var isAutoPauseBankingEnabled: Boolean = false
 
     override fun onCreate() {
@@ -258,22 +267,38 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 return
             }
 
+            val selStart = node.textSelectionStart
+            val selEnd = node.textSelectionEnd
+            val cursor = if (selStart in 0..text.length) selStart else text.length
+
             val app = WordPilotApp.instance
-            val sentence = app.sentenceAnalyzer.findCurrentSentence(text, text.length)
+            val sentence = app.sentenceAnalyzer.findCurrentSentence(text, cursor)
                 ?: SentenceSpan(0, text.length, text)
             lastActiveSentenceSpan = sentence
 
-            floatingController.updateTextContext(
+            val snapshot = EditorSnapshot(
+                packageName = node.packageName?.toString(),
+                fieldIdentifier = node.viewIdResourceName,
                 fullText = text,
+                selectionStart = selStart,
+                selectionEnd = selEnd,
+                sentenceStart = sentence.start,
+                sentenceEnd = sentence.end,
                 sentenceText = sentence.text,
+                capturedAt = System.currentTimeMillis()
+            )
+            currentSnapshot = snapshot
+
+            floatingController.updateTextContext(
+                snapshot = snapshot,
                 onApplySentence = { newSentence ->
-                    applySentenceReplacementToNode(node, text, sentence, newSentence)
+                    applySentenceReplacementToNode(node, snapshot, newSentence)
                 },
                 onUndo = {
                     undoLastReplacement(node)
                 },
                 onInsert = { textToInsert ->
-                    insertTextToNode(node, text, textToInsert)
+                    insertTextToNode(node, snapshot, textToInsert)
                 }
             )
 
@@ -544,28 +569,25 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
     private fun applySentenceReplacementToNode(
         targetNode: AccessibilityNodeInfo,
-        originalFullText: String,
-        sentence: SentenceSpan,
+        snapshot: EditorSnapshot,
         newSentence: String
-    ) {
-        try {
+    ): TextOperationResult {
+        return try {
             val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
             val nodePkg = node.packageName?.toString()
             if (isExcludedPackage(nodePkg)) {
                 Log.w(TAG, "Aborting sentence replacement: target package is excluded: $nodePkg")
-                return
+                return TextOperationResult.UnsupportedEditor
             }
 
-            val currentText = extractNodeText(node).ifBlank { originalFullText }
-            if (sentence.start < 0 || sentence.start > currentText.length || sentence.end > currentText.length || sentence.start >= sentence.end) {
-                Log.w(TAG, "Aborting sentence replacement: sentence span invalid for current text")
-                return
+            val currentText = extractNodeText(node).ifBlank { snapshot.fullText }
+            val updatedText = safeReplacementHelper.replaceSentenceWithSnapshot(currentText, snapshot, newSentence)
+            if (updatedText == null) {
+                Log.w(TAG, "Aborting sentence replacement: text was modified or snapshot stale")
+                return TextOperationResult.StaleSnapshot
             }
-            lastOriginalTextBeforeUndo = currentText
 
-            val updatedText = currentText.substring(0, sentence.start) + newSentence + currentText.substring(sentence.end)
-
-            Log.d(TAG, "Applying sentence replacement at [${sentence.start}, ${sentence.end})")
+            Log.d(TAG, "Applying sentence replacement at [${snapshot.sentenceStart}, ${snapshot.sentenceEnd})")
             val arguments = Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updatedText)
             }
@@ -573,63 +595,104 @@ class WordPilotAccessibilityService : AccessibilityService(),
             Log.d(TAG, "ACTION_SET_TEXT result: $success")
 
             if (success) {
-                val newCursor = (sentence.start + newSentence.length).coerceIn(0, updatedText.length)
+                val newCursor = (snapshot.sentenceStart + newSentence.length).coerceIn(0, updatedText.length)
                 val cursorArgs = Bundle().apply {
                     putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
                     putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
                 }
                 node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
                 lastAnalyzedText = updatedText
+                lastUndoRecord = UndoRecord(
+                    fullTextBefore = currentText,
+                    fullTextAfter = updatedText,
+                    selectionBefore = snapshot.cursorPosition
+                )
+                TextOperationResult.Success
             } else {
                 val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 cm.setPrimaryClip(ClipData.newPlainText("WordPilot Text", newSentence))
+                TextOperationResult.Failure("Field does not support direct replacement. Text copied to clipboard.")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error applying sentence replacement", e)
+            TextOperationResult.Failure("Error replacing text: ${e.localizedMessage}")
         }
     }
 
-    private fun undoLastReplacement(targetNode: AccessibilityNodeInfo) {
-        try {
-            val prevText = lastOriginalTextBeforeUndo ?: return
+    private fun undoLastReplacement(targetNode: AccessibilityNodeInfo): TextOperationResult {
+        return try {
+            val record = lastUndoRecord ?: return TextOperationResult.Failure("No replacement to undo")
             val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
-            val arguments = Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, prevText)
+            val currentText = extractNodeText(node)
+            if (currentText.isNotEmpty() && currentText != record.fullTextAfter) {
+                Log.w(TAG, "Cannot undo: text has been modified since replacement")
+                return TextOperationResult.EditorModified
             }
-            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-            lastAnalyzedText = prevText
-            lastOriginalTextBeforeUndo = null
+
+            val arguments = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, record.fullTextBefore)
+            }
+            val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            if (success) {
+                val cursorArgs = Bundle().apply {
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, record.selectionBefore)
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, record.selectionBefore)
+                }
+                node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
+                lastAnalyzedText = record.fullTextBefore
+                lastUndoRecord = null
+                TextOperationResult.Success
+            } else {
+                TextOperationResult.Failure("Failed to restore text")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error in undoLastReplacement", e)
+            TextOperationResult.Failure("Error undoing replacement: ${e.localizedMessage}")
         }
     }
 
     private fun insertTextToNode(
         targetNode: AccessibilityNodeInfo,
-        currentFullText: String,
+        snapshot: EditorSnapshot,
         textToInsert: String
-    ) {
-        try {
+    ): TextOperationResult {
+        return try {
             val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
             val nodePkg = node.packageName?.toString()
             if (isExcludedPackage(nodePkg)) {
                 Log.w(TAG, "Aborting insertText: target package is excluded: $nodePkg")
-                return
+                return TextOperationResult.UnsupportedEditor
             }
-            val currentText = extractNodeText(node).ifBlank { currentFullText }
-            lastOriginalTextBeforeUndo = currentText
-            val updatedText = if (currentText.isNotEmpty() && !currentText.endsWith(" ")) {
-                "$currentText $textToInsert"
-            } else {
-                "$currentText$textToInsert"
-            }
+            val currentText = extractNodeText(node).ifBlank { snapshot.fullText }
+            val selStart = if (node.textSelectionStart >= 0) node.textSelectionStart else snapshot.selectionStart
+            val selEnd = if (node.textSelectionEnd >= 0) node.textSelectionEnd else snapshot.selectionEnd
+            val (updatedText, newCursor) = safeReplacementHelper.insertAtCursor(currentText, textToInsert, selStart, selEnd)
+
             val arguments = Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updatedText)
             }
-            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-            lastAnalyzedText = updatedText
+            val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            if (success) {
+                val cursorArgs = Bundle().apply {
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
+                }
+                node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
+                lastAnalyzedText = updatedText
+                lastUndoRecord = UndoRecord(
+                    fullTextBefore = currentText,
+                    fullTextAfter = updatedText,
+                    selectionBefore = selStart.coerceIn(0, currentText.length)
+                )
+                TextOperationResult.Success
+            } else {
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("WordPilot Text", textToInsert))
+                TextOperationResult.Failure("Field does not support direct insertion. Text copied to clipboard.")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error in insertTextToNode", e)
+            TextOperationResult.Failure("Error inserting text: ${e.localizedMessage}")
         }
     }
 

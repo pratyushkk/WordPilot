@@ -1,5 +1,9 @@
 package com.wordpilot.assistant.ui.floating
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -50,11 +54,15 @@ fun FloatingBubble(
     var isDimmed by remember { mutableStateOf(false) }
     var lastInteractionTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
-    LaunchedEffect(settings.autoDimEnabled, settings.autoDimDelaySeconds, lastInteractionTimestamp) {
-        if (settings.autoDimEnabled && settings.autoDimDelaySeconds > 0) {
+    LaunchedEffect(settings.autoDimEnabled, settings.autoDimDelaySeconds, lastInteractionTimestamp, isChecking) {
+        if (isChecking) {
+            isDimmed = false
+        } else if (settings.autoDimEnabled && settings.autoDimDelaySeconds > 0) {
             isDimmed = false
             delay(settings.autoDimDelaySeconds * 1000L)
-            isDimmed = true
+            if (!isChecking) {
+                isDimmed = true
+            }
         } else {
             isDimmed = false
         }
@@ -160,19 +168,27 @@ fun FloatingBubble(
                     .background(gradient.createBrush(), alpha = effectiveBgAlpha),
                 contentAlignment = Alignment.Center
             ) {
-                if (isChecking) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(animatedIconSizeDp),
-                        color = Color.White.copy(alpha = effectiveIconAlpha),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.AutoAwesome,
-                        contentDescription = if (isExpanded) "WordPilot AI Anchor (Collapse)" else "WordPilot Assistant",
-                        tint = Color.White.copy(alpha = effectiveIconAlpha),
-                        modifier = Modifier.size(animatedIconSizeDp)
-                    )
+                AnimatedContent(
+                    targetState = isChecking,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(180)) togetherWith fadeOut(animationSpec = tween(180))
+                    },
+                    label = "checkingIndicatorTransition"
+                ) { checking ->
+                    if (checking) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(animatedIconSizeDp),
+                            color = Color.White.copy(alpha = effectiveIconAlpha),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.AutoAwesome,
+                            contentDescription = if (isExpanded) "WordPilot AI Anchor (Collapse)" else "WordPilot Assistant",
+                            tint = Color.White.copy(alpha = effectiveIconAlpha),
+                            modifier = Modifier.size(animatedIconSizeDp)
+                        )
+                    }
                 }
             }
         }
