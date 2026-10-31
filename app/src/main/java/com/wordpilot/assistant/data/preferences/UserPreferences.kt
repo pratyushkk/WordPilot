@@ -28,6 +28,11 @@ class UserPreferences(
         val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
         val SELECTED_ENGINE = stringPreferencesKey("selected_engine")
         val AUTO_PAUSE_BANKING_ENABLED = booleanPreferencesKey("auto_pause_banking_enabled")
+        val BLOCK_CLOUD_AI = booleanPreferencesKey("block_cloud_ai")
+    }
+
+    val blockCloudAi: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[BLOCK_CLOUD_AI] ?: false
     }
 
     val autoPauseBankingEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -40,7 +45,7 @@ class UserPreferences(
     }
 
     val selectedEngine: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[SELECTED_ENGINE] ?: "gemini"
+        prefs[SELECTED_ENGINE] ?: "gector"
     }
 
     val theme: Flow<String> = context.dataStore.data.map { prefs ->
@@ -109,6 +114,15 @@ class UserPreferences(
     suspend fun setAutoPauseBankingEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[AUTO_PAUSE_BANKING_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setBlockCloudAi(blocked: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[BLOCK_CLOUD_AI] = blocked
+            if (blocked) {
+                prefs[SELECTED_ENGINE] = "gector"
+            }
         }
     }
 

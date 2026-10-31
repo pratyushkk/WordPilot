@@ -1,5 +1,6 @@
 package com.wordpilot.assistant.ui.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -187,33 +189,71 @@ fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
 
-                // 1. Local AI Option
-                SettingsEngineOption(
-                    title = "Local AI (Meta Llama 3.2 1B)",
-                    subtitle = "100% on-device neural execution · Total privacy · Works offline without internet or data",
-                    isSelected = uiState.selectedEngine == AIEngineType.LOCAL_AI,
-                    badgeText = if (uiState.isLocalModelInstalled) "Ready On-Device (770 MB)" else "Download required",
-                    badgeOk = uiState.isLocalModelInstalled,
-                    onClick = { viewModel.setSelectedEngine(AIEngineType.LOCAL_AI) }
-                )
-
-                // 2. Cloud API Option
-                val hasApiKey = !uiState.geminiApiKey.isNullOrBlank()
-                SettingsEngineOption(
-                    title = "Cloud API (Google Gemini 1.5)",
-                    subtitle = "Fast cloud intelligence · Deep reasoning · Requires Google Gemini API key",
-                    isSelected = uiState.selectedEngine == AIEngineType.GEMINI_FLASH,
-                    badgeText = if (hasApiKey) "API key configured" else "Key required",
-                    badgeOk = hasApiKey,
-                    onClick = {
-                        viewModel.setSelectedEngine(AIEngineType.GEMINI_FLASH)
-                        if (!hasApiKey) {
-                            showGeminiDialog = true
+                // 0. Block Cloud AI (GECToR Only Mode)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (uiState.blockCloudAi) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         }
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (uiState.blockCloudAi) MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Filled.Shield,
+                                    contentDescription = null,
+                                    tint = if (uiState.blockCloudAi) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Block Cloud AI (GECToR Only)",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Strictly block all external cloud AI & network calls. Use on-device GECToR exclusively for 100% private offline writing assistance.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = uiState.blockCloudAi,
+                            onCheckedChange = { viewModel.setBlockCloudAi(it) }
+                        )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // 1. GECToR On-Device Option
+                SettingsEngineOption(
+                    title = "GECToR Neural Engine (On-Device)",
+                    subtitle = "Dedicated on-device neural grammar error correction · 100% offline · Zero external calls",
+                    isSelected = uiState.selectedEngine == AIEngineType.GECTOR,
+                    badgeText = if (uiState.isGectorModelInstalled) "ONNX Ready" else "Integrated On-Device",
+                    badgeOk = true,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.GECTOR) }
                 )
 
-                // 3. Rule-Based Offline Option
+                // 2. Rule-Based Offline Option
                 SettingsEngineOption(
                     title = "Offline Grammar Rules",
                     subtitle = "Deterministic grammar & spelling rules · Instant (0ms) · Zero battery overhead",
@@ -221,6 +261,36 @@ fun SettingsScreen(
                     badgeText = "Always available",
                     badgeOk = true,
                     onClick = { viewModel.setSelectedEngine(AIEngineType.RULE_BASED) }
+                )
+
+                // 3. Local AI Option (Llama)
+                SettingsEngineOption(
+                    title = "Local AI (Meta Llama 3.2 1B)",
+                    subtitle = "On-device generative rephrasing · Total privacy · Works offline without data",
+                    isSelected = uiState.selectedEngine == AIEngineType.LOCAL_AI,
+                    badgeText = if (uiState.isLocalModelInstalled) "Ready On-Device (770 MB)" else "Download required",
+                    badgeOk = uiState.isLocalModelInstalled,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.LOCAL_AI) }
+                )
+
+                // 4. Cloud API Option
+                val hasApiKey = !uiState.geminiApiKey.isNullOrBlank()
+                SettingsEngineOption(
+                    title = "Cloud API (Google Gemini 1.5)",
+                    subtitle = if (uiState.blockCloudAi) "Blocked by 'Block Cloud AI' setting" else "Fast cloud intelligence · Deep reasoning · Requires Google Gemini API key",
+                    isSelected = uiState.selectedEngine == AIEngineType.GEMINI_FLASH,
+                    badgeText = if (uiState.blockCloudAi) "Blocked" else if (hasApiKey) "API key configured" else "Key required",
+                    badgeOk = !uiState.blockCloudAi && hasApiKey,
+                    onClick = {
+                        if (uiState.blockCloudAi) {
+                            android.widget.Toast.makeText(context, "Cloud AI is blocked. Turn off 'Block Cloud AI' to use Cloud API.", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.setSelectedEngine(AIEngineType.GEMINI_FLASH)
+                            if (!hasApiKey) {
+                                showGeminiDialog = true
+                            }
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))

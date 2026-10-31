@@ -235,4 +235,61 @@ class FloatingAssistantOverhaulTest {
         val failure = results.filterIsInstance<TextOperationResult.Failure>().first()
         assertEquals("Custom error", failure.reason)
     }
+
+    // =========================================================================
+    // GECTOR & BLOCK CLOUD AI TESTS
+    // =========================================================================
+
+    @Test
+    fun testAIEngineTypeGectorRegistration() {
+        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GECTOR, com.wordpilot.assistant.domain.models.AIEngineType.fromId("gector"))
+        assertEquals("GECToR", com.wordpilot.assistant.domain.models.AIEngineType.GECTOR.shortName)
+    }
+
+    @Test
+    fun testRewriteCoordinatorBlocksCloudAiWhenPolicyEnabled() = kotlinx.coroutines.runBlocking {
+        val geminiEngine = com.wordpilot.assistant.engine.impl.GeminiAIEngine { "test_key" }
+        val dummyRepo = com.wordpilot.assistant.data.repository.ModelRepositoryImpl(java.io.File("dummy"))
+        val localEngine = com.wordpilot.assistant.engine.impl.LocalAIEngineImpl(dummyRepo)
+        val spellEngine = object : com.wordpilot.assistant.engine.SpellEngine {
+            override suspend fun check(text: String) = emptyList<com.wordpilot.assistant.domain.models.Correction>()
+            override fun getSuggestions(word: String, maxResults: Int) = emptyList<String>()
+            override fun addWord(word: String) {}
+            override fun removeWord(word: String) {}
+            override fun isKnownWord(word: String) = true
+            override fun isAvailable() = true
+        }
+        val grammarEngine = object : com.wordpilot.assistant.engine.GrammarEngine {
+            override suspend fun check(text: String) = emptyList<com.wordpilot.assistant.domain.models.Correction>()
+            override fun isAvailable() = true
+            override fun getSupportedRuleIds() = emptyList<String>()
+            override fun setDisabledRules(ruleIds: Set<String>) {}
+        }
+        val corrCoordinator = com.wordpilot.assistant.engine.CorrectionCoordinator(spellEngine, grammarEngine)
+        val ruleEngine = com.wordpilot.assistant.engine.impl.RuleBasedRewriteEngine(corrCoordinator, helper)
+
+        val coordinator = com.wordpilot.assistant.engine.RewriteCoordinator(
+            geminiEngine = geminiEngine,
+            localEngine = localEngine,
+            ruleEngine = ruleEngine,
+            initialEngineType = com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH
+        )
+
+        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH, coordinator.selectedEngine.value)
+
+        // Block Cloud AI
+        coordinator.setBlockCloudAi(true)
+        assertTrue(coordinator.isBlockCloudAi)
+
+        // Verifies selected engine automatically switches to GECTOR
+        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GECTOR, coordinator.selectedEngine.value)
+
+        // Attempting to select GEMINI_FLASH while blocked is rejected
+        coordinator.setEngineType(com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH)
+        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GECTOR, coordinator.selectedEngine.value)
+
+        // Verification of rewrite interception: does not call Gemini
+        val result = coordinator.rewrite("This is a clean sentence.", com.wordpilot.assistant.domain.models.RewriteStyle.REWRITE, forcedEngine = com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH)
+        assertTrue(result.isSuccess)
+    }
 }

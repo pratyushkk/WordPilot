@@ -14,11 +14,13 @@ import com.wordpilot.assistant.engine.CorrectionCoordinator
 import com.wordpilot.assistant.engine.RewriteCoordinator
 import com.wordpilot.assistant.engine.SentenceAnalyzer
 import com.wordpilot.assistant.engine.LocalAIEngine
+import com.wordpilot.assistant.engine.gector.GectorOnnxEngine
 import com.wordpilot.assistant.engine.impl.GeminiAIEngine
 import com.wordpilot.assistant.engine.impl.LocalAIEngineImpl
 import com.wordpilot.assistant.engine.impl.RuleBasedGrammarEngine
 import com.wordpilot.assistant.engine.impl.RuleBasedRewriteEngine
 import com.wordpilot.assistant.engine.impl.TrieSpellEngine
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -52,6 +54,8 @@ class WordPilotApp : Application() {
     lateinit var spellEngine: TrieSpellEngine
         private set
     lateinit var grammarEngine: RuleBasedGrammarEngine
+        private set
+    lateinit var gectorEngine: GectorOnnxEngine
         private set
     lateinit var aiEngine: LocalAIEngine
         private set
@@ -97,7 +101,18 @@ class WordPilotApp : Application() {
         offlineGrammarFacade = com.wordpilot.assistant.engine.offline.OfflineGrammarEngineFacade(this)
         spellEngine = TrieSpellEngine(this, offlineGrammarFacade)
         grammarEngine = RuleBasedGrammarEngine(this, offlineGrammarFacade)
-        correctionCoordinator = CorrectionCoordinator(spellEngine, grammarEngine)
+
+        val gectorFile = modelRepository.getGectorModelFile()
+        gectorEngine = GectorOnnxEngine(modelFile = gectorFile)
+        applicationScope.launch {
+            try {
+                gectorEngine.initialize()
+            } catch (e: Exception) {
+                Log.w("WordPilotApp", "GECTOR init: ${e.message}")
+            }
+        }
+
+        correctionCoordinator = CorrectionCoordinator(spellEngine, grammarEngine, gectorEngine)
         sentenceAnalyzer = SentenceAnalyzer()
 
         val safeReplacementHelper = SafeReplacementHelper()
@@ -110,7 +125,8 @@ class WordPilotApp : Application() {
             geminiEngine = geminiEngine,
             localEngine = aiEngine,
             ruleEngine = ruleBasedRewriteEngine,
-            initialEngineType = AIEngineType.GEMINI_FLASH
+            gectorEngine = gectorEngine,
+            initialEngineType = AIEngineType.GECTOR
         )
 
         // Use Cases
@@ -128,6 +144,12 @@ class WordPilotApp : Application() {
         applicationScope.launch {
             userPreferences.geminiApiKey.collect { key ->
                 cachedGeminiApiKey = key
+            }
+        }
+
+        applicationScope.launch {
+            userPreferences.blockCloudAi.collect { blocked ->
+                rewriteCoordinator.setBlockCloudAi(blocked)
             }
         }
 

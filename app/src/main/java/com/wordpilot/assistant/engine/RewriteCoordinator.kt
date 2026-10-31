@@ -1,8 +1,10 @@
 package com.wordpilot.assistant.engine
 
+import com.wordpilot.assistant.domain.correction.SafeReplacementHelper
 import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.RewriteResult
 import com.wordpilot.assistant.domain.models.RewriteStyle
+import com.wordpilot.assistant.engine.gector.GectorOnnxEngine
 import com.wordpilot.assistant.engine.impl.GeminiAIEngine
 import com.wordpilot.assistant.engine.impl.RuleBasedRewriteEngine
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,13 +15,30 @@ class RewriteCoordinator(
     private val geminiEngine: GeminiAIEngine,
     private val localEngine: LocalAIEngine,
     private val ruleEngine: RuleBasedRewriteEngine,
-    initialEngineType: AIEngineType = AIEngineType.GEMINI_FLASH
+    private val gectorEngine: GectorOnnxEngine? = null,
+    private val safeReplacementHelper: SafeReplacementHelper = SafeReplacementHelper(),
+    initialEngineType: AIEngineType = AIEngineType.GECTOR
 ) {
     private val _selectedEngine = MutableStateFlow(initialEngineType)
     val selectedEngine: StateFlow<AIEngineType> = _selectedEngine.asStateFlow()
 
+    @Volatile
+    var isBlockCloudAi: Boolean = false
+        private set
+
+    fun setBlockCloudAi(blocked: Boolean) {
+        isBlockCloudAi = blocked
+        if (blocked && _selectedEngine.value == AIEngineType.GEMINI_FLASH) {
+            _selectedEngine.value = AIEngineType.GECTOR
+        }
+    }
+
     fun setEngineType(type: AIEngineType) {
-        _selectedEngine.value = type
+        if (isBlockCloudAi && type == AIEngineType.GEMINI_FLASH) {
+            _selectedEngine.value = AIEngineType.GECTOR
+        } else {
+            _selectedEngine.value = type
+        }
     }
 
     suspend fun rewrite(
@@ -28,11 +47,21 @@ class RewriteCoordinator(
         customInstruction: String? = null,
         forcedEngine: AIEngineType? = null
     ): RewriteResult {
-        val engineType = forcedEngine ?: _selectedEngine.value
+        val targetEngine = forcedEngine ?: _selectedEngine.value
+        val engineType = if (isBlockCloudAi && targetEngine == AIEngineType.GEMINI_FLASH) {
+            AIEngineType.GECTOR
+        } else {
+            targetEngine
+        }
 
         return when (engineType) {
+            AIEngineType.GECTOR -> {
+                rewriteWithGector(text, style, customInstruction)
+            }
             AIEngineType.GEMINI_FLASH -> {
-                if (!geminiEngine.isModelInstalled) {
+                if (isBlockCloudAi) {
+                    rewriteWithGector(text, style, customInstruction)
+                } else if (!geminiEngine.isModelInstalled) {
                     // Fall back to rule-based engine if user has not configured API key yet
                     val offlineResult = ruleEngine.rewrite(text, style, customInstruction)
                     offlineResult.copy(
@@ -70,6 +99,38 @@ class RewriteCoordinator(
         }
     }
 
+    private suspend fun rewriteWithGector(
+        text: String,
+        style: RewriteStyle,
+        customInstruction: String?
+    ): RewriteResult {
+        if (gectorEngine != null && gectorEngine.isAvailable()) {
+            val corrections = gectorEngine.check(text)
+            if (corrections.isNotEmpty()) {
+                val fixed = safeReplacementHelper.applyMultipleCorrections(text, corrections)
+                return RewriteResult(
+                    originalText = text,
+                    rewrittenText = if (fixed.isNotBlank()) fixed else text,
+                    style = style,
+                    isSuccess = true
+                )
+            }
+        }
+
+        // If GECToR has no corrections or model not yet loaded, run rule-based offline engine
+        val ruleResult = ruleEngine.rewrite(text, style, customInstruction)
+        return if (ruleResult.isSuccess) {
+            ruleResult
+        } else {
+            RewriteResult(
+                originalText = text,
+                rewrittenText = text,
+                style = style,
+                isSuccess = true
+            )
+        }
+    }
+
     fun cancel() {
         geminiEngine.cancelInference()
         localEngine.cancelInference()
@@ -77,7 +138,8 @@ class RewriteCoordinator(
 
     fun isEngineReady(type: AIEngineType): Boolean {
         return when (type) {
-            AIEngineType.GEMINI_FLASH -> geminiEngine.isModelInstalled
+            AIEngineType.GECTOR -> gectorEngine?.isAvailable() == true || true
+            AIEngineType.GEMINI_FLASH -> if (isBlockCloudAi) false else geminiEngine.isModelInstalled
             AIEngineType.LOCAL_AI -> localEngine.isModelInstalled
             AIEngineType.RULE_BASED -> true
         }

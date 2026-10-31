@@ -15,8 +15,10 @@ data class SettingsUiState(
     val historyEnabled: Boolean = false,
     val autoPauseBankingEnabled: Boolean = false,
     val geminiApiKey: String? = null,
-    val selectedEngine: AIEngineType = AIEngineType.LOCAL_AI,
-    val isLocalModelInstalled: Boolean = false
+    val selectedEngine: AIEngineType = AIEngineType.GECTOR,
+    val isLocalModelInstalled: Boolean = false,
+    val isGectorModelInstalled: Boolean = false,
+    val blockCloudAi: Boolean = false
 )
 
 class SettingsViewModel : ViewModel() {
@@ -45,9 +47,16 @@ class SettingsViewModel : ViewModel() {
 
         val engineFlow = combine(
             prefs.selectedEngine,
-            app.modelRepository.modelState
-        ) { engineId, _ ->
-            Pair(AIEngineType.fromId(engineId), app.modelRepository.isModelInstalled())
+            app.modelRepository.modelState,
+            prefs.blockCloudAi
+        ) { engineId, _, blockCloud ->
+            val engine = AIEngineType.fromId(engineId)
+            val effective = if (blockCloud && engine == AIEngineType.GEMINI_FLASH) AIEngineType.GECTOR else engine
+            Triple(
+                effective,
+                app.modelRepository.isModelInstalled(),
+                blockCloud
+            )
         }
 
         viewModelScope.launch {
@@ -56,7 +65,7 @@ class SettingsViewModel : ViewModel() {
                 checkSettingsFlow,
                 extraSettingsFlow,
                 engineFlow
-            ) { theme, (grammar, spell, auto), (history, autoPause, apiKey), (selectedEngine, isModelInstalled) ->
+            ) { theme, (grammar, spell, auto), (history, autoPause, apiKey), (selectedEngine, isModelInstalled, blockCloud) ->
                 SettingsUiState(
                     theme = theme,
                     grammarCheckEnabled = grammar,
@@ -66,7 +75,9 @@ class SettingsViewModel : ViewModel() {
                     autoPauseBankingEnabled = autoPause,
                     geminiApiKey = apiKey,
                     selectedEngine = selectedEngine,
-                    isLocalModelInstalled = isModelInstalled
+                    isLocalModelInstalled = isModelInstalled,
+                    isGectorModelInstalled = app.modelRepository.isGectorModelInstalled(),
+                    blockCloudAi = blockCloud
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -74,10 +85,25 @@ class SettingsViewModel : ViewModel() {
         }
     }
 
+    fun setBlockCloudAi(blocked: Boolean) {
+        viewModelScope.launch {
+            prefs.setBlockCloudAi(blocked)
+            app.rewriteCoordinator.setBlockCloudAi(blocked)
+            if (blocked) {
+                setSelectedEngine(AIEngineType.GECTOR)
+            }
+        }
+    }
+
     fun setSelectedEngine(engine: AIEngineType) {
         viewModelScope.launch {
-            prefs.setSelectedEngine(engine.id)
-            app.rewriteCoordinator.setEngineType(engine)
+            val targetEngine = if (_uiState.value.blockCloudAi && engine == AIEngineType.GEMINI_FLASH) {
+                AIEngineType.GECTOR
+            } else {
+                engine
+            }
+            prefs.setSelectedEngine(targetEngine.id)
+            app.rewriteCoordinator.setEngineType(targetEngine)
         }
     }
 

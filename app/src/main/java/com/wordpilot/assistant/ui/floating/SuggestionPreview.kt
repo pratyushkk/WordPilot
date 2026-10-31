@@ -41,7 +41,7 @@ fun SuggestionPreview(
     onSelectTone: (String) -> Unit,
     currentTone: String,
     settings: AppearanceSettings,
-    selectedEngine: AIEngineType = AIEngineType.LOCAL_AI,
+    selectedEngine: AIEngineType = AIEngineType.GECTOR,
     onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -94,22 +94,23 @@ fun SuggestionPreview(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Engine Choice Switcher (Local AI vs Cloud API)
+            // Engine Choice Switcher (GECToR Offline vs Cloud API)
+            val isOffline = selectedEngine != AIEngineType.GEMINI_FLASH
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Surface(
-                    onClick = { onSelectEngine(AIEngineType.LOCAL_AI) },
+                    onClick = { onSelectEngine(AIEngineType.GECTOR) },
                     shape = RoundedCornerShape(10.dp),
-                    color = if (selectedEngine == AIEngineType.LOCAL_AI) {
+                    color = if (isOffline) {
                         MaterialTheme.colorScheme.primaryContainer
                     } else {
                         Color(settings.glassTintArgb).copy(alpha = 0.4f)
                     },
                     border = BorderStroke(
                         1.dp,
-                        if (selectedEngine == AIEngineType.LOCAL_AI) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
+                        if (isOffline) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
                     ),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -119,10 +120,10 @@ fun SuggestionPreview(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            "📱 Local AI",
+                            "🛡️ GECToR (Offline)",
                             fontSize = 11.sp,
-                            fontWeight = if (selectedEngine == AIEngineType.LOCAL_AI) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedEngine == AIEngineType.LOCAL_AI) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
+                            fontWeight = if (isOffline) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isOffline) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
                         )
                     }
                 }

@@ -26,7 +26,7 @@ data class ModelUiState(
     val memoryMb: Long = 0,
     val loadTimeMs: Long = 0,
     val inferenceMs: Long = 0,
-    val selectedEngine: AIEngineType = AIEngineType.LOCAL_AI
+    val selectedEngine: AIEngineType = AIEngineType.GECTOR
 )
 
 class ModelManagementViewModel : ViewModel() {

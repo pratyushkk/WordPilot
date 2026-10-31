@@ -70,9 +70,27 @@ fun RewriteScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
+                    selected = uiState.selectedEngine == AIEngineType.GECTOR,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.GECTOR) },
+                    label = { Text("🛡️ GECToR (On-Device)") },
+                    leadingIcon = if (uiState.selectedEngine == AIEngineType.GECTOR) {
+                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+
+                FilterChip(
+                    selected = uiState.selectedEngine == AIEngineType.RULE_BASED,
+                    onClick = { viewModel.setSelectedEngine(AIEngineType.RULE_BASED) },
+                    label = { Text("⚡ Offline Rules") },
+                    leadingIcon = if (uiState.selectedEngine == AIEngineType.RULE_BASED) {
+                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+
+                FilterChip(
                     selected = uiState.selectedEngine == AIEngineType.LOCAL_AI,
                     onClick = { viewModel.setSelectedEngine(AIEngineType.LOCAL_AI) },
-                    label = { Text("📱 Local AI (Llama 3.2)") },
+                    label = { Text("📱 Local Llama 3.2") },
                     leadingIcon = if (uiState.selectedEngine == AIEngineType.LOCAL_AI) {
                         { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
                     } else null
@@ -81,17 +99,8 @@ fun RewriteScreen(
                 FilterChip(
                     selected = uiState.selectedEngine == AIEngineType.GEMINI_FLASH,
                     onClick = { viewModel.setSelectedEngine(AIEngineType.GEMINI_FLASH) },
-                    label = { Text("⚡ Cloud API (Gemini)") },
+                    label = { Text("☁️ Cloud API") },
                     leadingIcon = if (uiState.selectedEngine == AIEngineType.GEMINI_FLASH) {
-                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
-
-                FilterChip(
-                    selected = uiState.selectedEngine == AIEngineType.RULE_BASED,
-                    onClick = { viewModel.setSelectedEngine(AIEngineType.RULE_BASED) },
-                    label = { Text("🛡 Offline Rules") },
-                    leadingIcon = if (uiState.selectedEngine == AIEngineType.RULE_BASED) {
                         { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
                     } else null
                 )

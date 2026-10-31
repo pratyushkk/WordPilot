@@ -56,7 +56,7 @@ fun FloatingAssistantView(
     onOpenSettings: () -> Unit,
     onCollapse: () -> Unit,
     onCollapseTransitionCompleted: () -> Unit = {},
-    selectedEngine: AIEngineType = AIEngineType.LOCAL_AI,
+    selectedEngine: AIEngineType = AIEngineType.GECTOR,
     onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {

@@ -2,6 +2,7 @@ package com.wordpilot.assistant.engine
 
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.domain.models.CorrectionSeverity
+import com.wordpilot.assistant.engine.gector.GectorOnnxEngine
 import com.wordpilot.assistant.engine.impl.RuleBasedGrammarEngine
 import com.wordpilot.assistant.engine.impl.TrieSpellEngine
 import com.wordpilot.assistant.engine.offline.model.AnalysisOptions
@@ -10,33 +11,40 @@ import kotlinx.coroutines.coroutineScope
 
 class CorrectionCoordinator(
     private val spellEngine: SpellEngine,
-    private val grammarEngine: GrammarEngine
+    private val grammarEngine: GrammarEngine,
+    private val gectorEngine: GectorOnnxEngine? = null
 ) {
     suspend fun checkText(text: String): List<Correction> = coroutineScope {
         if (text.isBlank()) return@coroutineScope emptyList()
 
+        val gectorJob = async {
+            if (gectorEngine != null && gectorEngine.isAvailable()) {
+                try { gectorEngine.check(text) } catch (e: Exception) { emptyList() }
+            } else {
+                emptyList()
+            }
+        }
+
         // Fast path: if both engines share the same offline facade, run single-pass analysis
-        if (spellEngine is TrieSpellEngine && grammarEngine is RuleBasedGrammarEngine && spellEngine.facade === grammarEngine.facade) {
-            val corrections = spellEngine.facade.analyze(
+        val baseCorrections = if (spellEngine is TrieSpellEngine && grammarEngine is RuleBasedGrammarEngine && spellEngine.facade === grammarEngine.facade) {
+            spellEngine.facade.analyze(
                 rawText = text,
                 options = AnalysisOptions(
                     includeSpelling = spellEngine.isAvailable(),
                     includeGrammar = grammarEngine.isAvailable()
                 )
             )
-            return@coroutineScope resolveOverlaps(corrections)
+        } else {
+            val spellJob = async { 
+                try { spellEngine.check(text) } catch (e: Exception) { emptyList() }
+            }
+            val grammarJob = async { 
+                try { grammarEngine.check(text) } catch (e: Exception) { emptyList() }
+            }
+            spellJob.await() + grammarJob.await()
         }
 
-        val spellJob = async { 
-            try { spellEngine.check(text) } catch (e: Exception) { emptyList() }
-        }
-        val grammarJob = async { 
-            try { grammarEngine.check(text) } catch (e: Exception) { emptyList() }
-        }
-
-        val allCorrections = spellJob.await() + grammarJob.await()
-        
-        // Remove overlapping corrections, preferring higher severity
+        val allCorrections = gectorJob.await() + baseCorrections
         resolveOverlaps(allCorrections)
     }
 
@@ -70,8 +78,8 @@ class CorrectionCoordinator(
     suspend fun checkSentence(text: String, sentenceStart: Int, sentenceEnd: Int): List<Correction> {
         if (text.isBlank() || sentenceStart >= sentenceEnd) return emptyList()
 
-        if (spellEngine is TrieSpellEngine && grammarEngine is RuleBasedGrammarEngine && spellEngine.facade === grammarEngine.facade) {
-            val corrections = spellEngine.facade.checkSentenceSpan(
+        val baseCorrections = if (spellEngine is TrieSpellEngine && grammarEngine is RuleBasedGrammarEngine && spellEngine.facade === grammarEngine.facade) {
+            spellEngine.facade.checkSentenceSpan(
                 rawText = text,
                 sentenceStart = sentenceStart,
                 sentenceEnd = sentenceEnd,
@@ -80,15 +88,28 @@ class CorrectionCoordinator(
                     includeGrammar = grammarEngine.isAvailable()
                 )
             )
-            return resolveOverlaps(corrections)
+        } else {
+            val sentence = text.substring(sentenceStart, sentenceEnd.coerceAtMost(text.length))
+            val corrections = checkText(sentence)
+            corrections.map { it.copy(
+                startOffset = it.startOffset + sentenceStart,
+                endOffset = it.endOffset + sentenceStart
+            )}
         }
 
-        val sentence = text.substring(sentenceStart, sentenceEnd.coerceAtMost(text.length))
-        val corrections = checkText(sentence)
-        // Adjust offsets to absolute positions
-        return corrections.map { it.copy(
-            startOffset = it.startOffset + sentenceStart,
-            endOffset = it.endOffset + sentenceStart
-        )}
+        if (gectorEngine != null && gectorEngine.isAvailable()) {
+            val sentence = text.substring(sentenceStart, sentenceEnd.coerceAtMost(text.length))
+            val gectorResults = try {
+                gectorEngine.check(sentence).map { it.copy(
+                    startOffset = it.startOffset + sentenceStart,
+                    endOffset = it.endOffset + sentenceStart
+                )}
+            } catch (e: Exception) {
+                emptyList()
+            }
+            return resolveOverlaps(gectorResults + baseCorrections)
+        }
+
+        return resolveOverlaps(baseCorrections)
     }
 }
