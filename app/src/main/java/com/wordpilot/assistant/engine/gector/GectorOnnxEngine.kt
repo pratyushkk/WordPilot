@@ -19,16 +19,24 @@ class GectorOnnxEngine(
     companion object {
         private const val TAG = "GectorOnnxEngine"
         // Standard GECToR error detection threshold (Omelianchuk et al., 2020)
-        private const val DEFAULT_MIN_ERROR_PROB = 0.45f
+        private const val DEFAULT_MIN_ERROR_PROB = 0.50f
+        private const val DEFAULT_ADDITIONAL_CONFIDENCE = 0.20f
     }
 
     private var ortEnv: OrtEnvironment? = null
     private var ortSession: OrtSession? = null
     private var isInitialized = false
+    private var keepTagIndex: Int = 1
 
     private val conjugator = GectorVerbConjugator()
     private var tokenizer: GectorTokenizer = GectorTokenizer()
     private var tagDecoder = GectorTagDecoder(conjugator)
+
+    init {
+        if (tagVocab.isNotEmpty()) {
+            keepTagIndex = tagVocab.indexOf(GectorTagDecoder.TAG_KEEP).takeIf { it >= 0 } ?: 1
+        }
+    }
 
     fun isAvailable(): Boolean = isInitialized && ortSession != null
 
@@ -54,7 +62,8 @@ class GectorOnnxEngine(
                             list.add(arr.getString(i))
                         }
                         tagVocab = list
-                        Log.d(TAG, "Loaded ${tagVocab.size} GECToR tag labels from ${labelFile.name}")
+                        keepTagIndex = tagVocab.indexOf(GectorTagDecoder.TAG_KEEP).takeIf { it >= 0 } ?: 1
+                        Log.d(TAG, "Loaded ${tagVocab.size} GECToR tag labels (keepTagIndex=$keepTagIndex) from ${labelFile.name}")
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to parse labels.json", e)
@@ -102,7 +111,8 @@ class GectorOnnxEngine(
     suspend fun check(
         text: String,
         maxIterations: Int = 2,
-        minErrorProbability: Float = DEFAULT_MIN_ERROR_PROB
+        minErrorProbability: Float = DEFAULT_MIN_ERROR_PROB,
+        additionalConfidence: Float = DEFAULT_ADDITIONAL_CONFIDENCE
     ): List<Correction> = withContext(Dispatchers.Default) {
         if (!isAvailable() || text.isBlank()) {
             return@withContext emptyList()
@@ -144,25 +154,19 @@ class GectorOnnxEngine(
 
                 // Loop over tokens (excluding <s> at 0 and </s> at size-1)
                 for (t in 1 until batchLabels.size - 1) {
-                    val probs = batchLabels[t]
+                    val probs = batchLabels[t].clone()
                     val errProb = batchErrors?.getOrNull(t) ?: 0f
 
-                    val predictedTag = if (errProb >= minErrorProbability) {
-                        // Error detected: pick highest non-KEEP tag
-                        var bestNonKeepTag = GectorTagDecoder.TAG_KEEP
-                        var bestNonKeepProb = -1f
+                    // Official GECToR inference tweak: add additional_confidence bias to $KEEP probability
+                    if (keepTagIndex in probs.indices) {
+                        probs[keepTagIndex] += additionalConfidence
+                    }
 
-                        for (idx in probs.indices) {
-                            val tagName = tagVocab.getOrElse(idx) { GectorTagDecoder.TAG_KEEP }
-                            if (tagName != GectorTagDecoder.TAG_KEEP && tagName != "<OOV>" && probs[idx] > bestNonKeepProb) {
-                                bestNonKeepProb = probs[idx]
-                                bestNonKeepTag = tagName
-                            }
-                        }
-
-                        if (bestNonKeepProb > 0.05f) bestNonKeepTag else GectorTagDecoder.TAG_KEEP
+                    val maxIdx = probs.indices.maxByOrNull { probs[it] } ?: keepTagIndex
+                    val predictedTag = if (maxIdx != keepTagIndex && errProb >= minErrorProbability) {
+                        val chosen = tagVocab.getOrElse(maxIdx) { GectorTagDecoder.TAG_KEEP }
+                        if (chosen != "<OOV>") chosen else GectorTagDecoder.TAG_KEEP
                     } else {
-                        // Confident correct token
                         GectorTagDecoder.TAG_KEEP
                     }
 

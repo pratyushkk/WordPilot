@@ -106,8 +106,8 @@ class GectorComprehensiveSentenceTest {
             ),
             SentenceTestCase(
                 category = "Medium Sentences",
-                input = "The group of students were excited about their new project.",
-                description = "Collective subject-verb agreement"
+                input = "The student were excited about the new project.",
+                description = "Singular subject-verb agreement ('student were' -> 'student was')"
             ),
 
             // === 3. Long Multi-Sentence Paragraphs ===
@@ -144,8 +144,8 @@ class GectorComprehensiveSentenceTest {
             ),
             SentenceTestCase(
                 category = "Edge Cases",
-                input = "On January 15 2024 they visited 3 different cities.",
-                description = "Date formatting and numbers"
+                input = "i am getting many incorrect results, whats the best way to fix it",
+                description = "User query test: capitalization ('i' -> 'I'), contraction ('whats' -> 'what's'), ending punctuation ('it?')"
             )
         )
 

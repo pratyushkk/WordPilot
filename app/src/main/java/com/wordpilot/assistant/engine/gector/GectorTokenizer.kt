@@ -95,9 +95,9 @@ class GectorTokenizer(
             val hasLeadingSpace = (i > 0 && text[i - 1].isWhitespace())
             val start = i
 
-            // Word extraction: group alphanumeric or punctuation
+            // Word extraction: group alphanumeric and internal apostrophes for contractions (e.g. they'll, don't, it's)
             if (ch.isLetterOrDigit()) {
-                while (i < len && text[i].isLetterOrDigit()) {
+                while (i < len && (text[i].isLetterOrDigit() || (text[i] == '\'' && i + 1 < len && text[i + 1].isLetter()))) {
                     i++
                 }
             } else {

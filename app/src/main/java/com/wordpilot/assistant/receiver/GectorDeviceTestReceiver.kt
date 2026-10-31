@@ -58,7 +58,8 @@ class GectorDeviceTestReceiver : BroadcastReceiver() {
 
                     // Edge Cases
                     "Edge" to "i'm not sure if they'll arrive on time today",
-                    "Edge" to "On January 15 2024 they visited 3 different cities."
+                    "Edge" to "On January 15 2024 they visited 3 different cities.",
+                    "User Query" to "i am getting many incorrect results, whats the best way to fix it"
                 )
 
                 val reportBuilder = StringBuilder()

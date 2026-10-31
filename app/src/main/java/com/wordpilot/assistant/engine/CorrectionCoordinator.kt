@@ -233,15 +233,36 @@ class CorrectionCoordinator(
 
         if (useGectorOnly && gectorEngine != null && gectorEngine.isAvailable()) {
             val sentence = text.substring(sentenceStart, sentenceEnd.coerceAtMost(text.length))
+            val capPunctCorrections = checkCapitalizationAndPunctuation(sentence, listOf(SentenceSpan(0, sentence.length, sentence)))
+            var normalizedForGector = sentence
+            for (c in capPunctCorrections.filter { it.category == CorrectionCategory.CAPITALIZATION }.sortedByDescending { it.startOffset }) {
+                val repl = c.suggestedReplacement ?: continue
+                if (c.originalText.length == repl.length) {
+                    normalizedForGector = normalizedForGector.substring(0, c.startOffset) + repl + normalizedForGector.substring(c.endOffset)
+                }
+            }
+            if (!normalizedForGector.endsWith(".") && !normalizedForGector.endsWith("?") && !normalizedForGector.endsWith("!")) {
+                normalizedForGector = "$normalizedForGector."
+            }
+
             val gectorResults = try {
-                gectorEngine.check(sentence).map { it.copy(
-                    startOffset = it.startOffset + sentenceStart,
-                    endOffset = it.endOffset + sentenceStart
-                )}
+                gectorEngine.check(normalizedForGector).mapNotNull {
+                    if (it.startOffset >= sentence.length) null
+                    else it.copy(
+                        startOffset = (it.startOffset + sentenceStart).coerceAtMost(sentenceEnd),
+                        endOffset = (it.endOffset + sentenceStart).coerceAtMost(sentenceEnd)
+                    )
+                }
             } catch (e: Exception) {
                 emptyList()
             }
-            return resolveOverlaps(gectorResults)
+            val allResults = mutableListOf<Correction>()
+            allResults.addAll(gectorResults)
+            allResults.addAll(capPunctCorrections.map { it.copy(
+                startOffset = it.startOffset + sentenceStart,
+                endOffset = it.endOffset + sentenceStart
+            )})
+            return resolveOverlaps(allResults)
         }
 
         if (useGectorOnly) {
