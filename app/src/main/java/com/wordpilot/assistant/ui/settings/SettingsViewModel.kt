@@ -95,15 +95,10 @@ class SettingsViewModel : ViewModel() {
         }
     }
 
-    fun setSelectedEngine(engine: AIEngineType) {
+    fun setSelectedEngine(engine: AIEngineType = AIEngineType.GECTOR) {
         viewModelScope.launch {
-            val targetEngine = if (_uiState.value.blockCloudAi && engine == AIEngineType.GEMINI_FLASH) {
-                AIEngineType.GECTOR
-            } else {
-                engine
-            }
-            prefs.setSelectedEngine(targetEngine.id)
-            app.rewriteCoordinator.setEngineType(targetEngine)
+            prefs.setSelectedEngine(AIEngineType.GECTOR.id)
+            app.rewriteCoordinator.setEngineType(AIEngineType.GECTOR)
         }
     }
 

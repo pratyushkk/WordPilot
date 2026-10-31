@@ -180,12 +180,6 @@ fun EditorScreen(
                                 Text(if (showSuggestions) "Hide" else "Check Writing")
                             }
 
-                            if (uiState.text.isNotBlank()) {
-                                TextButton(onClick = { onNavigateToRewrite(uiState.text) }) {
-                                    Text("Rewrite")
-                                }
-                            }
-
                             IconButton(onClick = { showClearDialog = true }) {
                                 Icon(
                                     Icons.Filled.DeleteOutline,

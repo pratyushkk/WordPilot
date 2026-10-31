@@ -107,7 +107,7 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Check spelling, grammar & rephrase text using your favorite Android keyboard",
+                            "Neural grammar error correction powered by GECToR on-device",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )

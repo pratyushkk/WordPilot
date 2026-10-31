@@ -317,50 +317,20 @@ class FloatingAssistantController(
 
     fun onActionSelected(actionId: String) {
         when (actionId) {
+            "fix_grammar", "punctuation" -> {
+                executeFixGrammar()
+            }
+            "settings" -> {
+                openAppearanceSettings()
+            }
             "more" -> {
                 setUiState(FloatingUiState.MORE_OPTIONS)
             }
             "back_to_expanded" -> {
                 setUiState(FloatingUiState.EXPANDED)
             }
-            "fix_grammar" -> {
-                executeFixGrammar()
-            }
-            "rephrase" -> {
-                executeRewrite(RewriteStyle.REWRITE, "Default")
-            }
-            "professional" -> {
-                executeRewrite(RewriteStyle.MAKE_PROFESSIONAL, "Professional")
-            }
-            "shorten" -> {
-                executeRewrite(RewriteStyle.MAKE_CONCISE, "Concise")
-            }
-            "expand" -> {
-                executeRewrite(RewriteStyle.REWRITE, "Expanded", "Elaborate and expand the following text with richer details:")
-            }
-            "casual" -> {
-                executeRewrite(RewriteStyle.MAKE_CASUAL, "Casual")
-            }
-            "formal" -> {
-                executeRewrite(RewriteStyle.MAKE_PROFESSIONAL, "Formal")
-            }
-            "friendly" -> {
-                executeRewrite(RewriteStyle.MAKE_POLITE, "Friendly")
-            }
-            "summarize" -> {
-                executeRewrite(RewriteStyle.MAKE_CONCISE, "Summary")
-            }
-            "translate" -> {
-                executeRewrite(RewriteStyle.CUSTOM, "Translate", "Translate the following text to natural English:")
-            }
-            "clarity" -> {
-                executeRewrite(RewriteStyle.IMPROVE_CLARITY, "Clarity")
-            }
-            "punctuation" -> {
-                executeFixGrammar()
-            }
             else -> {
-                executeRewrite(RewriteStyle.REWRITE, "Default")
+                executeFixGrammar()
             }
         }
     }
@@ -412,77 +382,22 @@ class FloatingAssistantController(
     }
 
     private fun executeRewrite(style: RewriteStyle, toneName: String, customPrompt: String? = null) {
-        val targetText = getTargetText()
-        if (targetText.isBlank()) {
-            Toast.makeText(context, "No text detected to rephrase", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val requestId = ++currentRequestId
-        _previewOriginalText.value = targetText
-        _previewImprovedText.value = ""
-        _previewErrorMessage.value = null
-        _isPreviewLoading.value = true
-        _currentTone.value = toneName
-        setUiState(FloatingUiState.PREVIEW)
-
-        controllerScope.launch {
-            try {
-                val app = WordPilotApp.instance
-                val result = withContext(Dispatchers.Default) {
-                    app.rewriteCoordinator.rewrite(
-                        text = targetText,
-                        style = style,
-                        customInstruction = customPrompt
-                    )
-                }
-
-                if (requestId != currentRequestId) return@launch
-
-                if (result.isSuccess && result.rewrittenText.isNotBlank()) {
-                    _previewImprovedText.value = result.rewrittenText
-                    _previewErrorMessage.value = null
-                } else {
-                    _previewImprovedText.value = result.rewrittenText.ifBlank { targetText }
-                    _previewErrorMessage.value = result.errorMessage
-                }
-                _isPreviewLoading.value = false
-            } catch (e: Exception) {
-                if (requestId != currentRequestId) return@launch
-                Log.e(TAG, "Error rewriting text", e)
-                _previewErrorMessage.value = "Rewriting failed: ${e.localizedMessage}"
-                _isPreviewLoading.value = false
-            }
-        }
+        executeFixGrammar()
     }
 
     fun onCustomPromptSubmit(prompt: String) {
-        executeRewrite(RewriteStyle.CUSTOM, "Custom", prompt)
+        executeFixGrammar()
     }
 
     fun onToneSelected(tone: String) {
-        when (tone.lowercase()) {
-            "professional", "formal" -> executeRewrite(RewriteStyle.MAKE_PROFESSIONAL, tone)
-            "casual" -> executeRewrite(RewriteStyle.MAKE_CASUAL, tone)
-            "friendly" -> executeRewrite(RewriteStyle.MAKE_POLITE, tone)
-            else -> executeRewrite(RewriteStyle.REWRITE, "Default")
-        }
+        executeFixGrammar()
     }
 
     fun onSelectEngine(engine: AIEngineType) {
         val app = WordPilotApp.instance
-        app.rewriteCoordinator.setEngineType(engine)
+        app.rewriteCoordinator.setEngineType(AIEngineType.GECTOR)
         controllerScope.launch {
-            app.userPreferences.setSelectedEngine(engine.id)
-        }
-        if (_uiState.value == FloatingUiState.PREVIEW && _previewOriginalText.value.isNotBlank()) {
-            val style = when (_currentTone.value.lowercase()) {
-                "professional", "formal" -> RewriteStyle.MAKE_PROFESSIONAL
-                "casual" -> RewriteStyle.MAKE_CASUAL
-                "friendly" -> RewriteStyle.MAKE_POLITE
-                else -> RewriteStyle.REWRITE
-            }
-            executeRewrite(style, _currentTone.value)
+            app.userPreferences.setSelectedEngine(AIEngineType.GECTOR.id)
         }
     }
 

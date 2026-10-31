@@ -71,8 +71,8 @@ data class AppearanceSettings(
     val chipLabelSizeSp: Float = 12f,
 
     // Quick Actions
-    val activeQuickActions: List<String> = listOf("fix_grammar", "rephrase", "professional", "shorten", "more"),
-    val moreActions: List<String> = listOf("expand", "casual", "formal", "friendly", "summarize", "translate", "clarity", "punctuation", "custom_prompt"),
+    val activeQuickActions: List<String> = listOf("fix_grammar", "settings"),
+    val moreActions: List<String> = emptyList(),
 
     // Animation & Timers
     val animationsEnabled: Boolean = true,
@@ -198,8 +198,10 @@ data class AppearanceSettings(
                 chipIconSizeDp = sp.getFloat(KEY_CHIP_ICON_SIZE, defaultInst.chipIconSizeDp),
                 chipLabelSizeSp = sp.getFloat(KEY_CHIP_LABEL_SIZE, defaultInst.chipLabelSizeSp),
 
-                activeQuickActions = parseStringList(KEY_ACTIVE_QUICK_ACTIONS, defaultInst.activeQuickActions),
-                moreActions = parseStringList(KEY_MORE_ACTIONS, defaultInst.moreActions),
+                activeQuickActions = parseStringList(KEY_ACTIVE_QUICK_ACTIONS, defaultInst.activeQuickActions)
+                    .filter { it == "fix_grammar" || it == "settings" }
+                    .ifEmpty { listOf("fix_grammar", "settings") },
+                moreActions = emptyList(),
 
                 animationsEnabled = sp.getBoolean(KEY_ANIMATIONS_ENABLED, defaultInst.animationsEnabled),
                 autoCollapseDelaySeconds = sp.getInt(KEY_AUTO_COLLAPSE_DELAY, defaultInst.autoCollapseDelaySeconds)

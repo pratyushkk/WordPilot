@@ -45,8 +45,6 @@ fun SuggestionPreview(
     onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val toneOptions = listOf("Default", "Professional", "Casual", "Friendly", "Formal")
-    val toneScrollState = rememberScrollState()
     val textScrollState = rememberScrollState()
 
     GlassBackground(
@@ -66,18 +64,20 @@ fun SuggestionPreview(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            // Header: Status / Tone row
+            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = if (isLoading) "Polishing writing..." else "Review changes",
-                    color = AssistantColors.TextPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (isLoading) "Checking grammar with GECToR..." else "GECToR Grammar Review",
+                        color = AssistantColors.TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
                 IconButton(
                     onClick = onCancel,
@@ -92,108 +92,7 @@ fun SuggestionPreview(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Engine Choice Switcher (GECToR Offline vs Cloud API)
-            val isOffline = selectedEngine != AIEngineType.GEMINI_FLASH
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Surface(
-                    onClick = { onSelectEngine(AIEngineType.GECTOR) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isOffline) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        Color(settings.glassTintArgb).copy(alpha = 0.4f)
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        if (isOffline) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
-                    ),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "🛡️ GECToR (Offline)",
-                            fontSize = 11.sp,
-                            fontWeight = if (isOffline) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isOffline) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
-                        )
-                    }
-                }
-
-                Surface(
-                    onClick = { onSelectEngine(AIEngineType.GEMINI_FLASH) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (selectedEngine == AIEngineType.GEMINI_FLASH) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        Color(settings.glassTintArgb).copy(alpha = 0.4f)
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        if (selectedEngine == AIEngineType.GEMINI_FLASH) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
-                    ),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "⚡ Cloud API",
-                            fontSize = 11.sp,
-                            fontWeight = if (selectedEngine == AIEngineType.GEMINI_FLASH) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedEngine == AIEngineType.GEMINI_FLASH) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Tone pills row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(toneScrollState),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                toneOptions.forEach { tone ->
-                    val isSelected = tone.equals(currentTone, ignoreCase = true)
-                    Surface(
-                        onClick = { onSelectTone(tone) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) AssistantColors.AccentBlue.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.06f),
-                        border = androidx.compose.foundation.BorderStroke(
-                            0.8.dp,
-                            if (isSelected) AssistantColors.AccentBlue else Color.White.copy(alpha = 0.1f)
-                        ),
-                        modifier = Modifier.height(26.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(horizontal = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = tone,
-                                fontSize = 11.sp,
-                                color = if (isSelected) AssistantColors.AccentCyan else AssistantColors.TextSecondary,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Diff / Text display box
             Box(
@@ -218,7 +117,7 @@ fun SuggestionPreview(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Analyzing with AI...",
+                            text = "GECToR neural inference...",
                             color = AssistantColors.TextSecondary,
                             fontSize = 12.sp
                         )

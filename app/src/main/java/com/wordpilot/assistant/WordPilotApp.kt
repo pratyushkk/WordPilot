@@ -112,7 +112,7 @@ class WordPilotApp : Application() {
             }
         }
 
-        correctionCoordinator = CorrectionCoordinator(spellEngine, grammarEngine, gectorEngine)
+        correctionCoordinator = CorrectionCoordinator(spellEngine, grammarEngine, gectorEngine, useGectorOnly = true)
         sentenceAnalyzer = SentenceAnalyzer()
 
         val safeReplacementHelper = SafeReplacementHelper()

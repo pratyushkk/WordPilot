@@ -9,9 +9,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,16 +26,13 @@ import com.wordpilot.assistant.ui.theme.AssistantColors
 fun MoreOptionsPanel(
     settings: AppearanceSettings,
     onActionClick: (String) -> Unit,
-    onCustomPromptSubmit: (String) -> Unit,
+    onCustomPromptSubmit: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
     onBack: () -> Unit,
     selectedEngine: AIEngineType = AIEngineType.GECTOR,
     onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var showCustomPromptInput by remember { mutableStateOf(false) }
-    var customPromptText by remember { mutableStateOf("") }
-
     GlassBackground(
         modifier = modifier
             .widthIn(max = 340.dp)
@@ -55,14 +50,14 @@ fun MoreOptionsPanel(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            // Header: Minimal back/close and settings icon
+            // Header: Close and settings icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "AI Writing Tools",
+                    text = "GECToR Grammar Assistant",
                     color = AssistantColors.TextPrimary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
@@ -97,144 +92,30 @@ fun MoreOptionsPanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Engine Choice Switcher (GECToR Offline vs Cloud API)
-            val isOffline = selectedEngine != AIEngineType.GEMINI_FLASH
+            // Actions row: Fix Grammar and Settings
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Surface(
-                    onClick = { onSelectEngine(AIEngineType.GECTOR) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isOffline) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        Color(settings.glassTintArgb).copy(alpha = 0.4f)
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        if (isOffline) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
-                    ),
+                ActionChip(
+                    label = "Fix Grammar",
+                    icon = androidx.compose.material.icons.Icons.Filled.Spellcheck,
+                    iconSize = 16.dp,
+                    labelSize = 11.sp,
+                    onClick = { onActionClick("fix_grammar") },
                     modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "🛡️ GECToR (Offline)",
-                            fontSize = 11.sp,
-                            fontWeight = if (isOffline) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isOffline) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
-                        )
-                    }
-                }
+                )
 
-                Surface(
-                    onClick = { onSelectEngine(AIEngineType.GEMINI_FLASH) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (selectedEngine == AIEngineType.GEMINI_FLASH) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        Color(settings.glassTintArgb).copy(alpha = 0.4f)
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        if (selectedEngine == AIEngineType.GEMINI_FLASH) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
-                    ),
+                ActionChip(
+                    label = "Settings",
+                    icon = androidx.compose.material.icons.Icons.Filled.Palette,
+                    iconSize = 16.dp,
+                    labelSize = 11.sp,
+                    onClick = onOpenSettings,
                     modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "⚡ Cloud API",
-                            fontSize = 11.sp,
-                            fontWeight = if (selectedEngine == AIEngineType.GEMINI_FLASH) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedEngine == AIEngineType.GEMINI_FLASH) MaterialTheme.colorScheme.onPrimaryContainer else AssistantColors.TextPrimary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            if (showCustomPromptInput) {
-                // Custom prompt input
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = customPromptText,
-                        onValueChange = { customPromptText = it },
-                        placeholder = {
-                            Text("e.g. Make it sound like Shakespeare...", fontSize = 12.sp, color = AssistantColors.TextMuted)
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AssistantColors.AccentCyan,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        singleLine = true,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    IconButton(
-                        onClick = {
-                            if (customPromptText.isNotBlank()) {
-                                onCustomPromptSubmit(customPromptText.trim())
-                                showCustomPromptInput = false
-                            }
-                        },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Send,
-                            contentDescription = "Submit",
-                            tint = AssistantColors.AccentCyan
-                        )
-                    }
-                }
-            } else {
-                // Grid of options
-                val itemsToShow = settings.moreActions.mapNotNull { DefaultActionItems.findById(it) }
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 220.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(itemsToShow) { item ->
-                        ActionChip(
-                            label = item.label,
-                            icon = item.icon,
-                            iconSize = 16.dp,
-                            labelSize = 11.sp,
-                            onClick = {
-                                if (item.id == "custom_prompt") {
-                                    showCustomPromptInput = true
-                                } else {
-                                    onActionClick(item.id)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
+                )
             }
         }
     }

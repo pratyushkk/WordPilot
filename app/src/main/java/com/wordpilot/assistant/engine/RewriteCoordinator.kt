@@ -117,18 +117,13 @@ class RewriteCoordinator(
             }
         }
 
-        // If GECToR has no corrections or model not yet loaded, run rule-based offline engine
-        val ruleResult = ruleEngine.rewrite(text, style, customInstruction)
-        return if (ruleResult.isSuccess) {
-            ruleResult
-        } else {
-            RewriteResult(
-                originalText = text,
-                rewrittenText = text,
-                style = style,
-                isSuccess = true
-            )
-        }
+        // Return original text with no built-in rule fallbacks
+        return RewriteResult(
+            originalText = text,
+            rewrittenText = text,
+            style = style,
+            isSuccess = true
+        )
     }
 
     fun cancel() {

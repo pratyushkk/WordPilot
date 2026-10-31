@@ -25,37 +25,11 @@ data class ToolbarActionItem(
 
 object DefaultActionItems {
     val FixGrammar = ToolbarActionItem("fix_grammar", "Fix Grammar", Icons.Filled.Spellcheck)
-    val Rephrase = ToolbarActionItem("rephrase", "Rephrase", Icons.Filled.AutoFixHigh)
-    val Professional = ToolbarActionItem("professional", "Professional", Icons.Filled.BusinessCenter)
-    val Shorten = ToolbarActionItem("shorten", "Shorten", Icons.Filled.Compress)
-    val More = ToolbarActionItem("more", "More", Icons.Filled.MoreHoriz)
-
-    // Secondary items
-    val Expand = ToolbarActionItem("expand", "Expand", Icons.Filled.OpenInFull)
-    val Casual = ToolbarActionItem("casual", "Casual", Icons.Filled.SentimentSatisfied)
-    val Formal = ToolbarActionItem("formal", "Formal", Icons.Filled.AccountBalance)
-    val Friendly = ToolbarActionItem("friendly", "Friendly", Icons.Filled.FavoriteBorder)
-    val Summarize = ToolbarActionItem("summarize", "Summarize", Icons.Filled.Summarize)
-    val Translate = ToolbarActionItem("translate", "Translate", Icons.Filled.Translate)
-    val Clarity = ToolbarActionItem("clarity", "Improve Clarity", Icons.Filled.Lightbulb)
-    val Punctuation = ToolbarActionItem("punctuation", "Fix Punctuation", Icons.Filled.EditNote)
-    val CustomPrompt = ToolbarActionItem("custom_prompt", "Custom Prompt", Icons.Filled.Psychology)
+    val Settings = ToolbarActionItem("settings", "Settings", Icons.Filled.Settings)
 
     val AllItems = listOf(
         FixGrammar,
-        Rephrase,
-        Professional,
-        Shorten,
-        More,
-        Expand,
-        Casual,
-        Formal,
-        Friendly,
-        Summarize,
-        Translate,
-        Clarity,
-        Punctuation,
-        CustomPrompt
+        Settings
     )
 
     fun findById(id: String): ToolbarActionItem? = AllItems.find { it.id == id }
@@ -100,9 +74,9 @@ fun ToolbarActionsContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val actionIds = if (settings.activeQuickActions.isNotEmpty()) {
-                settings.activeQuickActions
+                settings.activeQuickActions.filter { it == "fix_grammar" || it == "settings" }.ifEmpty { listOf("fix_grammar", "settings") }
             } else {
-                listOf("fix_grammar", "rephrase", "professional", "shorten", "more")
+                listOf("fix_grammar", "settings")
             }
 
             actionIds.forEach { actionId ->

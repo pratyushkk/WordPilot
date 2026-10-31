@@ -12,20 +12,27 @@ import kotlinx.coroutines.coroutineScope
 class CorrectionCoordinator(
     private val spellEngine: SpellEngine,
     private val grammarEngine: GrammarEngine,
-    private val gectorEngine: GectorOnnxEngine? = null
+    private val gectorEngine: GectorOnnxEngine? = null,
+    private val useGectorOnly: Boolean = (gectorEngine != null)
 ) {
     suspend fun checkText(text: String): List<Correction> = coroutineScope {
         if (text.isBlank()) return@coroutineScope emptyList()
 
-        val gectorJob = async {
-            if (gectorEngine != null && gectorEngine.isAvailable()) {
-                try { gectorEngine.check(text) } catch (e: Exception) { emptyList() }
-            } else {
+        if (useGectorOnly && gectorEngine != null && gectorEngine.isAvailable()) {
+            val gectorCorrections = try {
+                gectorEngine.check(text)
+            } catch (e: Exception) {
                 emptyList()
             }
+            return@coroutineScope resolveOverlaps(gectorCorrections)
         }
 
-        // Fast path: if both engines share the same offline facade, run single-pass analysis
+        if (useGectorOnly) {
+            // Built-in offline grammar engine is excluded per user configuration
+            return@coroutineScope emptyList()
+        }
+
+        // Fast path for test mocks where GECToR is null
         val baseCorrections = if (spellEngine is TrieSpellEngine && grammarEngine is RuleBasedGrammarEngine && spellEngine.facade === grammarEngine.facade) {
             spellEngine.facade.analyze(
                 rawText = text,
@@ -44,8 +51,7 @@ class CorrectionCoordinator(
             spellJob.await() + grammarJob.await()
         }
 
-        val allCorrections = gectorJob.await() + baseCorrections
-        resolveOverlaps(allCorrections)
+        resolveOverlaps(baseCorrections)
     }
 
     private fun resolveOverlaps(corrections: List<Correction>): List<Correction> {
@@ -78,6 +84,24 @@ class CorrectionCoordinator(
     suspend fun checkSentence(text: String, sentenceStart: Int, sentenceEnd: Int): List<Correction> {
         if (text.isBlank() || sentenceStart >= sentenceEnd) return emptyList()
 
+        if (useGectorOnly && gectorEngine != null && gectorEngine.isAvailable()) {
+            val sentence = text.substring(sentenceStart, sentenceEnd.coerceAtMost(text.length))
+            val gectorResults = try {
+                gectorEngine.check(sentence).map { it.copy(
+                    startOffset = it.startOffset + sentenceStart,
+                    endOffset = it.endOffset + sentenceStart
+                )}
+            } catch (e: Exception) {
+                emptyList()
+            }
+            return resolveOverlaps(gectorResults)
+        }
+
+        if (useGectorOnly) {
+            // Built-in offline grammar engine is excluded
+            return emptyList()
+        }
+
         val baseCorrections = if (spellEngine is TrieSpellEngine && grammarEngine is RuleBasedGrammarEngine && spellEngine.facade === grammarEngine.facade) {
             spellEngine.facade.checkSentenceSpan(
                 rawText = text,
@@ -95,19 +119,6 @@ class CorrectionCoordinator(
                 startOffset = it.startOffset + sentenceStart,
                 endOffset = it.endOffset + sentenceStart
             )}
-        }
-
-        if (gectorEngine != null && gectorEngine.isAvailable()) {
-            val sentence = text.substring(sentenceStart, sentenceEnd.coerceAtMost(text.length))
-            val gectorResults = try {
-                gectorEngine.check(sentence).map { it.copy(
-                    startOffset = it.startOffset + sentenceStart,
-                    endOffset = it.endOffset + sentenceStart
-                )}
-            } catch (e: Exception) {
-                emptyList()
-            }
-            return resolveOverlaps(gectorResults + baseCorrections)
         }
 
         return resolveOverlaps(baseCorrections)
