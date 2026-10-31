@@ -11,10 +11,8 @@ import com.wordpilot.assistant.ui.editor.EditorScreen
 import com.wordpilot.assistant.ui.history.HistoryScreen
 import com.wordpilot.assistant.ui.home.HomeScreen
 import com.wordpilot.assistant.ui.model.ModelManagementScreen
-import com.wordpilot.assistant.ui.onboarding.OnboardingScreen
 import com.wordpilot.assistant.ui.rewrite.RewriteScreen
 import com.wordpilot.assistant.ui.settings.AppearanceSettingsScreen
-import com.wordpilot.assistant.ui.settings.BubbleCustomizationScreen
 import com.wordpilot.assistant.ui.settings.SettingsScreen
 
 object Routes {
@@ -24,7 +22,6 @@ object Routes {
     const val SETTINGS = "settings"
     const val DICTIONARY = "dictionary"
     const val HISTORY = "history"
-    const val ONBOARDING = "onboarding"
     const val REWRITE = "rewrite"
     const val MODEL_MANAGEMENT = "model_management"
     const val BUBBLE_CUSTOMIZATION = "bubble_customization"
@@ -32,7 +29,10 @@ object Routes {
 }
 
 @Composable
-fun WordPilotNavGraph(startDestination: String = Routes.HOME) {
+fun WordPilotNavGraph(
+    startDestination: String = Routes.HOME,
+    initialSharedText: String? = null
+) {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = startDestination) {
@@ -40,7 +40,6 @@ fun WordPilotNavGraph(startDestination: String = Routes.HOME) {
             HomeScreen(
                 onNavigateToEditor = { navController.navigate(Routes.EDITOR) },
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
-                onNavigateToOnboarding = { navController.navigate(Routes.ONBOARDING) },
                 onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
                 onNavigateToDictionary = { navController.navigate(Routes.DICTIONARY) },
                 onNavigateToModel = { navController.navigate(Routes.MODEL_MANAGEMENT) },
@@ -49,6 +48,7 @@ fun WordPilotNavGraph(startDestination: String = Routes.HOME) {
         }
         composable(Routes.EDITOR) {
             EditorScreen(
+                initialText = initialSharedText,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToRewrite = { text -> 
                     navController.navigate(Routes.REWRITE)
@@ -73,7 +73,6 @@ fun WordPilotNavGraph(startDestination: String = Routes.HOME) {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToDictionary = { navController.navigate(Routes.DICTIONARY) },
                 onNavigateToModel = { navController.navigate(Routes.MODEL_MANAGEMENT) },
-                onNavigateToOnboarding = { navController.navigate(Routes.ONBOARDING) },
                 onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) }
             )
         }
@@ -88,9 +87,6 @@ fun WordPilotNavGraph(startDestination: String = Routes.HOME) {
                 onNavigateBack = { navController.popBackStack() },
                 onOpenDocument = { docId -> navController.navigate("editor/$docId") }
             )
-        }
-        composable(Routes.ONBOARDING) {
-            OnboardingScreen(onNavigateBack = { navController.popBackStack() })
         }
         composable(Routes.REWRITE) {
             RewriteScreen(onNavigateBack = { navController.popBackStack() })

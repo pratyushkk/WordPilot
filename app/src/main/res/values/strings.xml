@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WordPilot</string>
-    <string name="keyboard_name">WordPilot Keyboard</string>
-    <string name="keyboard_description">Smart writing assistant keyboard with grammar and spelling correction</string>
     <string name="accessibility_service_name">WordPilot Floating Assistant</string>
     <string name="accessibility_service_description">Provides real-time grammar and spelling suggestions across all apps with any keyboard</string>
     <string name="tile_name">WordPilot Assistant</string>
@@ -14,8 +12,6 @@
     <string name="home_subtitle">Your Writing Assistant</string>
     <string name="home_editor_card_title">Writing Editor</string>
     <string name="home_editor_card_desc">Write, paste, and correct text</string>
-    <string name="home_keyboard_card_title">Enable Keyboard</string>
-    <string name="home_keyboard_card_desc">Use WordPilot across all apps</string>
     <string name="home_ai_card_title">AI Model</string>
     <string name="home_ai_card_desc">Optional on-device AI rewriting</string>
     
@@ -71,8 +67,6 @@
     <string name="settings_grammar_check">Grammar Checking</string>
     <string name="settings_spell_check">Spell Checking</string>
     <string name="settings_auto_check">Auto Check While Typing</string>
-    <string name="settings_keyboard">Keyboard</string>
-    <string name="settings_enable_keyboard">Enable WordPilot Keyboard</string>
     <string name="settings_privacy">Privacy</string>
     <string name="settings_local_history">Local Document History</string>
     <string name="settings_local_history_desc">Save documents locally (disabled by default)</string>
@@ -115,17 +109,7 @@
     <string name="model_info_title">Model Information</string>
     <string name="model_benchmark">Run Benchmark</string>
     
-    <!-- Onboarding -->
-    <string name="onboarding_title">Set Up WordPilot</string>
-    <string name="onboarding_step1_title">Enable Keyboard</string>
-    <string name="onboarding_step1_desc">Open Settings → System → Languages &amp; input → On-screen keyboard → Enable WordPilot Keyboard</string>
-    <string name="onboarding_step2_title">Select Keyboard</string>
-    <string name="onboarding_step2_desc">Switch to WordPilot when typing in any app by using the keyboard switcher icon</string>
-    <string name="onboarding_step3_title">Start Writing</string>
-    <string name="onboarding_step3_desc">WordPilot will check your spelling and grammar as you type, showing suggestions above the keyboard</string>
-    <string name="onboarding_open_settings">Open Keyboard Settings</string>
-    <string name="onboarding_privacy_note">WordPilot processes all text on your device. Nothing is sent to external servers.</string>
-    
+
     <!-- General -->
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>

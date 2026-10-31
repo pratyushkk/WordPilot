@@ -21,16 +21,8 @@ class UserPreferences(private val context: Context) {
         val SPELL_CHECK_ENABLED = booleanPreferencesKey("spell_check_enabled")
         val AUTO_CHECK_ENABLED = booleanPreferencesKey("auto_check_enabled")
         val HISTORY_ENABLED = booleanPreferencesKey("history_enabled")
-        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
         val SELECTED_ENGINE = stringPreferencesKey("selected_engine")
-        // Gboard Keyboard Customization Keys
-        val KEYBOARD_HEIGHT_DP = intPreferencesKey("keyboard_height_dp")
-        val KEYBOARD_BOTTOM_PADDING_DP = intPreferencesKey("keyboard_bottom_padding_dp")
-        val KEYBOARD_SIDE_PADDING_DP = intPreferencesKey("keyboard_side_padding_dp")
-        val KEYBOARD_SHOW_NUMBER_ROW = booleanPreferencesKey("keyboard_show_number_row")
-        val KEYBOARD_SHOW_KEY_HINTS = booleanPreferencesKey("keyboard_show_key_hints")
-        val KEYBOARD_HAPTIC_ENABLED = booleanPreferencesKey("keyboard_haptic_enabled")
         val AUTO_PAUSE_BANKING_ENABLED = booleanPreferencesKey("auto_pause_banking_enabled")
     }
 
@@ -66,58 +58,6 @@ class UserPreferences(private val context: Context) {
         prefs[HISTORY_ENABLED] ?: false
     }
 
-    val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ONBOARDING_COMPLETED] ?: false
-    }
-
-    val keyboardHeightDp: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[KEYBOARD_HEIGHT_DP] ?: 46
-    }
-
-    val keyboardBottomPaddingDp: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[KEYBOARD_BOTTOM_PADDING_DP] ?: 0
-    }
-
-    val keyboardSidePaddingDp: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[KEYBOARD_SIDE_PADDING_DP] ?: 0
-    }
-
-    val keyboardShowNumberRow: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[KEYBOARD_SHOW_NUMBER_ROW] ?: true
-    }
-
-    val keyboardShowKeyHints: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[KEYBOARD_SHOW_KEY_HINTS] ?: true
-    }
-
-    val keyboardHapticEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[KEYBOARD_HAPTIC_ENABLED] ?: true
-    }
-
-    suspend fun setKeyboardHeightDp(height: Int) {
-        context.dataStore.edit { prefs -> prefs[KEYBOARD_HEIGHT_DP] = height }
-    }
-
-    suspend fun setKeyboardBottomPaddingDp(padding: Int) {
-        context.dataStore.edit { prefs -> prefs[KEYBOARD_BOTTOM_PADDING_DP] = padding }
-    }
-
-    suspend fun setKeyboardSidePaddingDp(padding: Int) {
-        context.dataStore.edit { prefs -> prefs[KEYBOARD_SIDE_PADDING_DP] = padding }
-    }
-
-    suspend fun setKeyboardShowNumberRow(enabled: Boolean) {
-        context.dataStore.edit { prefs -> prefs[KEYBOARD_SHOW_NUMBER_ROW] = enabled }
-    }
-
-    suspend fun setKeyboardShowKeyHints(enabled: Boolean) {
-        context.dataStore.edit { prefs -> prefs[KEYBOARD_SHOW_KEY_HINTS] = enabled }
-    }
-
-    suspend fun setKeyboardHapticEnabled(enabled: Boolean) {
-        context.dataStore.edit { prefs -> prefs[KEYBOARD_HAPTIC_ENABLED] = enabled }
-    }
-
     suspend fun setTheme(theme: String) {
         context.dataStore.edit { prefs ->
             prefs[THEME_KEY] = theme
@@ -145,12 +85,6 @@ class UserPreferences(private val context: Context) {
     suspend fun setHistoryEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[HISTORY_ENABLED] = enabled
-        }
-    }
-
-    suspend fun setOnboardingCompleted(completed: Boolean) {
-        context.dataStore.edit { prefs ->
-            prefs[ONBOARDING_COMPLETED] = completed
         }
     }
 

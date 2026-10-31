@@ -23,7 +23,6 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDictionary: () -> Unit,
     onNavigateToModel: () -> Unit,
-    onNavigateToOnboarding: () -> Unit,
     onNavigateToBubbleCustomization: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel()
 ) {
@@ -164,15 +163,6 @@ fun SettingsScreen(
                 )
             }
 
-            // Keyboard
-            SettingsSection(title = "Keyboard") {
-                SettingsClickable(
-                    title = "Enable WordPilot Keyboard",
-                    subtitle = "Set up the keyboard in system settings",
-                    onClick = onNavigateToOnboarding
-                )
-            }
-
             // Data
             SettingsSection(title = "Data") {
                 SettingsClickable(
@@ -307,12 +297,6 @@ fun SettingsScreen(
                         }
                         try { context.startActivity(intent) } catch (e: Exception) {}
                     }
-                )
-
-                SettingsClickable(
-                    title = "Prefer Zero Warnings? Switch to Keyboard",
-                    subtitle = "The WordPilot Keyboard uses standard Android IME APIs (like Gboard) and never triggers accessibility warnings in any banking app.",
-                    onClick = onNavigateToOnboarding
                 )
             }
 

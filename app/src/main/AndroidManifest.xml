@@ -25,20 +25,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
-        <service
-            android:name=".keyboard.WordPilotInputMethodService"
-            android:exported="true"
-            android:label="@string/keyboard_name"
-            android:permission="android.permission.BIND_INPUT_METHOD">
+            <!-- Share text into WordPilot writing editor -->
             <intent-filter>
-                <action android:name="android.view.InputMethod" />
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
-            <meta-data
-                android:name="android.view.im"
-                android:resource="@xml/method" />
-        </service>
+        </activity>
 
         <service
             android:name=".overlay.WordPilotAccessibilityService"

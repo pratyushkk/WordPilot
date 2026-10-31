@@ -2,7 +2,6 @@ package com.wordpilot.assistant.ui.home
 
 import android.content.Context
 import android.provider.Settings
-import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,14 +27,12 @@ import com.wordpilot.assistant.R
 fun HomeScreen(
     onNavigateToEditor: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToOnboarding: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToDictionary: () -> Unit,
     onNavigateToModel: () -> Unit,
     onNavigateToBubbleCustomization: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val isKeyboardEnabled = remember { isWordPilotKeyboardEnabled(context) }
 
     Scaffold(
         topBar = {
@@ -84,68 +81,41 @@ fun HomeScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Keyboard status card
-            if (!isKeyboardEnabled) {
-                Card(
-                    onClick = onNavigateToOnboarding,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+            // Primary Writing Assistant Hero Card
+            Card(
+                onClick = onNavigateToEditor,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.Keyboard,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(40.dp)
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Enable WordPilot Keyboard",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "Get writing assistance across all apps",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                        Icon(
-                            Icons.Filled.ChevronRight,
-                            contentDescription = null
-                        )
-                    }
-                }
-            } else {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
+                    Icon(
+                        Icons.Outlined.EditNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Open Writing Editor",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Keyboard enabled — WordPilot is active",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
+                            "Check spelling, grammar & rephrase text using your favorite Android keyboard",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
+                    Icon(
+                        Icons.Filled.ChevronRight,
+                        contentDescription = null
+                    )
                 }
             }
 
@@ -153,19 +123,19 @@ fun HomeScreen(
 
             // Main action cards
             HomeActionCard(
-                icon = Icons.Filled.Edit,
-                title = "Writing Editor",
-                description = "Write, paste, and correct text with grammar checking",
+                icon = Icons.Outlined.Edit,
+                title = "New Document",
+                description = "Write or paste text to check for errors and improvements",
                 onClick = onNavigateToEditor
             )
 
             HomeActionCard(
-                icon = Icons.Outlined.Layers,
-                title = "Use with Any Keyboard",
-                description = "Floating grammar assistant across Gboard, SwiftKey, etc.",
+                icon = Icons.Outlined.Assistant,
+                title = "Floating Assistant (Cross-App)",
+                description = "Enable floating bubble to check writing in supported apps",
                 onClick = {
-                    val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                        data = android.net.Uri.parse("package:${context.packageName}")
+                    val intent = android.content.Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
                     }
                     try { context.startActivity(intent) } catch (e: Exception) {}
                 }
@@ -195,14 +165,14 @@ fun HomeScreen(
             HomeActionCard(
                 icon = Icons.Outlined.SmartToy,
                 title = "AI Model",
-                description = "Optional on-device AI for advanced rewriting",
+                description = "On-device Meta Llama 3.2 1B & cloud Gemini API",
                 onClick = onNavigateToModel
             )
 
             HomeActionCard(
                 icon = Icons.Outlined.Tune,
                 title = "Settings",
-                description = "Theme, corrections, keyboard, and privacy",
+                description = "Theme, corrections, AI engine, and privacy",
                 onClick = onNavigateToSettings
             )
 
@@ -218,23 +188,23 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Icon(
-                        Icons.Outlined.Shield,
+                        Icons.Filled.Lock,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        "All text processing happens locally on your device",
+                        "100% on-device processing. Your text is never stored or sent to external servers unless you enable Cloud API.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -248,10 +218,15 @@ private fun HomeActionCard(
 ) {
     Card(
         onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -279,13 +254,5 @@ private fun HomeActionCard(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-    }
-}
-
-private fun isWordPilotKeyboardEnabled(context: Context): Boolean {
-    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-    val enabledInputMethods = imm.enabledInputMethodList
-    return enabledInputMethods.any { 
-        it.packageName == context.packageName 
     }
 }

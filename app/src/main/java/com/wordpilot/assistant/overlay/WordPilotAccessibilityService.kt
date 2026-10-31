@@ -333,9 +333,6 @@ class WordPilotAccessibilityService : AccessibilityService(),
     }
 
     private fun isKeyboardVisible(): Boolean {
-        if (com.wordpilot.assistant.utils.KeyboardVisibilityTracker.isWordPilotImeVisible) {
-            return true
-        }
         return try {
             val winList = windows
             if (winList.isNullOrEmpty()) return false

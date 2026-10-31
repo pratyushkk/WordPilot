@@ -23,6 +23,7 @@ import com.wordpilot.assistant.ui.suggestions.SuggestionList
 @Composable
 fun EditorScreen(
     documentId: Int? = null,
+    initialText: String? = null,
     onNavigateBack: () -> Unit,
     onNavigateToRewrite: (String) -> Unit,
     viewModel: EditorViewModel = viewModel()
@@ -35,6 +36,13 @@ fun EditorScreen(
     LaunchedEffect(documentId) {
         if (documentId != null && documentId > 0) {
             viewModel.loadDocument(documentId)
+        }
+    }
+
+    LaunchedEffect(initialText) {
+        if (!initialText.isNullOrBlank() && uiState.text.isBlank()) {
+            viewModel.onTextChanged(initialText)
+            viewModel.checkText()
         }
     }
 
