@@ -60,7 +60,29 @@ class SpellingChecker(
         "pronounciation" to "pronunciation",
         "calender" to "calendar",
         "priviledge" to "privilege",
-        "noticable" to "noticeable"
+        "noticable" to "noticeable",
+        // Contractions missing apostrophe
+        "dont" to "don't",
+        "cant" to "can't",
+        "wont" to "won't",
+        "didnt" to "didn't",
+        "isnt" to "isn't",
+        "arent" to "aren't",
+        "wasnt" to "wasn't",
+        "werent" to "weren't",
+        "hasnt" to "hasn't",
+        "havent" to "haven't",
+        "hadnt" to "hadn't",
+        "couldnt" to "couldn't",
+        "shouldnt" to "shouldn't",
+        "wouldnt" to "wouldn't",
+        "youre" to "you're",
+        "theyre" to "they're",
+        "weve" to "we've",
+        "theyve" to "they've",
+        "youve" to "you've",
+        "youll" to "you'll",
+        "theyll" to "they'll"
     )
 
     fun checkTokens(tokens: List<Token>): List<GrammarError> {
