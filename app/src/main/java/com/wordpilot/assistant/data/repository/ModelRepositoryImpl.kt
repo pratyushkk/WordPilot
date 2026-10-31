@@ -15,6 +15,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 class ModelRepositoryImpl(private val modelDir: File) {
 
@@ -26,6 +27,7 @@ class ModelRepositoryImpl(private val modelDir: File) {
         const val MODEL_LICENSE = "Llama 3.2 Community License"
         const val DOWNLOAD_URL = "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf"
         const val EXPECTED_SIZE_MB = 770L
+        const val GECTOR_FILENAME = "gector.onnx"
     }
 
     private val _modelState = MutableStateFlow(ModelState.NOT_INSTALLED)
@@ -56,6 +58,37 @@ class ModelRepositoryImpl(private val modelDir: File) {
         val file = getModelFile()
         // File must exist and be at least 100MB to be considered a complete model
         return file.exists() && file.length() > 100 * 1024 * 1024
+    }
+
+    fun getGectorModelFile(): File = File(modelDir, GECTOR_FILENAME)
+
+    fun isGectorModelInstalled(): Boolean {
+        val file = getGectorModelFile()
+        return file.exists() && file.length() > 1024 * 1024
+    }
+
+    fun deleteGectorModel(): Boolean {
+        val file = getGectorModelFile()
+        return if (file.exists()) file.delete() else true
+    }
+
+    fun calculateSha256(file: File): String {
+        if (!file.exists()) return ""
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            var read: Int
+            while (input.read(buffer).also { read = it } != -1) {
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    fun verifySha256(file: File, expectedHash: String): Boolean {
+        if (!file.exists() || expectedHash.isBlank()) return false
+        val computed = calculateSha256(file)
+        return computed.equals(expectedHash.trim(), ignoreCase = true)
     }
 
     fun getModelInfo(): ModelInfo {

@@ -47,4 +47,32 @@ class ModelRepositoryTest {
         assertFalse(dummyFile.exists())
         assertEquals(ModelState.NOT_INSTALLED, repository.modelState.value)
     }
+
+    @Test
+    fun testSha256CalculationAndVerification() {
+        val testFile = File(modelDir, "test.bin")
+        testFile.writeText("WordPilot Safe Text Verification")
+
+        val hash = repository.calculateSha256(testFile)
+        assertNotNull(hash)
+        assertEquals(64, hash.length)
+
+        assertTrue(repository.verifySha256(testFile, hash))
+        assertFalse(repository.verifySha256(testFile, "invalid_hash_value"))
+    }
+
+    @Test
+    fun testGectorModelLifecycle() {
+        assertFalse(repository.isGectorModelInstalled())
+        val gectorFile = repository.getGectorModelFile()
+        assertFalse(gectorFile.exists())
+
+        // Create dummy gector model > 1MB
+        gectorFile.writeBytes(ByteArray(2 * 1024 * 1024))
+        assertTrue(repository.isGectorModelInstalled())
+
+        repository.deleteGectorModel()
+        assertFalse(repository.isGectorModelInstalled())
+        assertFalse(gectorFile.exists())
+    }
 }
