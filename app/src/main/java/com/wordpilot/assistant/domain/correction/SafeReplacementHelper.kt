@@ -70,4 +70,54 @@ class SafeReplacementHelper {
             }
         }
     }
+
+    /**
+     * Safely replaces a sentence using an immutable snapshot.
+     * Returns null if the snapshot is stale or the sentence has been modified by the user.
+     */
+    fun replaceSentenceWithSnapshot(
+        currentText: String,
+        snapshot: com.wordpilot.assistant.domain.models.EditorSnapshot,
+        newSentence: String
+    ): String? {
+        if (!snapshot.isSentenceIntact(currentText)) {
+            return null
+        }
+        val before = currentText.substring(0, snapshot.sentenceStart)
+        val after = currentText.substring(snapshot.sentenceEnd)
+        return before + newSentence + after
+    }
+
+    /**
+     * Inserts text at the specified cursor position or replaces the selected range,
+     * cleanly handling spacing and preserving text before and after.
+     */
+    fun insertAtCursor(
+        currentText: String,
+        textToInsert: String,
+        selectionStart: Int,
+        selectionEnd: Int = selectionStart
+    ): Pair<String, Int> {
+        val cleanInsert = textToInsert.trim()
+        if (cleanInsert.isEmpty()) return Pair(currentText, selectionStart.coerceIn(0, currentText.length))
+
+        val start = selectionStart.coerceIn(0, currentText.length)
+        val end = selectionEnd.coerceIn(start, currentText.length)
+
+        val before = currentText.substring(0, start)
+        val after = currentText.substring(end)
+
+        val needsLeadingSpace = before.isNotEmpty() && !before.last().isWhitespace() && !before.endsWith("\n")
+        val needsTrailingSpace = after.isNotEmpty() && !after.first().isWhitespace() && !after.startsWith("\n")
+
+        val builder = StringBuilder()
+        builder.append(before)
+        if (needsLeadingSpace) builder.append(" ")
+        builder.append(cleanInsert)
+        if (needsTrailingSpace) builder.append(" ")
+        val newCursor = builder.length
+        builder.append(after)
+
+        return Pair(builder.toString(), newCursor)
+    }
 }
