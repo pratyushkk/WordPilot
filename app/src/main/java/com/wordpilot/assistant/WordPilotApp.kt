@@ -201,7 +201,7 @@ class WordPilotApp : Application() {
                         id = "languagetool",
                         enabled = enabled,
                         apiKey = null,
-                        baseUrl = baseUrl,
+                        baseUrl = baseUrl.ifBlank { "https://api.languagetool.org" },
                         priority = 2
                     )
                 )

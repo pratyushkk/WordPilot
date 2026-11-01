@@ -20,8 +20,8 @@ data class SettingsUiState(
     val blockCloudAi: Boolean = false,
     val saplingApiKey: String? = null,
     val saplingEnabled: Boolean = true,
-    val languageToolEnabled: Boolean = false,
-    val languageToolBaseUrl: String = "",
+    val languageToolEnabled: Boolean = true,
+    val languageToolBaseUrl: String = "https://api.languagetool.org",
     val grammarBotEnabled: Boolean = false,
     val grammarBotApiKey: String? = null,
     val grammarProviderPriority: String = "sapling,languagetool,grammarbot"

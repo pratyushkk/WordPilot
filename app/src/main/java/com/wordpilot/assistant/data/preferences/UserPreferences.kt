@@ -48,8 +48,8 @@ class UserPreferences(
         val raw = prefs[SAPLING_API_KEY] ?: return@map null
         if (raw.isBlank()) null else cryptoManager.decrypt(raw)
     }
-    val languageToolEnabled: Flow<Boolean> = context.dataStore.data.map { it[LANGUAGETOOL_ENABLED] ?: false }
-    val languageToolBaseUrl: Flow<String> = context.dataStore.data.map { it[LANGUAGETOOL_BASE_URL] ?: "" }
+    val languageToolEnabled: Flow<Boolean> = context.dataStore.data.map { it[LANGUAGETOOL_ENABLED] ?: true }
+    val languageToolBaseUrl: Flow<String> = context.dataStore.data.map { it[LANGUAGETOOL_BASE_URL] ?: "https://api.languagetool.org" }
     val grammarBotEnabled: Flow<Boolean> = context.dataStore.data.map { it[GRAMMARBOT_ENABLED] ?: false }
     val grammarBotApiKey: Flow<String?> = context.dataStore.data.map { prefs ->
         val raw = prefs[GRAMMARBOT_API_KEY] ?: return@map null
