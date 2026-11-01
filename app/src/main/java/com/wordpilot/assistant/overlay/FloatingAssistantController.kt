@@ -412,11 +412,11 @@ class FloatingAssistantController(
         executeFixGrammar()
     }
 
-    fun onSelectEngine(@Suppress("UNUSED_PARAMETER") engine: AIEngineType) {
+    fun onSelectEngine(engine: AIEngineType) {
         val app = WordPilotApp.instance
-        app.rewriteCoordinator.setEngineType(AIEngineType.GECTOR)
+        app.rewriteCoordinator.setEngineType(engine)
         controllerScope.launch {
-            app.userPreferences.setSelectedEngine(AIEngineType.GECTOR.id)
+            app.userPreferences.setSelectedEngine(engine.id)
         }
     }
 

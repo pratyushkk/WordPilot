@@ -14,7 +14,6 @@ import com.wordpilot.assistant.engine.CorrectionCoordinator
 import com.wordpilot.assistant.engine.RewriteCoordinator
 import com.wordpilot.assistant.engine.SentenceAnalyzer
 import com.wordpilot.assistant.engine.LocalAIEngine
-import com.wordpilot.assistant.engine.gector.GectorOnnxEngine
 import com.wordpilot.assistant.engine.impl.GeminiAIEngine
 import com.wordpilot.assistant.engine.impl.LocalAIEngineImpl
 import com.wordpilot.assistant.engine.impl.RuleBasedGrammarEngine
@@ -25,6 +24,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -55,7 +56,13 @@ class WordPilotApp : Application() {
         private set
     lateinit var grammarEngine: RuleBasedGrammarEngine
         private set
-    lateinit var gectorEngine: GectorOnnxEngine
+    lateinit var providerOrchestrator: com.wordpilot.assistant.engine.orchestration.ProviderOrchestrator
+        private set
+    lateinit var saplingProvider: com.wordpilot.assistant.engine.providers.SaplingProvider
+        private set
+    lateinit var languageToolProvider: com.wordpilot.assistant.engine.providers.LanguageToolProvider
+        private set
+    lateinit var grammarBotProvider: com.wordpilot.assistant.engine.providers.GrammarBotProvider
         private set
     lateinit var aiEngine: LocalAIEngine
         private set
@@ -102,18 +109,24 @@ class WordPilotApp : Application() {
         spellEngine = TrieSpellEngine(this, offlineGrammarFacade)
         grammarEngine = RuleBasedGrammarEngine(this, offlineGrammarFacade)
 
-        val gectorFile = modelRepository.getGectorModelFile()
-        gectorEngine = GectorOnnxEngine(modelFile = gectorFile)
-        applicationScope.launch {
-            try {
-                gectorEngine.initialize()
-            } catch (e: Exception) {
-                Log.w("WordPilotApp", "GECTOR init: ${e.message}")
-            }
-        }
-
-        correctionCoordinator = CorrectionCoordinator(spellEngine, grammarEngine, gectorEngine, useGectorOnly = true)
         sentenceAnalyzer = SentenceAnalyzer()
+        saplingProvider = com.wordpilot.assistant.engine.providers.SaplingProvider()
+        languageToolProvider = com.wordpilot.assistant.engine.providers.LanguageToolProvider()
+        grammarBotProvider = com.wordpilot.assistant.engine.providers.GrammarBotProvider()
+
+        val providersMap = mapOf(
+            "sapling" to saplingProvider,
+            "languagetool" to languageToolProvider,
+            "grammarbot" to grammarBotProvider
+        )
+        providerOrchestrator = com.wordpilot.assistant.engine.orchestration.ProviderOrchestrator(providersMap)
+
+        correctionCoordinator = CorrectionCoordinator(
+            providerOrchestrator = providerOrchestrator,
+            spellEngine = spellEngine,
+            grammarEngine = grammarEngine,
+            sentenceAnalyzer = sentenceAnalyzer
+        )
 
         val safeReplacementHelper = SafeReplacementHelper()
         ruleBasedRewriteEngine = RuleBasedRewriteEngine(correctionCoordinator, safeReplacementHelper)
@@ -125,8 +138,8 @@ class WordPilotApp : Application() {
             geminiEngine = geminiEngine,
             localEngine = aiEngine,
             ruleEngine = ruleBasedRewriteEngine,
-            gectorEngine = gectorEngine,
-            initialEngineType = AIEngineType.GECTOR
+            safeReplacementHelper = safeReplacementHelper,
+            initialEngineType = AIEngineType.GEMINI_FLASH
         )
 
         // Use Cases
@@ -157,6 +170,68 @@ class WordPilotApp : Application() {
             userPreferences.selectedEngine.collect { engineId ->
                 val type = AIEngineType.fromId(engineId)
                 rewriteCoordinator.setEngineType(type)
+            }
+        }
+
+        // Observe provider configuration from UserPreferences
+        applicationScope.launch {
+            combine(
+                userPreferences.saplingEnabled,
+                userPreferences.saplingApiKey
+            ) { enabled, apiKey ->
+                saplingProvider.configure(
+                    com.wordpilot.assistant.engine.providers.ProviderConfig(
+                        id = "sapling",
+                        enabled = enabled,
+                        apiKey = apiKey,
+                        baseUrl = null,
+                        priority = 1
+                    )
+                )
+            }.collect()
+        }
+
+        applicationScope.launch {
+            combine(
+                userPreferences.languageToolEnabled,
+                userPreferences.languageToolBaseUrl
+            ) { enabled, baseUrl ->
+                languageToolProvider.configure(
+                    com.wordpilot.assistant.engine.providers.ProviderConfig(
+                        id = "languagetool",
+                        enabled = enabled,
+                        apiKey = null,
+                        baseUrl = baseUrl,
+                        priority = 2
+                    )
+                )
+            }.collect()
+        }
+
+        applicationScope.launch {
+            combine(
+                userPreferences.grammarBotEnabled,
+                userPreferences.grammarBotApiKey
+            ) { enabled, apiKey ->
+                grammarBotProvider.configure(
+                    com.wordpilot.assistant.engine.providers.ProviderConfig(
+                        id = "grammarbot",
+                        enabled = enabled,
+                        apiKey = apiKey,
+                        baseUrl = null,
+                        priority = 3
+                    )
+                )
+            }.collect()
+        }
+
+
+        applicationScope.launch {
+            userPreferences.grammarProviderPriority.collect { raw ->
+                val list = raw.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+                if (list.isNotEmpty()) {
+                    providerOrchestrator.updatePriority(list)
+                }
             }
         }
     }

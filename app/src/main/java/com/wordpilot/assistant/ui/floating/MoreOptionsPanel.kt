@@ -29,7 +29,7 @@ fun MoreOptionsPanel(
     onCustomPromptSubmit: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
     onBack: () -> Unit,
-    selectedEngine: AIEngineType = AIEngineType.GECTOR,
+    selectedEngine: AIEngineType = AIEngineType.GEMINI_FLASH,
     onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -57,7 +57,7 @@ fun MoreOptionsPanel(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "GECToR Grammar Assistant",
+                    text = "WordPilot Assistant",
                     color = AssistantColors.TextPrimary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold

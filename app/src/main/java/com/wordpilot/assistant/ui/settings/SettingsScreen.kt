@@ -34,6 +34,123 @@ fun SettingsScreen(
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showGeminiDialog by remember { mutableStateOf(false) }
     var geminiKeyInput by remember { mutableStateOf("") }
+    var showSaplingDialog by remember { mutableStateOf(false) }
+    var saplingKeyInput by remember { mutableStateOf("") }
+    var showLanguageToolDialog by remember { mutableStateOf(false) }
+    var languageToolUrlInput by remember { mutableStateOf("") }
+    var showGrammarBotDialog by remember { mutableStateOf(false) }
+    var grammarBotKeyInput by remember { mutableStateOf("") }
+
+    if (showSaplingDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaplingDialog = false },
+            title = { Text("Configure Sapling API Key") },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter your Sapling API key to enable production-grade neural edits via Sapling AI with automatic chunking.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = saplingKeyInput.ifEmpty { uiState.saplingApiKey ?: "" },
+                        onValueChange = { saplingKeyInput = it },
+                        placeholder = { Text("Sapling API Key...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val key = saplingKeyInput.trim()
+                    if (key.isNotEmpty()) {
+                        viewModel.setSaplingApiKey(key)
+                    }
+                    showSaplingDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaplingDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showLanguageToolDialog) {
+        AlertDialog(
+            onDismissRequest = { showLanguageToolDialog = false },
+            title = { Text("Configure LanguageTool Server") },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter the base URL of your self-hosted LanguageTool server (e.g. http://192.168.1.100:8081). Never points to unauthenticated public endpoints.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = languageToolUrlInput.ifEmpty { uiState.languageToolBaseUrl },
+                        onValueChange = { languageToolUrlInput = it },
+                        placeholder = { Text("http://localhost:8081") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val url = languageToolUrlInput.trim()
+                    if (url.isNotEmpty()) {
+                        viewModel.setLanguageToolBaseUrl(url)
+                    }
+                    showLanguageToolDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLanguageToolDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showGrammarBotDialog) {
+        AlertDialog(
+            onDismissRequest = { showGrammarBotDialog = false },
+            title = { Text("Configure GrammarBot RapidAPI Key") },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter your RapidAPI key for GrammarBot Neural. Keep disabled until credentials and subscription limits are verified.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = grammarBotKeyInput.ifEmpty { uiState.grammarBotApiKey ?: "" },
+                        onValueChange = { grammarBotKeyInput = it },
+                        placeholder = { Text("RapidAPI Key...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val key = grammarBotKeyInput.trim()
+                    if (key.isNotEmpty()) {
+                        viewModel.setGrammarBotApiKey(key)
+                    }
+                    showGrammarBotDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGrammarBotDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     if (showGeminiDialog) {
         AlertDialog(
@@ -180,22 +297,52 @@ fun SettingsScreen(
                 )
             }
 
-            // Dedicated On-Device GECToR Engine
-            SettingsSection(title = "Grammar Engine") {
+            // Multi-Provider Grammar Checking & Failover Architecture
+            SettingsSection(title = "Grammar Checking Providers") {
                 Text(
-                    text = "WordPilot uses on-device GECToR exclusively for neural grammatical error correction. All processing runs 100% locally with zero cloud AI, zero external network calls, and no built-in rule fallbacks.",
+                    text = "Intelligent multi-provider grammar checking with automatic sequential failover (Sapling → LanguageTool → GrammarBot).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
 
-                SettingsEngineOption(
-                    title = "GECToR Neural Engine (On-Device)",
-                    subtitle = "RoBERTa-based neural grammar correction · 100% offline · Active",
-                    isSelected = true,
-                    badgeText = if (uiState.isGectorModelInstalled) "ONNX Ready" else "Integrated On-Device",
-                    badgeOk = true,
-                    onClick = { viewModel.setSelectedEngine(AIEngineType.GECTOR) }
+                // 1. Sapling AI
+                SettingsSwitch(
+                    title = "Sapling AI (Primary Cloud)",
+                    subtitle = if (!uiState.saplingApiKey.isNullOrBlank()) "Configured • Priority 1" else "API key required for hosted cloud inference",
+                    checked = uiState.saplingEnabled,
+                    onCheckedChange = { viewModel.setSaplingEnabled(it) }
+                )
+                SettingsClickable(
+                    title = "Sapling API Key",
+                    subtitle = if (!uiState.saplingApiKey.isNullOrBlank()) "Key configured (tap to update)" else "Tap to configure Sapling API key",
+                    onClick = { showSaplingDialog = true }
+                )
+
+                // 2. LanguageTool
+                SettingsSwitch(
+                    title = "LanguageTool (Self-Hosted Fallback)",
+                    subtitle = if (uiState.languageToolBaseUrl.isNotBlank()) "URL: ${uiState.languageToolBaseUrl}" else "Base URL required (Priority 2)",
+                    checked = uiState.languageToolEnabled,
+                    onCheckedChange = { viewModel.setLanguageToolEnabled(it) }
+                )
+                SettingsClickable(
+                    title = "LanguageTool Server URL",
+                    subtitle = if (uiState.languageToolBaseUrl.isNotBlank()) uiState.languageToolBaseUrl else "Tap to configure self-hosted server URL",
+                    onClick = { showLanguageToolDialog = true }
+                )
+
+                // 3. GrammarBot
+                SettingsSwitch(
+                    title = "GrammarBot Neural (Optional)",
+                    subtitle = "RapidAPI neural edits (Priority 3 • Disabled by default)",
+                    checked = uiState.grammarBotEnabled,
+                    onCheckedChange = { viewModel.setGrammarBotEnabled(it) }
+                )
+                SettingsClickable(
+                    title = "GrammarBot RapidAPI Key",
+                    subtitle = if (!uiState.grammarBotApiKey.isNullOrBlank()) "RapidAPI key configured" else "Tap to configure RapidAPI key",
+                    onClick = { showGrammarBotDialog = true }
                 )
             }
 

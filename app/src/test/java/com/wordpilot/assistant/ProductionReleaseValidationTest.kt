@@ -3,7 +3,6 @@ package com.wordpilot.assistant
 import com.wordpilot.assistant.engine.impl.RuleBasedGrammarEngine
 import com.wordpilot.assistant.engine.impl.TrieSpellEngine
 import com.wordpilot.assistant.engine.CorrectionCoordinator
-import com.wordpilot.assistant.engine.gector.GectorOnnxEngine
 import com.wordpilot.assistant.engine.offline.OfflineGrammarEngineFacade
 import com.wordpilot.assistant.engine.offline.model.AnalysisOptions
 import com.wordpilot.assistant.security.CryptoManager
@@ -70,11 +69,23 @@ class ProductionReleaseValidationTest {
     }
 
     @Test
-    fun testGectorEngineGracefulDegradation() = runBlocking {
-        val engine = GectorOnnxEngine(File("non_existent.onnx"))
-        assertFalse(engine.isAvailable())
-        val corrections = engine.check("Testing graceful fallback.")
-        assertTrue(corrections.isEmpty())
+    fun testGectorClassesAreCompletelyRemoved() {
+        val deletedClasses = listOf(
+            "com.wordpilot.assistant.engine.gector.GectorOnnxEngine",
+            "com.wordpilot.assistant.engine.gector.GectorTokenizer",
+            "com.wordpilot.assistant.engine.gector.GectorTagDecoder",
+            "com.wordpilot.assistant.engine.providers.GectorProvider",
+            "com.wordpilot.assistant.receiver.GectorDeviceTestReceiver"
+        )
+
+        for (className in deletedClasses) {
+            try {
+                Class.forName(className)
+                fail("Class $className must be completely deleted from the codebase!")
+            } catch (expected: ClassNotFoundException) {
+                // Expected: class does not exist
+            }
+        }
     }
 
     @Test

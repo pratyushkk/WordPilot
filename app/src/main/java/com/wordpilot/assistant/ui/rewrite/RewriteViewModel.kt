@@ -19,7 +19,7 @@ data class RewriteUiState(
     val customInstruction: String = "",
     val isProcessing: Boolean = false,
     val result: RewriteResult? = null,
-    val selectedEngine: AIEngineType = AIEngineType.GECTOR,
+    val selectedEngine: AIEngineType = AIEngineType.GEMINI_FLASH,
     val isLocalModelInstalled: Boolean = false,
     val isGeminiConfigured: Boolean = false
 )

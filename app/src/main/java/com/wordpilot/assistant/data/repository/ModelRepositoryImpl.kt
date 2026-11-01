@@ -27,7 +27,6 @@ class ModelRepositoryImpl(private val modelDir: File) {
         const val MODEL_LICENSE = "Llama 3.2 Community License"
         const val DOWNLOAD_URL = "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf"
         const val EXPECTED_SIZE_MB = 770L
-        const val GECTOR_FILENAME = "gector.onnx"
     }
 
     private val _modelState = MutableStateFlow(ModelState.NOT_INSTALLED)
@@ -58,24 +57,6 @@ class ModelRepositoryImpl(private val modelDir: File) {
         val file = getModelFile()
         // File must exist and be at least 100MB to be considered a complete model
         return file.exists() && file.length() > 100 * 1024 * 1024
-    }
-
-    fun getGectorModelFile(): File = File(modelDir, GECTOR_FILENAME)
-
-    fun isGectorModelInstalled(): Boolean {
-        val onnx = getGectorModelFile()
-        val labels = File(modelDir, "labels.json")
-        val tok = File(modelDir, "tokenizer.json")
-        val verb = File(modelDir, "verb-form-vocab.txt")
-        return onnx.exists() && onnx.length() > 50 * 1024 * 1024 &&
-               labels.exists() && labels.length() > 10 * 1024 &&
-               tok.exists() && tok.length() > 100 * 1024 &&
-               verb.exists() && verb.length() > 100 * 1024
-    }
-
-    fun deleteGectorModel(): Boolean {
-        val file = getGectorModelFile()
-        return if (file.exists()) file.delete() else true
     }
 
     fun calculateSha256(file: File): String {

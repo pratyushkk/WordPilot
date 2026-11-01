@@ -15,10 +15,16 @@ data class SettingsUiState(
     val historyEnabled: Boolean = false,
     val autoPauseBankingEnabled: Boolean = false,
     val geminiApiKey: String? = null,
-    val selectedEngine: AIEngineType = AIEngineType.GECTOR,
+    val selectedEngine: AIEngineType = AIEngineType.GEMINI_FLASH,
     val isLocalModelInstalled: Boolean = false,
-    val isGectorModelInstalled: Boolean = false,
-    val blockCloudAi: Boolean = false
+    val blockCloudAi: Boolean = false,
+    val saplingApiKey: String? = null,
+    val saplingEnabled: Boolean = true,
+    val languageToolEnabled: Boolean = false,
+    val languageToolBaseUrl: String = "",
+    val grammarBotEnabled: Boolean = false,
+    val grammarBotApiKey: String? = null,
+    val grammarProviderPriority: String = "sapling,languagetool,grammarbot"
 )
 
 class SettingsViewModel : ViewModel() {
@@ -29,56 +35,46 @@ class SettingsViewModel : ViewModel() {
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
-        val checkSettingsFlow = combine(
-            prefs.grammarCheckEnabled,
-            prefs.spellCheckEnabled,
-            prefs.autoCheckEnabled
-        ) { grammar, spell, auto ->
-            Triple(grammar, spell, auto)
-        }
-
-        val extraSettingsFlow = combine(
-            prefs.historyEnabled,
-            prefs.autoPauseBankingEnabled,
-            prefs.geminiApiKey
-        ) { history, autoPause, apiKey ->
-            Triple(history, autoPause, apiKey)
-        }
-
-        val engineFlow = combine(
-            prefs.selectedEngine,
-            app.modelRepository.modelState,
-            prefs.blockCloudAi
-        ) { engineId, _, blockCloud ->
-            val engine = AIEngineType.fromId(engineId)
-            val effective = if (blockCloud && engine == AIEngineType.GEMINI_FLASH) AIEngineType.GECTOR else engine
-            Triple(
-                effective,
-                app.modelRepository.isModelInstalled(),
-                blockCloud
-            )
-        }
-
         viewModelScope.launch {
             combine(
                 prefs.theme,
-                checkSettingsFlow,
-                extraSettingsFlow,
-                engineFlow
-            ) { theme, (grammar, spell, auto), (history, autoPause, apiKey), (selectedEngine, isModelInstalled, blockCloud) ->
+                prefs.grammarCheckEnabled,
+                prefs.spellCheckEnabled,
+                prefs.autoCheckEnabled,
+                prefs.historyEnabled
+            ) { theme, grammar, spell, auto, history ->
                 SettingsUiState(
                     theme = theme,
                     grammarCheckEnabled = grammar,
                     spellCheckEnabled = spell,
                     autoCheckEnabled = auto,
-                    historyEnabled = history,
-                    autoPauseBankingEnabled = autoPause,
-                    geminiApiKey = apiKey,
-                    selectedEngine = selectedEngine,
-                    isLocalModelInstalled = isModelInstalled,
-                    isGectorModelInstalled = app.modelRepository.isGectorModelInstalled(),
-                    blockCloudAi = blockCloud
+                    historyEnabled = history
                 )
+            }.combine(prefs.autoPauseBankingEnabled) { state, autoPause ->
+                state.copy(autoPauseBankingEnabled = autoPause)
+            }.combine(prefs.geminiApiKey) { state, geminiKey ->
+                state.copy(geminiApiKey = geminiKey)
+            }.combine(prefs.selectedEngine) { state, engineId ->
+                state.copy(
+                    selectedEngine = AIEngineType.fromId(engineId),
+                    isLocalModelInstalled = app.modelRepository.isModelInstalled()
+                )
+            }.combine(prefs.blockCloudAi) { state, blocked ->
+                state.copy(blockCloudAi = blocked)
+            }.combine(prefs.saplingApiKey) { state, saplingKey ->
+                state.copy(saplingApiKey = saplingKey)
+            }.combine(prefs.saplingEnabled) { state, saplingEnabled ->
+                state.copy(saplingEnabled = saplingEnabled)
+            }.combine(prefs.languageToolEnabled) { state, ltEnabled ->
+                state.copy(languageToolEnabled = ltEnabled)
+            }.combine(prefs.languageToolBaseUrl) { state, ltUrl ->
+                state.copy(languageToolBaseUrl = ltUrl)
+            }.combine(prefs.grammarBotApiKey) { state, gbKey ->
+                state.copy(grammarBotApiKey = gbKey)
+            }.combine(prefs.grammarBotEnabled) { state, gbEnabled ->
+                state.copy(grammarBotEnabled = gbEnabled)
+            }.combine(prefs.grammarProviderPriority) { state, priority ->
+                state.copy(grammarProviderPriority = priority)
             }.collect { state ->
                 _uiState.value = state
             }
@@ -90,15 +86,15 @@ class SettingsViewModel : ViewModel() {
             prefs.setBlockCloudAi(blocked)
             app.rewriteCoordinator.setBlockCloudAi(blocked)
             if (blocked) {
-                setSelectedEngine(AIEngineType.GECTOR)
+                setSelectedEngine(AIEngineType.RULE_BASED)
             }
         }
     }
 
-    fun setSelectedEngine(engine: AIEngineType = AIEngineType.GECTOR) {
+    fun setSelectedEngine(engine: AIEngineType = AIEngineType.GEMINI_FLASH) {
         viewModelScope.launch {
-            prefs.setSelectedEngine(AIEngineType.GECTOR.id)
-            app.rewriteCoordinator.setEngineType(AIEngineType.GECTOR)
+            prefs.setSelectedEngine(engine.id)
+            app.rewriteCoordinator.setEngineType(engine)
         }
     }
 
@@ -106,6 +102,34 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             app.updateGeminiApiKey(key)
         }
+    }
+
+    fun setSaplingApiKey(key: String) {
+        viewModelScope.launch { prefs.setSaplingApiKey(key) }
+    }
+
+    fun setSaplingEnabled(enabled: Boolean) {
+        viewModelScope.launch { prefs.setSaplingEnabled(enabled) }
+    }
+
+    fun setLanguageToolBaseUrl(url: String) {
+        viewModelScope.launch { prefs.setLanguageToolBaseUrl(url) }
+    }
+
+    fun setLanguageToolEnabled(enabled: Boolean) {
+        viewModelScope.launch { prefs.setLanguageToolEnabled(enabled) }
+    }
+
+    fun setGrammarBotApiKey(key: String) {
+        viewModelScope.launch { prefs.setGrammarBotApiKey(key) }
+    }
+
+    fun setGrammarBotEnabled(enabled: Boolean) {
+        viewModelScope.launch { prefs.setGrammarBotEnabled(enabled) }
+    }
+
+    fun setGrammarProviderPriority(priority: String) {
+        viewModelScope.launch { prefs.setGrammarProviderPriority(priority) }
     }
 
     fun setTheme(theme: String) {

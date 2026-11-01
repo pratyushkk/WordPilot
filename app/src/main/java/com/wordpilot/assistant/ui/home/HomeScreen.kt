@@ -107,7 +107,7 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Neural grammar error correction powered by GECToR on-device",
+                            "Grammar & spell error correction powered by multi-provider APIs",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )

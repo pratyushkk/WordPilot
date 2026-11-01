@@ -70,15 +70,6 @@ fun RewriteScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
-                    selected = uiState.selectedEngine == AIEngineType.GECTOR,
-                    onClick = { viewModel.setSelectedEngine(AIEngineType.GECTOR) },
-                    label = { Text("🛡️ GECToR (On-Device)") },
-                    leadingIcon = if (uiState.selectedEngine == AIEngineType.GECTOR) {
-                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
-
-                FilterChip(
                     selected = uiState.selectedEngine == AIEngineType.RULE_BASED,
                     onClick = { viewModel.setSelectedEngine(AIEngineType.RULE_BASED) },
                     label = { Text("⚡ Offline Rules") },

@@ -237,13 +237,14 @@ class FloatingAssistantOverhaulTest {
     }
 
     // =========================================================================
-    // GECTOR & BLOCK CLOUD AI TESTS
+    // ENGINE POLICY & BLOCK CLOUD AI TESTS
     // =========================================================================
 
     @Test
-    fun testAIEngineTypeGectorRegistration() {
-        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GECTOR, com.wordpilot.assistant.domain.models.AIEngineType.fromId("gector"))
-        assertEquals("GECToR", com.wordpilot.assistant.domain.models.AIEngineType.GECTOR.shortName)
+    fun testAIEngineTypeRegistration() {
+        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH, com.wordpilot.assistant.domain.models.AIEngineType.fromId("gemini"))
+        assertEquals("Gemini Flash", com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH.shortName)
+        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.RULE_BASED, com.wordpilot.assistant.domain.models.AIEngineType.fromId("rule_based"))
     }
 
     @Test
@@ -281,12 +282,12 @@ class FloatingAssistantOverhaulTest {
         coordinator.setBlockCloudAi(true)
         assertTrue(coordinator.isBlockCloudAi)
 
-        // Verifies selected engine automatically switches to GECTOR
-        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GECTOR, coordinator.selectedEngine.value)
+        // Verifies selected engine automatically switches to RULE_BASED
+        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.RULE_BASED, coordinator.selectedEngine.value)
 
         // Attempting to select GEMINI_FLASH while blocked is rejected
         coordinator.setEngineType(com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH)
-        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GECTOR, coordinator.selectedEngine.value)
+        assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.RULE_BASED, coordinator.selectedEngine.value)
 
         // Verification of rewrite interception: does not call Gemini
         val result = coordinator.rewrite("This is a clean sentence.", com.wordpilot.assistant.domain.models.RewriteStyle.REWRITE, forcedEngine = com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH)

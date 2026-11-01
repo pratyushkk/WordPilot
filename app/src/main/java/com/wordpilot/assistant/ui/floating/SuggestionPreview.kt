@@ -41,7 +41,7 @@ fun SuggestionPreview(
     onSelectTone: (String) -> Unit,
     currentTone: String,
     settings: AppearanceSettings,
-    selectedEngine: AIEngineType = AIEngineType.GECTOR,
+    selectedEngine: AIEngineType = AIEngineType.GEMINI_FLASH,
     onSelectEngine: (AIEngineType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -72,7 +72,7 @@ fun SuggestionPreview(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = if (isLoading) "Checking grammar with GECToR..." else "GECToR Grammar Review",
+                        text = if (isLoading) "Checking writing..." else "Grammar Review",
                         color = AssistantColors.TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
@@ -117,7 +117,7 @@ fun SuggestionPreview(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "GECToR neural inference...",
+                            text = "Checking writing...",
                             color = AssistantColors.TextSecondary,
                             fontSize = 12.sp
                         )

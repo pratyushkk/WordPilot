@@ -106,9 +106,10 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
 
-    // ONNX Runtime for GECToR on-device neural grammar correction
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
-    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.18.0")
+
+    // OkHttp for provider API calls
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

@@ -71,14 +71,6 @@
                 android:resource="@xml/widget_wordpilot_info" />
         </receiver>
 
-        <!-- On-Device GECToR Sentence Test Receiver -->
-        <receiver
-            android:name=".receiver.GectorDeviceTestReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.wordpilot.assistant.TEST_SENTENCES" />
-            </intent-filter>
-        </receiver>
 
     </application>
 

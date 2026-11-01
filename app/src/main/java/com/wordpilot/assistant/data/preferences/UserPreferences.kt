@@ -29,10 +29,34 @@ class UserPreferences(
         val SELECTED_ENGINE = stringPreferencesKey("selected_engine")
         val AUTO_PAUSE_BANKING_ENABLED = booleanPreferencesKey("auto_pause_banking_enabled")
         val BLOCK_CLOUD_AI = booleanPreferencesKey("block_cloud_ai")
+
+        val SAPLING_API_KEY = stringPreferencesKey("sapling_api_key_enc")
+        val SAPLING_ENABLED = booleanPreferencesKey("sapling_enabled")
+        val LANGUAGETOOL_ENABLED = booleanPreferencesKey("languagetool_enabled")
+        val LANGUAGETOOL_BASE_URL = stringPreferencesKey("languagetool_base_url")
+        val GRAMMARBOT_API_KEY = stringPreferencesKey("grammarbot_api_key_enc")
+        val GRAMMARBOT_ENABLED = booleanPreferencesKey("grammarbot_enabled")
+        val GRAMMAR_PROVIDER_PRIORITY = stringPreferencesKey("grammar_provider_priority")
     }
 
     val blockCloudAi: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[BLOCK_CLOUD_AI] ?: false
+    }
+
+    val saplingEnabled: Flow<Boolean> = context.dataStore.data.map { it[SAPLING_ENABLED] ?: true }
+    val saplingApiKey: Flow<String?> = context.dataStore.data.map { prefs ->
+        val raw = prefs[SAPLING_API_KEY] ?: return@map null
+        if (raw.isBlank()) null else cryptoManager.decrypt(raw)
+    }
+    val languageToolEnabled: Flow<Boolean> = context.dataStore.data.map { it[LANGUAGETOOL_ENABLED] ?: false }
+    val languageToolBaseUrl: Flow<String> = context.dataStore.data.map { it[LANGUAGETOOL_BASE_URL] ?: "" }
+    val grammarBotEnabled: Flow<Boolean> = context.dataStore.data.map { it[GRAMMARBOT_ENABLED] ?: false }
+    val grammarBotApiKey: Flow<String?> = context.dataStore.data.map { prefs ->
+        val raw = prefs[GRAMMARBOT_API_KEY] ?: return@map null
+        if (raw.isBlank()) null else cryptoManager.decrypt(raw)
+    }
+    val grammarProviderPriority: Flow<String> = context.dataStore.data.map {
+        it[GRAMMAR_PROVIDER_PRIORITY] ?: "sapling,languagetool,grammarbot"
     }
 
     val autoPauseBankingEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -45,7 +69,7 @@ class UserPreferences(
     }
 
     val selectedEngine: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[SELECTED_ENGINE] ?: "gector"
+        prefs[SELECTED_ENGINE] ?: "gemini"
     }
 
     val theme: Flow<String> = context.dataStore.data.map { prefs ->
@@ -121,7 +145,7 @@ class UserPreferences(
         context.dataStore.edit { prefs ->
             prefs[BLOCK_CLOUD_AI] = blocked
             if (blocked) {
-                prefs[SELECTED_ENGINE] = "gector"
+                prefs[SELECTED_ENGINE] = "rule_based"
             }
         }
     }
@@ -129,5 +153,29 @@ class UserPreferences(
     suspend fun clearAll() {
         cryptoManager.clearKey()
         context.dataStore.edit { it.clear() }
+    }
+
+    suspend fun setSaplingApiKey(key: String) {
+        val encrypted = if (key.isNotBlank()) cryptoManager.encrypt(key.trim()) else ""
+        context.dataStore.edit { it[SAPLING_API_KEY] = encrypted }
+    }
+    suspend fun setSaplingEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[SAPLING_ENABLED] = enabled }
+    }
+    suspend fun setLanguageToolEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[LANGUAGETOOL_ENABLED] = enabled }
+    }
+    suspend fun setLanguageToolBaseUrl(url: String) {
+        context.dataStore.edit { it[LANGUAGETOOL_BASE_URL] = url.trim() }
+    }
+    suspend fun setGrammarBotApiKey(key: String) {
+        val encrypted = if (key.isNotBlank()) cryptoManager.encrypt(key.trim()) else ""
+        context.dataStore.edit { it[GRAMMARBOT_API_KEY] = encrypted }
+    }
+    suspend fun setGrammarBotEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[GRAMMARBOT_ENABLED] = enabled }
+    }
+    suspend fun setGrammarProviderPriority(priority: String) {
+        context.dataStore.edit { it[GRAMMAR_PROVIDER_PRIORITY] = priority }
     }
 }
