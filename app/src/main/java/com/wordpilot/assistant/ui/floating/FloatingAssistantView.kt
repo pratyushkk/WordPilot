@@ -45,6 +45,7 @@ fun FloatingAssistantView(
     currentTone: String,
     onBubbleClick: () -> Unit,
     onDrag: (Float, Float) -> Unit,
+    onDragEnd: () -> Unit = {},
     onActionClick: (String) -> Unit,
     onCustomPromptSubmit: (String) -> Unit,
     onSelectTone: (String) -> Unit,
@@ -55,6 +56,11 @@ fun FloatingAssistantView(
     onUndo: () -> Unit,
     onOpenSettings: () -> Unit,
     onCollapse: () -> Unit,
+    activeCorrections: List<Correction> = emptyList(),
+    onAcceptCorrection: (Correction) -> Unit = {},
+    onDismissCorrection: () -> Unit = {},
+    onAcceptAll: () -> Unit = {},
+    onReviewAll: () -> Unit = {},
     onCollapseTransitionCompleted: () -> Unit = {},
     selectedEngine: AIEngineType = AIEngineType.GEMINI_FLASH,
     onSelectEngine: (AIEngineType) -> Unit = {},
@@ -242,9 +248,14 @@ fun FloatingAssistantView(
                         ) {
                             ToolbarActionsContent(
                                 settings = settings,
-                                onActionClick = onActionClick,
                                 onCollapse = onCollapse,
-                                isExpandedToLeft = true
+                                isExpandedToLeft = true,
+                                activeCorrection = activeCorrection,
+                                activeCorrections = activeCorrections,
+                                errorCount = errorCount,
+                                isChecking = isChecking,
+                                onAcceptCorrection = onAcceptCorrection,
+                                onDismissCorrection = onDismissCorrection
                             )
                         }
                     }
@@ -261,7 +272,8 @@ fun FloatingAssistantView(
                             isChecking = isChecking,
                             badgeColor = badgeColor,
                             onClick = onBubbleClick,
-                            onDrag = onDrag
+                            onDrag = onDrag,
+                            onDragEnd = onDragEnd
                         )
                     }
                 } else {
@@ -278,7 +290,8 @@ fun FloatingAssistantView(
                             isChecking = isChecking,
                             badgeColor = badgeColor,
                             onClick = onBubbleClick,
-                            onDrag = onDrag
+                            onDrag = onDrag,
+                            onDragEnd = onDragEnd
                         )
                     }
 
@@ -294,9 +307,14 @@ fun FloatingAssistantView(
                         ) {
                             ToolbarActionsContent(
                                 settings = settings,
-                                onActionClick = onActionClick,
                                 onCollapse = onCollapse,
-                                isExpandedToLeft = false
+                                isExpandedToLeft = false,
+                                activeCorrection = activeCorrection,
+                                activeCorrections = activeCorrections,
+                                errorCount = errorCount,
+                                isChecking = isChecking,
+                                onAcceptCorrection = onAcceptCorrection,
+                                onDismissCorrection = onDismissCorrection
                             )
                         }
                     }

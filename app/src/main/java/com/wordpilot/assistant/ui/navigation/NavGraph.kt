@@ -10,8 +10,8 @@ import com.wordpilot.assistant.ui.dictionary.DictionaryScreen
 import com.wordpilot.assistant.ui.editor.EditorScreen
 import com.wordpilot.assistant.ui.history.HistoryScreen
 import com.wordpilot.assistant.ui.home.HomeScreen
-import com.wordpilot.assistant.ui.model.ModelManagementScreen
 import com.wordpilot.assistant.ui.rewrite.RewriteScreen
+import com.wordpilot.assistant.ui.settings.ApiSettingsScreen
 import com.wordpilot.assistant.ui.settings.AppearanceSettingsScreen
 import com.wordpilot.assistant.ui.settings.SettingsScreen
 
@@ -23,7 +23,8 @@ object Routes {
     const val DICTIONARY = "dictionary"
     const val HISTORY = "history"
     const val REWRITE = "rewrite"
-    const val MODEL_MANAGEMENT = "model_management"
+    const val API_SETTINGS = "api_settings"
+    const val MODEL_MANAGEMENT = "api_settings"
     const val BUBBLE_CUSTOMIZATION = "bubble_customization"
     const val APPEARANCE_STUDIO = "bubble_customization"
 }
@@ -42,7 +43,7 @@ fun WordPilotNavGraph(
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
                 onNavigateToDictionary = { navController.navigate(Routes.DICTIONARY) },
-                onNavigateToModel = { navController.navigate(Routes.MODEL_MANAGEMENT) },
+                onNavigateToApiSettings = { navController.navigate(Routes.API_SETTINGS) },
                 onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) }
             )
         }
@@ -72,7 +73,7 @@ fun WordPilotNavGraph(
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToDictionary = { navController.navigate(Routes.DICTIONARY) },
-                onNavigateToModel = { navController.navigate(Routes.MODEL_MANAGEMENT) },
+                onNavigateToApiSettings = { navController.navigate(Routes.API_SETTINGS) },
                 onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) }
             )
         }
@@ -91,8 +92,8 @@ fun WordPilotNavGraph(
         composable(Routes.REWRITE) {
             RewriteScreen(onNavigateBack = { navController.popBackStack() })
         }
-        composable(Routes.MODEL_MANAGEMENT) {
-            ModelManagementScreen(onNavigateBack = { navController.popBackStack() })
+        composable(Routes.API_SETTINGS) {
+            ApiSettingsScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 }

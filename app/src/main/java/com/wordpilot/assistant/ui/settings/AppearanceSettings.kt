@@ -4,14 +4,41 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.wordpilot.assistant.ui.theme.AssistantColors
 import com.wordpilot.assistant.ui.theme.AssistantDimensions
 import com.wordpilot.assistant.ui.theme.GradientConfig
 import com.wordpilot.assistant.ui.theme.GradientPresets
 import org.json.JSONArray
+
+enum class AiLogoIcon(
+    val id: String,
+    val displayName: String,
+    val description: String,
+    val icon: ImageVector
+) {
+    SPARKLE("sparkle", "Sparkle Star", "Classic AI constellation", Icons.Filled.AutoAwesome),
+    WAND("wand", "Magic Wand", "Precise grammar enhancements", Icons.Filled.AutoFixHigh),
+    BOLT("bolt", "Lightning Bolt", "High-speed instant corrections", Icons.Filled.Bolt),
+    PEN("pen", "Writing Pen", "Editorial craftsmanship", Icons.Filled.Edit),
+    BRAIN("brain", "AI Intelligence", "Neural context reasoning", Icons.Filled.Psychology),
+    ROBOT("robot", "Smart Assistant", "Friendly AI companion", Icons.Filled.SmartToy),
+    LIGHTBULB("lightbulb", "Idea & Insight", "Clear thinking and ideas", Icons.Filled.Lightbulb),
+    ROCKET("rocket", "Productivity Rocket", "Fast typing and flow", Icons.Filled.RocketLaunch),
+    DIAMOND("diamond", "Premium Diamond", "Polished and refined prose", Icons.Filled.Diamond),
+    STAR_EMBLEM("star_emblem", "Star Emblem", "Recognized writing quality", Icons.Filled.Stars),
+    QUILL("quill", "Editorial Quill", "Classic literature tone", Icons.Filled.HistoryEdu),
+    CHECK("check", "Verified Check", "Error-free guarantee", Icons.Filled.CheckCircle);
+
+    companion object {
+        fun fromId(id: String): AiLogoIcon = values().find { it.id == id } ?: SPARKLE
+    }
+}
 
 enum class BubbleShape(val displayName: String) {
     CIRCLE("Circle"),
@@ -27,6 +54,12 @@ enum class BubbleShape(val displayName: String) {
             CUSTOM -> RoundedCornerShape(customRadiusDp.coerceIn(0f, sizeDp / 2).dp)
         }
     }
+}
+
+enum class BadgeLetterPosition(val displayName: String) {
+    NONE("Number Only"),
+    PREFIX("Prefix Letter (e.g. E2)"),
+    SUFFIX("Suffix Letter (e.g. 2e)")
 }
 
 data class AppearanceSettings(
@@ -76,8 +109,23 @@ data class AppearanceSettings(
 
     // Animation & Timers
     val animationsEnabled: Boolean = true,
-    val autoCollapseDelaySeconds: Int = 0
+    val autoCollapseDelaySeconds: Int = 0,
+
+    // Edge Docking & Tuck (30% hidden in edge when minimized)
+    val edgeTuckEnabled: Boolean = true,
+    val edgeTuckPercent: Float = 0.30f,
+
+    // Error Badge & Letter Control
+    val badgeLetterPosition: BadgeLetterPosition = BadgeLetterPosition.NONE,
+    val badgeLetter: String = "E",
+    val badgeTextSizeSp: Float = 18f,
+    val badgeFontWeightBold: Boolean = true,
+
+    // AI Logo in Editing Section
+    val aiLogoIconId: String = "sparkle"
 ) {
+    fun getAiLogo(): AiLogoIcon = AiLogoIcon.fromId(aiLogoIconId)
+
     fun getEffectiveGradient(): GradientConfig {
         if (customGradientColors.isNotEmpty() && gradientId == "custom") {
             return GradientConfig.fromColorIntList(
@@ -131,6 +179,14 @@ data class AppearanceSettings(
 
         private const val KEY_ANIMATIONS_ENABLED = "appr_animations_enabled"
         private const val KEY_AUTO_COLLAPSE_DELAY = "appr_auto_collapse_delay"
+
+        private const val KEY_EDGE_TUCK_ENABLED = "appr_edge_tuck_enabled"
+        private const val KEY_EDGE_TUCK_PERCENT = "appr_edge_tuck_percent"
+        private const val KEY_BADGE_LETTER_POSITION = "appr_badge_letter_position"
+        private const val KEY_BADGE_LETTER = "appr_badge_letter"
+        private const val KEY_BADGE_TEXT_SIZE_SP = "appr_badge_text_size_sp"
+        private const val KEY_BADGE_FONT_WEIGHT_BOLD = "appr_badge_font_weight_bold"
+        private const val KEY_AI_LOGO_ICON_ID = "appr_ai_logo_icon_id"
 
         fun load(context: Context): AppearanceSettings {
             val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -204,7 +260,19 @@ data class AppearanceSettings(
                 moreActions = emptyList(),
 
                 animationsEnabled = sp.getBoolean(KEY_ANIMATIONS_ENABLED, defaultInst.animationsEnabled),
-                autoCollapseDelaySeconds = sp.getInt(KEY_AUTO_COLLAPSE_DELAY, defaultInst.autoCollapseDelaySeconds)
+                autoCollapseDelaySeconds = sp.getInt(KEY_AUTO_COLLAPSE_DELAY, defaultInst.autoCollapseDelaySeconds),
+
+                edgeTuckEnabled = sp.getBoolean(KEY_EDGE_TUCK_ENABLED, defaultInst.edgeTuckEnabled),
+                edgeTuckPercent = sp.getFloat(KEY_EDGE_TUCK_PERCENT, defaultInst.edgeTuckPercent),
+                badgeLetterPosition = try {
+                    BadgeLetterPosition.valueOf(sp.getString(KEY_BADGE_LETTER_POSITION, defaultInst.badgeLetterPosition.name) ?: defaultInst.badgeLetterPosition.name)
+                } catch (_: Exception) {
+                    BadgeLetterPosition.NONE
+                },
+                badgeLetter = sp.getString(KEY_BADGE_LETTER, defaultInst.badgeLetter) ?: defaultInst.badgeLetter,
+                badgeTextSizeSp = sp.getFloat(KEY_BADGE_TEXT_SIZE_SP, defaultInst.badgeTextSizeSp),
+                badgeFontWeightBold = sp.getBoolean(KEY_BADGE_FONT_WEIGHT_BOLD, defaultInst.badgeFontWeightBold),
+                aiLogoIconId = sp.getString(KEY_AI_LOGO_ICON_ID, defaultInst.aiLogoIconId) ?: defaultInst.aiLogoIconId
             )
         }
 
@@ -251,6 +319,14 @@ data class AppearanceSettings(
 
             editor.putBoolean(KEY_ANIMATIONS_ENABLED, settings.animationsEnabled)
             editor.putInt(KEY_AUTO_COLLAPSE_DELAY, settings.autoCollapseDelaySeconds)
+
+            editor.putBoolean(KEY_EDGE_TUCK_ENABLED, settings.edgeTuckEnabled)
+            editor.putFloat(KEY_EDGE_TUCK_PERCENT, settings.edgeTuckPercent)
+            editor.putString(KEY_BADGE_LETTER_POSITION, settings.badgeLetterPosition.name)
+            editor.putString(KEY_BADGE_LETTER, settings.badgeLetter)
+            editor.putFloat(KEY_BADGE_TEXT_SIZE_SP, settings.badgeTextSizeSp)
+            editor.putBoolean(KEY_BADGE_FONT_WEIGHT_BOLD, settings.badgeFontWeightBold)
+            editor.putString(KEY_AI_LOGO_ICON_ID, settings.aiLogoIconId)
 
             editor.apply()
         }

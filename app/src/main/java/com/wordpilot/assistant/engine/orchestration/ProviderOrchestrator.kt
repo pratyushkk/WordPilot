@@ -29,7 +29,7 @@ data class OrchestratedResult(
  */
 class ProviderOrchestrator(
     private val providers: Map<String, GrammarProvider>,
-    private var providerPriority: List<String> = listOf("sapling", "languagetool", "grammarbot", "gector")
+    private var providerPriority: List<String> = listOf("sapling", "languagetool")
 ) {
     companion object {
         private const val TAG = "ProviderOrchestrator"
@@ -44,6 +44,8 @@ class ProviderOrchestrator(
         providerPriority = newPriority
         Log.d(TAG, "Updated provider priority order: $providerPriority")
     }
+
+    fun getProvider(providerId: String): GrammarProvider? = providers[providerId]
 
     fun configureProvider(providerId: String, config: ProviderConfig) {
         providers[providerId]?.configure(config)

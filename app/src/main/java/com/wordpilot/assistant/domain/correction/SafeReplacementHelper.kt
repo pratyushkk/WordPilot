@@ -5,7 +5,6 @@ import com.wordpilot.assistant.domain.models.Correction
 class SafeReplacementHelper {
     
     fun applyCorrection(text: String, correction: Correction): String? {
-        // Validate the correction is still applicable
         if (!validateCorrection(text, correction)) return null
         
         val before = text.substring(0, correction.startOffset)
@@ -13,6 +12,45 @@ class SafeReplacementHelper {
         val replacement = correction.suggestedReplacement ?: return null
         
         return before + replacement + after
+    }
+
+    /**
+     * Resolves the correction's exact span in the current text.
+     * If the text was slightly shifted (+/- 40 chars) due to preceding edits,
+     * it resiliently re-aligns to the target word rather than rejecting the replacement.
+     */
+    fun findApplicableCorrection(text: String, correction: Correction): Correction? {
+        if (correction.startOffset < 0 || correction.endOffset > text.length || correction.startOffset > correction.endOffset) {
+            return null
+        }
+        if (validateCorrection(text, correction)) return correction
+
+        val original = correction.originalText
+        if (original.isBlank()) return null
+
+        // Search in a window around original offsets
+        val windowStart = (correction.startOffset - 40).coerceAtLeast(0)
+        val windowEnd = (correction.endOffset + 40).coerceAtMost(text.length)
+        if (windowStart >= windowEnd || windowEnd - windowStart < original.length) return null
+
+        val windowText = text.substring(windowStart, windowEnd)
+        val exactIndex = windowText.indexOf(original)
+        if (exactIndex >= 0) {
+            val newStart = windowStart + exactIndex
+            val newEnd = newStart + original.length
+            val candidate = correction.copy(startOffset = newStart, endOffset = newEnd)
+            if (validateCorrection(text, candidate)) return candidate
+        }
+
+        val ciIndex = windowText.indexOf(original, ignoreCase = true)
+        if (ciIndex >= 0) {
+            val newStart = windowStart + ciIndex
+            val newEnd = newStart + original.length
+            val candidate = correction.copy(startOffset = newStart, endOffset = newEnd)
+            if (validateCorrection(text, candidate)) return candidate
+        }
+
+        return null
     }
 
     fun validateCorrection(text: String, correction: Correction): Boolean {

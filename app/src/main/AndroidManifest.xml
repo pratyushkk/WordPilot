@@ -72,6 +72,14 @@
         </receiver>
 
 
+        <receiver
+            android:name=".receiver.GrammarApiDeviceTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.wordpilot.assistant.TEST_GRAMMAR_APIS" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

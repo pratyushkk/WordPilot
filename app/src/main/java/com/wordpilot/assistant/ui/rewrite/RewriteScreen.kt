@@ -58,45 +58,6 @@ fun RewriteScreen(
                 maxLines = 10
             )
 
-            // AI Engine Selector
-            Text(
-                "AI Engine",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = uiState.selectedEngine == AIEngineType.RULE_BASED,
-                    onClick = { viewModel.setSelectedEngine(AIEngineType.RULE_BASED) },
-                    label = { Text("⚡ Offline Rules") },
-                    leadingIcon = if (uiState.selectedEngine == AIEngineType.RULE_BASED) {
-                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
-
-                FilterChip(
-                    selected = uiState.selectedEngine == AIEngineType.LOCAL_AI,
-                    onClick = { viewModel.setSelectedEngine(AIEngineType.LOCAL_AI) },
-                    label = { Text("📱 Local Llama 3.2") },
-                    leadingIcon = if (uiState.selectedEngine == AIEngineType.LOCAL_AI) {
-                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
-
-                FilterChip(
-                    selected = uiState.selectedEngine == AIEngineType.GEMINI_FLASH,
-                    onClick = { viewModel.setSelectedEngine(AIEngineType.GEMINI_FLASH) },
-                    label = { Text("☁️ Cloud API") },
-                    leadingIcon = if (uiState.selectedEngine == AIEngineType.GEMINI_FLASH) {
-                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
-            }
-
             // Style selector
             Text(
                 "Rewrite Style",

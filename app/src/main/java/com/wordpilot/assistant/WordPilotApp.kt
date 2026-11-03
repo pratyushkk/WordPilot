@@ -62,8 +62,6 @@ class WordPilotApp : Application() {
         private set
     lateinit var languageToolProvider: com.wordpilot.assistant.engine.providers.LanguageToolProvider
         private set
-    lateinit var grammarBotProvider: com.wordpilot.assistant.engine.providers.GrammarBotProvider
-        private set
     lateinit var aiEngine: LocalAIEngine
         private set
     lateinit var geminiEngine: GeminiAIEngine
@@ -112,14 +110,15 @@ class WordPilotApp : Application() {
         sentenceAnalyzer = SentenceAnalyzer()
         saplingProvider = com.wordpilot.assistant.engine.providers.SaplingProvider()
         languageToolProvider = com.wordpilot.assistant.engine.providers.LanguageToolProvider()
-        grammarBotProvider = com.wordpilot.assistant.engine.providers.GrammarBotProvider()
 
         val providersMap = mapOf(
             "sapling" to saplingProvider,
-            "languagetool" to languageToolProvider,
-            "grammarbot" to grammarBotProvider
+            "languagetool" to languageToolProvider
         )
-        providerOrchestrator = com.wordpilot.assistant.engine.orchestration.ProviderOrchestrator(providersMap)
+        providerOrchestrator = com.wordpilot.assistant.engine.orchestration.ProviderOrchestrator(
+            providersMap,
+            listOf("sapling", "languagetool")
+        )
 
         correctionCoordinator = CorrectionCoordinator(
             providerOrchestrator = providerOrchestrator,
@@ -207,24 +206,6 @@ class WordPilotApp : Application() {
                 )
             }.collect()
         }
-
-        applicationScope.launch {
-            combine(
-                userPreferences.grammarBotEnabled,
-                userPreferences.grammarBotApiKey
-            ) { enabled, apiKey ->
-                grammarBotProvider.configure(
-                    com.wordpilot.assistant.engine.providers.ProviderConfig(
-                        id = "grammarbot",
-                        enabled = enabled,
-                        apiKey = apiKey,
-                        baseUrl = null,
-                        priority = 3
-                    )
-                )
-            }.collect()
-        }
-
 
         applicationScope.launch {
             userPreferences.grammarProviderPriority.collect { raw ->

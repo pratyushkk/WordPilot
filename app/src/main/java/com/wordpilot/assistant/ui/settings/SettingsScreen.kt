@@ -17,14 +17,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.wordpilot.assistant.domain.models.AIEngineType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDictionary: () -> Unit,
-    onNavigateToModel: () -> Unit,
+    onNavigateToApiSettings: () -> Unit,
     onNavigateToBubbleCustomization: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel()
 ) {
@@ -32,162 +31,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showClearDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
-    var showGeminiDialog by remember { mutableStateOf(false) }
-    var geminiKeyInput by remember { mutableStateOf("") }
-    var showSaplingDialog by remember { mutableStateOf(false) }
-    var saplingKeyInput by remember { mutableStateOf("") }
-    var showLanguageToolDialog by remember { mutableStateOf(false) }
-    var languageToolUrlInput by remember { mutableStateOf("") }
-    var showGrammarBotDialog by remember { mutableStateOf(false) }
-    var grammarBotKeyInput by remember { mutableStateOf("") }
-
-    if (showSaplingDialog) {
-        AlertDialog(
-            onDismissRequest = { showSaplingDialog = false },
-            title = { Text("Configure Sapling API Key") },
-            text = {
-                Column {
-                    Text(
-                        text = "Enter your Sapling API key to enable production-grade neural edits via Sapling AI with automatic chunking.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = saplingKeyInput.ifEmpty { uiState.saplingApiKey ?: "" },
-                        onValueChange = { saplingKeyInput = it },
-                        placeholder = { Text("Sapling API Key...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    val key = saplingKeyInput.trim()
-                    if (key.isNotEmpty()) {
-                        viewModel.setSaplingApiKey(key)
-                    }
-                    showSaplingDialog = false
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSaplingDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
-    if (showLanguageToolDialog) {
-        AlertDialog(
-            onDismissRequest = { showLanguageToolDialog = false },
-            title = { Text("Configure LanguageTool Server") },
-            text = {
-                Column {
-                    Text(
-                        text = "Enter the base URL of your self-hosted LanguageTool server (e.g. http://192.168.1.100:8081). Never points to unauthenticated public endpoints.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = languageToolUrlInput.ifEmpty { uiState.languageToolBaseUrl },
-                        onValueChange = { languageToolUrlInput = it },
-                        placeholder = { Text("http://localhost:8081") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    val url = languageToolUrlInput.trim()
-                    if (url.isNotEmpty()) {
-                        viewModel.setLanguageToolBaseUrl(url)
-                    }
-                    showLanguageToolDialog = false
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLanguageToolDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
-    if (showGrammarBotDialog) {
-        AlertDialog(
-            onDismissRequest = { showGrammarBotDialog = false },
-            title = { Text("Configure GrammarBot RapidAPI Key") },
-            text = {
-                Column {
-                    Text(
-                        text = "Enter your RapidAPI key for GrammarBot Neural. Keep disabled until credentials and subscription limits are verified.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = grammarBotKeyInput.ifEmpty { uiState.grammarBotApiKey ?: "" },
-                        onValueChange = { grammarBotKeyInput = it },
-                        placeholder = { Text("RapidAPI Key...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    val key = grammarBotKeyInput.trim()
-                    if (key.isNotEmpty()) {
-                        viewModel.setGrammarBotApiKey(key)
-                    }
-                    showGrammarBotDialog = false
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showGrammarBotDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
-    if (showGeminiDialog) {
-        AlertDialog(
-            onDismissRequest = { showGeminiDialog = false },
-            title = { Text("Configure Gemini API Key") },
-            text = {
-                Column {
-                    Text(
-                        text = "Enter your Google Gemini API key to enable instant cloud AI writing, style shifts, and clarity improvements.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = geminiKeyInput.ifEmpty { uiState.geminiApiKey ?: "" },
-                        onValueChange = { geminiKeyInput = it },
-                        placeholder = { Text("AIzaSy...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    val key = geminiKeyInput.trim()
-                    if (key.isNotEmpty()) {
-                        viewModel.setGeminiApiKey(key)
-                    }
-                    showGeminiDialog = false
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showGeminiDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -211,20 +54,19 @@ fun SettingsScreen(
     if (showPrivacyDialog) {
         AlertDialog(
             onDismissRequest = { showPrivacyDialog = false },
-            title = { Text("Privacy Information") },
+            title = { Text("Privacy & Security Information") },
             text = {
                 Text(
-                    "WordPilot processes all text locally on your device.\n\n" +
-                    "• No text is transmitted to external servers unless you enable Cloud API\n" +
-                    "• Local AI (Meta Llama 3.2) runs 100% on-device with zero network calls\n" +
-                    "• No analytics or telemetry data is collected\n" +
-                    "• Sensitive fields (passwords, PINs) are never analyzed\n" +
-                    "• Document history is disabled by default\n" +
-                    "• Text from third-party apps is not stored"
+                    "WordPilot is engineered with strict user privacy in mind:\n\n" +
+                    "• Grammar checking is handled exclusively by your configured APIs (Sapling AI, LanguageTool)\n" +
+                    "• Over 50+ banking, wallet, and UPI applications are strictly shielded and never inspected\n" +
+                    "• Sensitive fields such as passwords and PINs are completely ignored\n" +
+                    "• No background telemetry, analytics, or keystroke tracking\n" +
+                    "• Document history is stored purely locally on your device and can be cleared anytime"
                 )
             },
             confirmButton = {
-                TextButton(onClick = { showPrivacyDialog = false }) { Text("OK") }
+                TextButton(onClick = { showPrivacyDialog = false }) { Text("Got It") }
             }
         )
     }
@@ -255,105 +97,97 @@ fun SettingsScreen(
                 )
                 SettingsClickable(
                     title = "Appearance & Layout Studio",
-                    subtitle = "Customize floating AI bubble, multicolor gradients, glassmorphism & actions",
+                    subtitle = "Customize bubble size (smaller/bigger), alert gradients & glass styling",
                     onClick = onNavigateToBubbleCustomization
                 )
             }
 
-            // Correction
-            SettingsSection(title = "Correction") {
-                SettingsSwitch(
-                    title = "Grammar Checking",
-                    subtitle = "Detect grammar errors",
-                    checked = uiState.grammarCheckEnabled,
-                    onCheckedChange = { viewModel.setGrammarCheckEnabled(it) }
-                )
-                SettingsSwitch(
-                    title = "Spell Checking",
-                    subtitle = "Detect misspelled words",
-                    checked = uiState.spellCheckEnabled,
-                    onCheckedChange = { viewModel.setSpellCheckEnabled(it) }
-                )
-                SettingsSwitch(
-                    title = "Auto Check While Typing",
-                    subtitle = "Automatically check text as you type",
-                    checked = uiState.autoCheckEnabled,
-                    onCheckedChange = { viewModel.setAutoCheckEnabled(it) }
-                )
-            }
-
-            // Data
-            SettingsSection(title = "Data") {
-                SettingsClickable(
-                    title = "Personal Dictionary",
-                    subtitle = "Manage custom words and abbreviations",
-                    onClick = onNavigateToDictionary
-                )
-                SettingsSwitch(
-                    title = "Local Document History",
-                    subtitle = "Save documents locally (disabled by default)",
-                    checked = uiState.historyEnabled,
-                    onCheckedChange = { viewModel.setHistoryEnabled(it) }
-                )
-            }
-
-            // Multi-Provider Grammar Checking & Failover Architecture
-            SettingsSection(title = "Grammar Checking Providers") {
-                Text(
-                    text = "Intelligent multi-provider grammar checking with automatic sequential failover (Sapling → LanguageTool → GrammarBot).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-
-                // 1. Sapling AI
-                SettingsSwitch(
-                    title = "Sapling AI (Primary Cloud)",
-                    subtitle = if (!uiState.saplingApiKey.isNullOrBlank()) "Configured • Priority 1" else "API key required for hosted cloud inference",
-                    checked = uiState.saplingEnabled,
-                    onCheckedChange = { viewModel.setSaplingEnabled(it) }
-                )
-                SettingsClickable(
-                    title = "Sapling API Key",
-                    subtitle = if (!uiState.saplingApiKey.isNullOrBlank()) "Key configured (tap to update)" else "Tap to configure Sapling API key",
-                    onClick = { showSaplingDialog = true }
-                )
-
-                // 2. LanguageTool
-                SettingsSwitch(
-                    title = "LanguageTool (Self-Hosted Fallback)",
-                    subtitle = if (uiState.languageToolBaseUrl.isNotBlank()) "URL: ${uiState.languageToolBaseUrl}" else "Base URL required (Priority 2)",
-                    checked = uiState.languageToolEnabled,
-                    onCheckedChange = { viewModel.setLanguageToolEnabled(it) }
-                )
-                SettingsClickable(
-                    title = "LanguageTool Server URL",
-                    subtitle = if (uiState.languageToolBaseUrl.isNotBlank()) uiState.languageToolBaseUrl else "Tap to configure self-hosted server URL",
-                    onClick = { showLanguageToolDialog = true }
-                )
-
-                // 3. GrammarBot
-                SettingsSwitch(
-                    title = "GrammarBot Neural (Optional)",
-                    subtitle = "RapidAPI neural edits (Priority 3 • Disabled by default)",
-                    checked = uiState.grammarBotEnabled,
-                    onCheckedChange = { viewModel.setGrammarBotEnabled(it) }
-                )
-                SettingsClickable(
-                    title = "GrammarBot RapidAPI Key",
-                    subtitle = if (!uiState.grammarBotApiKey.isNullOrBlank()) "RapidAPI key configured" else "Tap to configure RapidAPI key",
-                    onClick = { showGrammarBotDialog = true }
-                )
-            }
-
-            // Banking & App Shield (Grammarly-Style Privacy & Security)
-            SettingsSection(title = "Banking & App Shield") {
+            // API Providers & Failover (Dedicated, Clean Hub)
+            SettingsSection(title = "Grammar Engine & APIs") {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                    onClick = onNavigateToApiSettings
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.CloudQueue,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Text(
+                                    "API Providers & Failover",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Icon(
+                                Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = if (!uiState.saplingApiKey.isNullOrBlank()) {
+                                "Sapling AI (Active) ➔ LanguageTool (Automatic Fallback)"
+                            } else {
+                                "Sapling API key required for primary neural checking"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Writing & Correction Preferences
+            SettingsSection(title = "Writing & Correction") {
+                SettingsSwitch(
+                    title = "Grammar Checking",
+                    subtitle = "Detect and fix grammatical issues",
+                    checked = uiState.grammarCheckEnabled,
+                    onCheckedChange = { viewModel.setGrammarCheckEnabled(it) }
+                )
+                SettingsSwitch(
+                    title = "Spell Checking",
+                    subtitle = "Detect and suggest correctly spelled words",
+                    checked = uiState.spellCheckEnabled,
+                    onCheckedChange = { viewModel.setSpellCheckEnabled(it) }
+                )
+                SettingsSwitch(
+                    title = "Auto Check While Typing",
+                    subtitle = "Continuously analyze text as you type",
+                    checked = uiState.autoCheckEnabled,
+                    onCheckedChange = { viewModel.setAutoCheckEnabled(it) }
+                )
+            }
+
+            // Banking & App Shield
+            SettingsSection(title = "Privacy & Banking Shield") {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                     ),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 ) {
@@ -386,7 +220,7 @@ fun SettingsScreen(
 
                 SettingsSwitch(
                     title = "Auto-Pause in Banking Apps",
-                    subtitle = "Automatically deactivates the accessibility service when a banking app opens. Re-enable with 1 tap from Quick Settings.",
+                    subtitle = "Automatically pauses the assistant whenever a financial app opens",
                     checked = uiState.autoPauseBankingEnabled,
                     onCheckedChange = { viewModel.setAutoPauseBankingEnabled(it) }
                 )
@@ -403,12 +237,18 @@ fun SettingsScreen(
                 )
             }
 
-            // Privacy & Data
-            SettingsSection(title = "Privacy & Data") {
+            // Data & History
+            SettingsSection(title = "Data & Dictionary") {
                 SettingsClickable(
-                    title = "Privacy Information",
-                    subtitle = "How WordPilot processes your text",
-                    onClick = { showPrivacyDialog = true }
+                    title = "Personal Dictionary",
+                    subtitle = "Manage your custom words and ignored rules",
+                    onClick = onNavigateToDictionary
+                )
+                SettingsSwitch(
+                    title = "Document History",
+                    subtitle = "Save drafts locally in the app",
+                    checked = uiState.historyEnabled,
+                    onCheckedChange = { viewModel.setHistoryEnabled(it) }
                 )
                 SettingsClickable(
                     title = "Clear All Local Data",
@@ -418,15 +258,20 @@ fun SettingsScreen(
                 )
             }
 
-            // About
-            SettingsSection(title = "About") {
+            // Privacy & About
+            SettingsSection(title = "About & Privacy") {
+                SettingsClickable(
+                    title = "Privacy Policy & Details",
+                    subtitle = "How WordPilot protects your privacy and text",
+                    onClick = { showPrivacyDialog = true }
+                )
                 SettingsInfo(
                     title = "Version",
-                    value = "1.0.0"
+                    value = "2.0.0 (API Architecture)"
                 )
                 SettingsInfo(
                     title = "WordPilot",
-                    value = "Local-first writing assistant"
+                    value = "Production Grammar & Writing Assistant"
                 )
             }
 
@@ -538,77 +383,6 @@ private fun SettingsThemeSelector(
     }
 }
 
-@Composable
-private fun SettingsEngineOption(
-    title: String,
-    subtitle: String,
-    isSelected: Boolean,
-    badgeText: String,
-    badgeOk: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-        color = if (isSelected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        },
-        border = androidx.compose.foundation.BorderStroke(
-            width = if (isSelected) 1.5.dp else 0.5.dp,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = isSelected,
-                onClick = onClick,
-                modifier = Modifier.size(24.dp)
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Surface(
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
-                    color = if (badgeOk) androidx.compose.ui.graphics.Color(0xFFE8F5E9) else androidx.compose.ui.graphics.Color(0xFFFFF3E0)
-                ) {
-                    Text(
-                        text = badgeText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (badgeOk) androidx.compose.ui.graphics.Color(0xFF2E7D32) else androidx.compose.ui.graphics.Color(0xFFE65100),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun SettingsInfo(

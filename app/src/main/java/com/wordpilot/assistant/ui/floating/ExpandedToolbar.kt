@@ -1,21 +1,32 @@
 package com.wordpilot.assistant.ui.floating
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wordpilot.assistant.domain.models.Correction
+import com.wordpilot.assistant.domain.models.CorrectionCategory
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
 import com.wordpilot.assistant.ui.theme.AssistantColors
+import androidx.compose.ui.graphics.vector.ImageVector
 
 data class ToolbarActionItem(
     val id: String,
@@ -24,7 +35,7 @@ data class ToolbarActionItem(
 )
 
 object DefaultActionItems {
-    val FixGrammar = ToolbarActionItem("fix_grammar", "Fix Grammar", Icons.Filled.Spellcheck)
+    val FixGrammar = ToolbarActionItem("fix_grammar", "Check Writing", Icons.Filled.AutoAwesome)
     val Settings = ToolbarActionItem("settings", "Settings", Icons.Filled.Settings)
 
     val AllItems = listOf(
@@ -38,12 +49,24 @@ object DefaultActionItems {
 @Composable
 fun ToolbarActionsContent(
     settings: AppearanceSettings,
-    onActionClick: (String) -> Unit,
     onCollapse: () -> Unit,
     isExpandedToLeft: Boolean,
+    activeCorrection: Correction? = null,
+    activeCorrections: List<Correction> = emptyList(),
+    errorCount: Int = 0,
+    isChecking: Boolean = false,
+    onAcceptCorrection: (Correction) -> Unit = {},
+    onDismissCorrection: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
+    val correctionsToShow = if (activeCorrections.isNotEmpty()) {
+        activeCorrections
+    } else if (activeCorrection != null) {
+        listOf(activeCorrection)
+    } else {
+        emptyList()
+    }
 
     Row(
         modifier = modifier
@@ -65,31 +88,135 @@ fun ToolbarActionsContent(
             }
         }
 
-        // Horizontal scrollable actions list
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(scrollState),
-            horizontalArrangement = Arrangement.spacedBy(settings.chipSpacingDp.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val actionIds = if (settings.activeQuickActions.isNotEmpty()) {
-                settings.activeQuickActions.filter { it == "fix_grammar" || it == "settings" }.ifEmpty { listOf("fix_grammar", "settings") }
-            } else {
-                listOf("fix_grammar", "settings")
-            }
+        if (correctionsToShow.isNotEmpty()) {
+            // =========================================================================
+            // DIRECT CORRECTED WORD(S): Tapping directly auto-applies!
+            // No Settings button! No Apply button!
+            // =========================================================================
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(scrollState),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                correctionsToShow.forEach { correction ->
+                    val categoryColor = when (correction.category) {
+                        CorrectionCategory.SPELLING -> AssistantColors.BadgeSpelling
+                        CorrectionCategory.GRAMMAR -> AssistantColors.BadgeGrammar
+                        CorrectionCategory.PUNCTUATION -> AssistantColors.BadgePunctuation
+                        CorrectionCategory.STYLE -> AssistantColors.BadgeStyle
+                        CorrectionCategory.CAPITALIZATION -> AssistantColors.BadgeCapitalization
+                    }
 
-            actionIds.forEach { actionId ->
-                val item = DefaultActionItems.findById(actionId)
-                if (item != null) {
-                    ActionChip(
-                        label = item.label,
-                        icon = item.icon,
-                        iconSize = settings.chipIconSizeDp.dp,
-                        labelSize = settings.chipLabelSizeSp.sp,
-                        onClick = { onActionClick(item.id) }
+                    // Tactile clickable pill: tapping the corrected word auto-applies it!
+                    Surface(
+                        onClick = { onAcceptCorrection(correction) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF10B981).copy(alpha = 0.22f),
+                        border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.75f)),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .animateContentSize()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            // Category Dot
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(categoryColor)
+                            )
+
+                            // Original text with strikethrough if available
+                            if (correction.originalText.isNotBlank()) {
+                                Text(
+                                    text = correction.originalText,
+                                    color = Color(0xFFFF9999),
+                                    fontSize = 12.sp,
+                                    textDecoration = TextDecoration.LineThrough,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "→",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 11.sp
+                                )
+                            }
+
+                            // Corrected Replacement Word
+                            Text(
+                                text = correction.suggestedReplacement ?: "",
+                                color = Color(0xFF34D399), // Crisp Vivid Emerald Green
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                // Subtle dismiss 'x' button
+                IconButton(
+                    onClick = onDismissCorrection,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Dismiss error",
+                        tint = AssistantColors.TextMuted,
+                        modifier = Modifier.size(13.dp)
                     )
                 }
+            }
+        } else if (isChecking) {
+            // Checking state: subtle spinner + "Checking..."
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = AssistantColors.AccentCyan
+                )
+                Text(
+                    text = "Checking...",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 13.sp
+                )
+            }
+        } else {
+            // All clear state: "✓ All clear"
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onCollapse() }
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "All clear",
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
 
@@ -112,10 +239,15 @@ fun ToolbarActionsContent(
 @Composable
 fun ExpandedToolbar(
     settings: AppearanceSettings,
-    onActionClick: (String) -> Unit,
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier,
-    isExpandedToLeft: Boolean = false
+    isExpandedToLeft: Boolean = false,
+    activeCorrection: Correction? = null,
+    activeCorrections: List<Correction> = emptyList(),
+    errorCount: Int = 0,
+    isChecking: Boolean = false,
+    onAcceptCorrection: (Correction) -> Unit = {},
+    onDismissCorrection: () -> Unit = {}
 ) {
     GlassBackground(
         modifier = modifier
@@ -131,9 +263,14 @@ fun ExpandedToolbar(
     ) {
         ToolbarActionsContent(
             settings = settings,
-            onActionClick = onActionClick,
             onCollapse = onCollapse,
-            isExpandedToLeft = isExpandedToLeft
+            isExpandedToLeft = isExpandedToLeft,
+            activeCorrection = activeCorrection,
+            activeCorrections = activeCorrections,
+            errorCount = errorCount,
+            isChecking = isChecking,
+            onAcceptCorrection = onAcceptCorrection,
+            onDismissCorrection = onDismissCorrection
         )
     }
 }

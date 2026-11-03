@@ -39,6 +39,7 @@ import com.wordpilot.assistant.WordPilotApp
 import com.wordpilot.assistant.domain.correction.SafeReplacementHelper
 import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.Correction
+import com.wordpilot.assistant.domain.models.CorrectionCategory
 import com.wordpilot.assistant.domain.models.EditorSnapshot
 import com.wordpilot.assistant.domain.models.RewriteStyle
 import com.wordpilot.assistant.domain.models.TextOperationResult
@@ -110,6 +111,9 @@ class FloatingAssistantController(
     // Context & Text detection state
     private val _currentFullText = MutableStateFlow("")
     private val _currentSentence = MutableStateFlow("")
+    private val _activeCorrectionsList = MutableStateFlow<List<Correction>>(emptyList())
+    val activeCorrectionsList: StateFlow<List<Correction>> = _activeCorrectionsList.asStateFlow()
+
     private val _activeCorrection = MutableStateFlow<Correction?>(null)
     val activeCorrection: StateFlow<Correction?> = _activeCorrection.asStateFlow()
 
@@ -118,6 +122,8 @@ class FloatingAssistantController(
 
     private val _isChecking = MutableStateFlow(false)
     val isChecking: StateFlow<Boolean> = _isChecking.asStateFlow()
+
+    private var snapAnimator: android.animation.ValueAnimator? = null
 
     // Suggestion Preview State
     private val _previewOriginalText = MutableStateFlow("")
@@ -129,6 +135,7 @@ class FloatingAssistantController(
 
     // Callbacks provided by WordPilotAccessibilityService
     private var onApplySentenceCallback: ((String) -> TextOperationResult)? = null
+    private var onApplyFullTextCallback: ((String) -> TextOperationResult)? = null
     private var onInsertCallback: ((String) -> TextOperationResult)? = null
     private var onUndoCallback: (() -> TextOperationResult)? = null
     private var onAcceptSingleCorrectionCallback: ((Correction) -> Unit)? = null
@@ -179,9 +186,21 @@ class FloatingAssistantController(
 
         when (state) {
             FloatingUiState.COLLAPSED -> {
+                val targetX = if (s.edgeTuckEnabled) {
+                    OverlayGeometry.getTuckedX(
+                        isNearRightEdge = _isNearRightEdge.value,
+                        bubbleSizeDp = s.bubbleSizeDp,
+                        screenWidthPx = screenWidthPx,
+                        density = density,
+                        tuckPercent = s.edgeTuckPercent
+                    )
+                } else {
+                    bubbleRestingX
+                }
+                bubbleRestingX = targetX
                 lp.width = collapsedSizePx
                 lp.height = collapsedSizePx
-                lp.x = bubbleRestingX
+                lp.x = targetX
                 lp.y = bubbleRestingY
             }
             FloatingUiState.EXPANDED -> {
@@ -272,26 +291,28 @@ class FloatingAssistantController(
         snapshot: EditorSnapshot,
         onApplySentence: (String) -> TextOperationResult,
         onUndo: (() -> TextOperationResult)? = null,
-        onInsert: ((String) -> TextOperationResult)? = null
+        onInsert: ((String) -> TextOperationResult)? = null,
+        onApplyFullText: ((String) -> TextOperationResult)? = null
     ) {
         _currentFullText.value = snapshot.fullText
         _currentSentence.value = snapshot.sentenceText
         this.onApplySentenceCallback = onApplySentence
         this.onUndoCallback = onUndo
         this.onInsertCallback = onInsert
+        this.onApplyFullTextCallback = onApplyFullText
     }
 
-    fun showCorrection(
-        correction: Correction,
-        totalErrorCount: Int = 1,
+    fun showCorrections(
+        corrections: List<Correction>,
         onAccept: (Correction) -> Unit,
         onAddToDictionary: ((Correction) -> Unit)? = null,
         onIgnoreRule: ((Correction) -> Unit)? = null
     ) {
         if (!canDrawOverlays()) return
 
-        _activeCorrection.value = correction
-        _errorCount.value = totalErrorCount.coerceAtLeast(1)
+        _activeCorrectionsList.value = corrections
+        _activeCorrection.value = corrections.firstOrNull()
+        _errorCount.value = corrections.size
         this.onAcceptSingleCorrectionCallback = onAccept
         this.onAddToDictionaryCallback = onAddToDictionary
         this.onIgnoreRuleCallback = onIgnoreRule
@@ -301,8 +322,122 @@ class FloatingAssistantController(
         }
     }
 
+    fun showCorrection(
+        correction: Correction,
+        totalErrorCount: Int = 1,
+        onAccept: (Correction) -> Unit,
+        onAddToDictionary: ((Correction) -> Unit)? = null,
+        onIgnoreRule: ((Correction) -> Unit)? = null
+    ) {
+        showCorrections(
+            corrections = listOf(correction),
+            onAccept = onAccept,
+            onAddToDictionary = onAddToDictionary,
+            onIgnoreRule = onIgnoreRule
+        )
+    }
+
+    fun acceptCorrection(correction: Correction) {
+        val callback = onAcceptSingleCorrectionCallback ?: return
+
+        overlayView?.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+        callback(correction)
+
+        val currentList = _activeCorrectionsList.value
+        val remaining = safeReplacementHelper.adjustOffsetsAfterReplacement(currentList, correction)
+        _activeCorrectionsList.value = remaining
+        _errorCount.value = remaining.size
+
+        if (remaining.isNotEmpty()) {
+            _activeCorrection.value = remaining.first()
+        } else {
+            _activeCorrection.value = null
+            controllerScope.launch {
+                delay(300L)
+                if (_activeCorrection.value == null) {
+                    setUiState(FloatingUiState.COLLAPSED)
+                }
+            }
+        }
+    }
+
+    fun acceptCurrentCorrection() {
+        val current = _activeCorrection.value ?: return
+        acceptCorrection(current)
+    }
+
+    fun checkTextNow() {
+        val targetText = getTargetText()
+        if (targetText.isBlank() || _isChecking.value) return
+        _isChecking.value = true
+        controllerScope.launch {
+            try {
+                val app = WordPilotApp.instance
+                val corrections = withContext(Dispatchers.Default) {
+                    app.correctionCoordinator.checkText(targetText)
+                }
+                val valid = corrections.filter { correction ->
+                    val isIgnored = app.dictionaryRepository.isRuleIgnored(correction.ruleId, correction.originalText)
+                    val inDict = if (correction.category == CorrectionCategory.SPELLING) {
+                        app.dictionaryRepository.wordExists(correction.originalText.lowercase())
+                    } else false
+                    !isIgnored && !inDict
+                }
+                _isChecking.value = false
+                _activeCorrectionsList.value = valid
+                _activeCorrection.value = valid.firstOrNull()
+                _errorCount.value = valid.size
+            } catch (e: Exception) {
+                _isChecking.value = false
+            }
+        }
+    }
+
+    fun dismissCurrentCorrection() {
+        val current = _activeCorrection.value ?: return
+        overlayView?.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+        val currentList = _activeCorrectionsList.value
+        val remaining = currentList.filter { it.id != current.id }
+        _activeCorrectionsList.value = remaining
+        _errorCount.value = remaining.size
+        _activeCorrection.value = remaining.firstOrNull()
+
+        if (remaining.isEmpty()) {
+            setUiState(FloatingUiState.COLLAPSED)
+        }
+    }
+
+    fun acceptAllCorrections() {
+        val list = _activeCorrectionsList.value
+        if (list.isEmpty()) return
+
+        val targetText = getTargetText()
+        val fixed = safeReplacementHelper.applyMultipleCorrections(targetText, list)
+        if (fixed.isNotBlank()) {
+            val callback = onApplyFullTextCallback ?: onApplySentenceCallback
+            if (callback != null) {
+                val result = callback(fixed)
+                if (result is TextOperationResult.Success) {
+                    _canUndo.value = true
+                    Toast.makeText(context, "All errors corrected", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        overlayView?.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+        _activeCorrectionsList.value = emptyList()
+        _activeCorrection.value = null
+        _errorCount.value = 0
+
+        controllerScope.launch {
+            delay(500L)
+            setUiState(FloatingUiState.COLLAPSED)
+        }
+    }
+
     fun clearCorrection() {
         _activeCorrection.value = null
+        _activeCorrectionsList.value = emptyList()
         _errorCount.value = 0
         cachedTextCorrections = null
     }
@@ -424,7 +559,7 @@ class FloatingAssistantController(
         val improved = _previewImprovedText.value
         if (improved.isBlank()) return
 
-        val callback = onApplySentenceCallback
+        val callback = onApplyFullTextCallback ?: onApplySentenceCallback
         if (callback != null) {
             val result = callback(improved)
             when (result) {
@@ -533,11 +668,22 @@ class FloatingAssistantController(
         val lp = windowLayoutParams ?: return
         val screenWidth = context.resources.displayMetrics.widthPixels
         val screenHeight = context.resources.displayMetrics.heightPixels
+        val density = context.resources.displayMetrics.density
+        val s = appearanceSettings.value
 
-        val maxX = (screenWidth - lp.width).coerceAtLeast(0)
+        val minX = if (s.edgeTuckEnabled) {
+            OverlayGeometry.getTuckedX(isNearRightEdge = false, s.bubbleSizeDp, screenWidth, density, s.edgeTuckPercent)
+        } else {
+            0
+        }
+        val maxX = if (s.edgeTuckEnabled) {
+            OverlayGeometry.getTuckedX(isNearRightEdge = true, s.bubbleSizeDp, screenWidth, density, s.edgeTuckPercent)
+        } else {
+            (screenWidth - lp.width).coerceAtLeast(0)
+        }
         val maxY = (screenHeight - lp.height).coerceAtLeast(0)
 
-        val newX = (lp.x + deltaX.toInt()).coerceIn(0, maxX)
+        val newX = (lp.x + deltaX.toInt()).coerceIn(minX, maxX)
         val newY = (lp.y - deltaY.toInt()).coerceIn(0, maxY)
 
         lp.x = newX
@@ -552,6 +698,58 @@ class FloatingAssistantController(
             windowManager.updateViewLayout(view, lp)
         } catch (e: Exception) {
             Log.e(TAG, "Error updating drag position", e)
+        }
+    }
+
+    fun onDragEnd() {
+        val view = overlayView ?: return
+        val lp = windowLayoutParams ?: return
+        val screenWidth = context.resources.displayMetrics.widthPixels
+        val density = context.resources.displayMetrics.density
+        val s = appearanceSettings.value
+
+        val isLeft = (lp.x + (lp.width / 2)) < screenWidth / 2
+        val nearRight = !isLeft
+        _isNearRightEdge.value = nearRight
+
+        val targetX = if (s.edgeTuckEnabled) {
+            OverlayGeometry.getTuckedX(
+                isNearRightEdge = nearRight,
+                bubbleSizeDp = s.bubbleSizeDp,
+                screenWidthPx = screenWidth,
+                density = density,
+                tuckPercent = s.edgeTuckPercent
+            )
+        } else {
+            val edgeMarginPx = (12 * density).toInt()
+            if (isLeft) {
+                edgeMarginPx
+            } else {
+                (screenWidth - lp.width - edgeMarginPx).coerceAtLeast(edgeMarginPx)
+            }
+        }
+
+        snapAnimator?.cancel()
+        snapAnimator = android.animation.ValueAnimator.ofInt(lp.x, targetX).apply {
+            duration = 240L
+            interpolator = android.view.animation.DecelerateInterpolator(1.5f)
+            addUpdateListener { animator ->
+                val animatedX = animator.animatedValue as Int
+                lp.x = animatedX
+                bubbleRestingX = animatedX
+                try {
+                    windowManager.updateViewLayout(view, lp)
+                } catch (_: Exception) {}
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    lp.x = targetX
+                    bubbleRestingX = targetX
+                    _isNearRightEdge.value = targetX > screenWidth / 2
+                    prefs.edit().putInt(KEY_X_PX, targetX).putInt(KEY_Y_PX, lp.y).apply()
+                }
+            })
+            start()
         }
     }
 
@@ -589,12 +787,19 @@ class FloatingAssistantController(
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.START or Gravity.BOTTOM
-            x = savedX
+            val initialX = if (s.edgeTuckEnabled) {
+                OverlayGeometry.getTuckedX(_isNearRightEdge.value, s.bubbleSizeDp, displayMetrics.widthPixels, density, s.edgeTuckPercent)
+            } else {
+                savedX
+            }
+            x = initialX
             y = savedY
+            bubbleRestingX = initialX
         }
         windowLayoutParams = params
 
@@ -611,6 +816,7 @@ class FloatingAssistantController(
                 val errCount by errorCount.collectAsState()
                 val checking by isChecking.collectAsState()
                 val activeCorr by activeCorrection.collectAsState()
+                val allCorrections by activeCorrectionsList.collectAsState()
 
                 val origText by _previewOriginalText.collectAsState()
                 val imprText by _previewImprovedText.collectAsState()
@@ -641,6 +847,7 @@ class FloatingAssistantController(
                             errorCount = errCount,
                             isChecking = checking,
                             activeCorrection = activeCorr,
+                            activeCorrections = allCorrections,
                             previewOriginalText = origText,
                             previewImprovedText = imprText,
                             isPreviewLoading = prevLoading,
@@ -649,12 +856,16 @@ class FloatingAssistantController(
                             currentTone = tone,
                             onBubbleClick = {
                                 if (currentUiState == FloatingUiState.COLLAPSED) {
-                                    executeFixGrammar()
+                                    setUiState(FloatingUiState.EXPANDED)
+                                    if (_activeCorrectionsList.value.isEmpty() && getTargetText().isNotBlank()) {
+                                        checkTextNow()
+                                    }
                                 } else {
                                     setUiState(FloatingUiState.COLLAPSED)
                                 }
                             },
                             onDrag = { dx, dy -> onDrag(dx, dy) },
+                            onDragEnd = { onDragEnd() },
                             onActionClick = { actionId -> onActionSelected(actionId) },
                             onCustomPromptSubmit = { prompt -> onCustomPromptSubmit(prompt) },
                             onSelectTone = { selectedTone -> onToneSelected(selectedTone) },
@@ -665,6 +876,10 @@ class FloatingAssistantController(
                             onUndo = { undoLastChange() },
                             onOpenSettings = { openAppearanceSettings() },
                             onCollapse = { setUiState(FloatingUiState.COLLAPSED) },
+                            onAcceptCorrection = { correction -> acceptCorrection(correction) },
+                            onDismissCorrection = { dismissCurrentCorrection() },
+                            onAcceptAll = { acceptAllCorrections() },
+                            onReviewAll = { executeFixGrammar() },
                             onCollapseTransitionCompleted = { onCollapseTransitionCompleted() },
                             selectedEngine = activeEngine,
                             onSelectEngine = { onSelectEngine(it) }

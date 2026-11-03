@@ -22,9 +22,7 @@ data class SettingsUiState(
     val saplingEnabled: Boolean = true,
     val languageToolEnabled: Boolean = true,
     val languageToolBaseUrl: String = "https://api.languagetool.org",
-    val grammarBotEnabled: Boolean = false,
-    val grammarBotApiKey: String? = null,
-    val grammarProviderPriority: String = "sapling,languagetool,grammarbot"
+    val grammarProviderPriority: String = "sapling,languagetool"
 )
 
 class SettingsViewModel : ViewModel() {
@@ -69,10 +67,6 @@ class SettingsViewModel : ViewModel() {
                 state.copy(languageToolEnabled = ltEnabled)
             }.combine(prefs.languageToolBaseUrl) { state, ltUrl ->
                 state.copy(languageToolBaseUrl = ltUrl)
-            }.combine(prefs.grammarBotApiKey) { state, gbKey ->
-                state.copy(grammarBotApiKey = gbKey)
-            }.combine(prefs.grammarBotEnabled) { state, gbEnabled ->
-                state.copy(grammarBotEnabled = gbEnabled)
             }.combine(prefs.grammarProviderPriority) { state, priority ->
                 state.copy(grammarProviderPriority = priority)
             }.collect { state ->
@@ -118,14 +112,6 @@ class SettingsViewModel : ViewModel() {
 
     fun setLanguageToolEnabled(enabled: Boolean) {
         viewModelScope.launch { prefs.setLanguageToolEnabled(enabled) }
-    }
-
-    fun setGrammarBotApiKey(key: String) {
-        viewModelScope.launch { prefs.setGrammarBotApiKey(key) }
-    }
-
-    fun setGrammarBotEnabled(enabled: Boolean) {
-        viewModelScope.launch { prefs.setGrammarBotEnabled(enabled) }
     }
 
     fun setGrammarProviderPriority(priority: String) {

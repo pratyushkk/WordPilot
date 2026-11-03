@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
+import com.wordpilot.assistant.ui.settings.BadgeLetterPosition
 import com.wordpilot.assistant.ui.theme.AssistantColors
 import kotlinx.coroutines.delay
 
@@ -44,6 +45,7 @@ fun FloatingBubble(
     settings: AppearanceSettings,
     onClick: () -> Unit,
     onDrag: (Float, Float) -> Unit,
+    onDragEnd: () -> Unit = {},
     modifier: Modifier = Modifier,
     isExpanded: Boolean = false,
     errorCount: Int = 0,
@@ -111,12 +113,25 @@ fun FloatingBubble(
 
     val gradient = settings.getEffectiveGradient()
 
+    val view = androidx.compose.ui.platform.LocalView.current
+
     val gestureModifier = if (!isExpanded) {
         Modifier.pointerInput(Unit) {
             detectDragGestures(
                 onDragStart = {
                     lastInteractionTimestamp = System.currentTimeMillis()
                     isDimmed = false
+                },
+                onDragEnd = {
+                    lastInteractionTimestamp = System.currentTimeMillis()
+                    try {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    } catch (_: Exception) {}
+                    onDragEnd()
+                },
+                onDragCancel = {
+                    lastInteractionTimestamp = System.currentTimeMillis()
+                    onDragEnd()
                 },
                 onDrag = { change, dragAmount ->
                     change.consume()
@@ -140,11 +155,34 @@ fun FloatingBubble(
                 onClick = {
                     lastInteractionTimestamp = System.currentTimeMillis()
                     isDimmed = false
+                    try {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                    } catch (_: Exception) {}
                     onClick()
                 }
             ),
         contentAlignment = Alignment.Center
     ) {
+        val activeGradient = if (errorCount > 0 && !isExpanded && !isChecking) {
+            val baseColor = when (badgeColor) {
+                AssistantColors.BadgeSpelling -> Color(0xFFFF2D55)
+                AssistantColors.BadgePunctuation -> Color(0xFF8B5CF6)
+                AssistantColors.BadgeCapitalization -> Color(0xFFFF9500)
+                else -> Color(0xFFFF3B30) // Vivid Coral Red
+            }
+            androidx.compose.ui.graphics.Brush.linearGradient(
+                listOf(baseColor, baseColor.copy(alpha = 0.85f))
+            )
+        } else {
+            gradient.createBrush()
+        }
+
+        val centerState = when {
+            isChecking -> 0
+            !isExpanded && errorCount > 0 -> errorCount
+            else -> -1
+        }
+
         // Main bubble surface with shadow and gradient
         Surface(
             modifier = Modifier
@@ -165,72 +203,59 @@ fun FloatingBubble(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(gradient.createBrush(), alpha = effectiveBgAlpha),
+                    .background(activeGradient, alpha = effectiveBgAlpha),
                 contentAlignment = Alignment.Center
             ) {
                 AnimatedContent(
-                    targetState = isChecking,
+                    targetState = centerState,
                     transitionSpec = {
                         fadeIn(animationSpec = tween(180)) togetherWith fadeOut(animationSpec = tween(180))
                     },
-                    label = "checkingIndicatorTransition"
-                ) { checking ->
-                    if (checking) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(animatedIconSizeDp),
-                            color = Color.White.copy(alpha = effectiveIconAlpha),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.AutoAwesome,
-                            contentDescription = if (isExpanded) "WordPilot AI Anchor (Collapse)" else "WordPilot Assistant",
-                            tint = Color.White.copy(alpha = effectiveIconAlpha),
-                            modifier = Modifier.size(animatedIconSizeDp)
-                        )
+                    label = "bubbleCenterContentTransition"
+                ) { state ->
+                    when {
+                        state == 0 -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(animatedIconSizeDp),
+                                color = Color.White.copy(alpha = effectiveIconAlpha),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                        state > 0 -> {
+                            val countStr = if (state > 99) "99+" else state.toString()
+                            val letter = settings.badgeLetter.trim()
+                            val errorText = when (settings.badgeLetterPosition) {
+                                BadgeLetterPosition.PREFIX -> "$letter$countStr"
+                                BadgeLetterPosition.SUFFIX -> "$countStr$letter"
+                                BadgeLetterPosition.NONE -> countStr
+                            }
+                            val baseSize = settings.badgeTextSizeSp
+                            val calculatedSize = when {
+                                errorText.length >= 4 -> (baseSize * 0.68f).coerceAtLeast(10f)
+                                errorText.length == 3 -> (baseSize * 0.82f).coerceAtLeast(11f)
+                                else -> baseSize
+                            }.sp
+                            Text(
+                                text = errorText,
+                                color = Color.White.copy(alpha = effectiveIconAlpha),
+                                fontSize = calculatedSize,
+                                fontWeight = if (settings.badgeFontWeightBold) FontWeight.Black else FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                style = LocalTextStyle.current.copy(
+                                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                )
+                            )
+                        }
+                        else -> {
+                            Icon(
+                                imageVector = settings.getAiLogo().icon,
+                                contentDescription = if (isExpanded) "WordPilot AI Anchor (Collapse)" else "WordPilot Assistant",
+                                tint = Color.White.copy(alpha = effectiveIconAlpha),
+                                modifier = Modifier.size(animatedIconSizeDp)
+                            )
+                        }
                     }
                 }
-            }
-        }
-
-        // High-visibility pop-out error counter badge on top-right shoulder of bubble
-        if (errorCount > 0 && !isChecking && !isExpanded) {
-            val badgeBgColor = when (badgeColor) {
-                AssistantColors.BadgeGrammar -> Color(0xFFFF3B30) // Vivid Coral Red for highest contrast and visibility
-                AssistantColors.BadgeSpelling -> Color(0xFFFF2D55) // Vivid Crimson
-                AssistantColors.BadgePunctuation -> Color(0xFF8B5CF6) // Vivid Purple
-                AssistantColors.BadgeCapitalization -> Color(0xFFFF9500) // Vivid Amber
-                else -> Color(0xFFFF3B30)
-            }
-
-            val errorText = if (errorCount > 99) "99+" else errorCount.toString()
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 6.dp, y = (-6).dp)
-                    .shadow(
-                        elevation = 6.dp,
-                        shape = CircleShape,
-                        ambientColor = Color.Black.copy(alpha = 0.5f),
-                        spotColor = Color.Black.copy(alpha = 0.7f)
-                    )
-                    .background(badgeBgColor, shape = CircleShape)
-                    .border(BorderStroke(1.5.dp, Color.White), CircleShape)
-                    .defaultMinSize(minWidth = 22.dp, minHeight = 22.dp)
-                    .padding(horizontal = 5.dp, vertical = 2.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = errorText,
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
-                    style = LocalTextStyle.current.copy(
-                        platformStyle = PlatformTextStyle(includeFontPadding = false)
-                    )
-                )
             }
         }
     }

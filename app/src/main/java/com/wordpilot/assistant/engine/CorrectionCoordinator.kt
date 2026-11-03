@@ -10,7 +10,7 @@ import kotlinx.coroutines.coroutineScope
 
 /**
  * Coordinates grammar and spelling corrections through the multi-provider orchestrator.
- * All suggestions in production originate exclusively from configured cloud APIs (Sapling, LanguageTool, GrammarBot).
+ * All suggestions in production originate exclusively from configured cloud APIs (Sapling AI, LanguageTool).
  */
 class CorrectionCoordinator(
     val providerOrchestrator: ProviderOrchestrator? = null,

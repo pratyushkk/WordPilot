@@ -48,6 +48,23 @@ object OverlayGeometry {
         return (320f * density).toInt()
     }
 
+    fun getTuckedX(
+        isNearRightEdge: Boolean,
+        bubbleSizeDp: Float,
+        screenWidthPx: Int,
+        density: Float,
+        tuckPercent: Float = 0.30f
+    ): Int {
+        val bubbleWidthPx = (bubbleSizeDp * density).toInt()
+        val paddingPx = (CONTENT_PADDING_DP * density).toInt()
+        val tuckPx = (bubbleWidthPx * tuckPercent).toInt()
+        return if (isNearRightEdge) {
+            screenWidthPx - (bubbleWidthPx - tuckPx) - paddingPx
+        } else {
+            -(tuckPx + paddingPx)
+        }
+    }
+
     fun calculateEdgeAnchoredX(
         isNearRightEdge: Boolean,
         bubbleRestingX: Int,
@@ -58,7 +75,7 @@ object OverlayGeometry {
     ): Int {
         val marginPx = (MIN_SCREEN_MARGIN_DP * density).toInt()
         return if (isNearRightEdge) {
-            val bubbleRightEdgePx = bubbleRestingX + collapsedWidthPx
+            val bubbleRightEdgePx = (bubbleRestingX + collapsedWidthPx).coerceAtMost(screenWidthPx)
             (bubbleRightEdgePx - targetWidthPx).coerceAtLeast(marginPx)
         } else {
             bubbleRestingX.coerceAtMost(screenWidthPx - targetWidthPx - marginPx).coerceAtLeast(marginPx)

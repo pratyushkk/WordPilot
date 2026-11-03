@@ -56,7 +56,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val debouncer = Debouncer(serviceScope, 250L)
+    private val debouncer = Debouncer(serviceScope, 450L)
     private val safeReplacementHelper = SafeReplacementHelper()
 
     data class UndoRecord(
@@ -299,6 +299,9 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 },
                 onInsert = { textToInsert ->
                     insertTextToNode(node, snapshot, textToInsert)
+                },
+                onApplyFullText = { fullText ->
+                    applyFullTextReplacementToNode(node, fullText)
                 }
             )
 
@@ -468,18 +471,30 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 !isIgnored && !inDict
             }
 
-            val topCorrection = validCorrections.firstOrNull()
+            val cursor = try {
+                targetNode.textSelectionStart.takeIf { it in 0..text.length } ?: text.length
+            } catch (_: Exception) {
+                text.length
+            }
+            val currentSentenceSpan = lastActiveSentenceSpan ?: app.sentenceAnalyzer.findCurrentSentence(text, cursor)
+            val sortedCorrections = validCorrections.sortedWith(
+                compareBy<Correction> { correction ->
+                    if (currentSentenceSpan != null && correction.startOffset >= currentSentenceSpan.start && correction.endOffset <= currentSentenceSpan.end) 0 else 1
+                }.thenBy { correction ->
+                    kotlin.math.abs(correction.startOffset - cursor)
+                }
+            )
 
             withContext(Dispatchers.Main) {
                 floatingController.setChecking(false)
-                floatingController.setCachedCorrections(text, validCorrections)
-                if (!isKeyboardVisible()) {
+                floatingController.setCachedCorrections(text, sortedCorrections)
+                val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
+                if (autoHide && !isKeyboardVisible()) {
                     floatingController.hideAssistant()
-                } else if (topCorrection != null) {
-                    Log.d(TAG, "Showing correction (rule: ${topCorrection.ruleId}, total: ${validCorrections.size})")
-                    floatingController.showCorrection(
-                        correction = topCorrection,
-                        totalErrorCount = validCorrections.size,
+                } else if (sortedCorrections.isNotEmpty()) {
+                    Log.d(TAG, "Showing corrections (total: ${sortedCorrections.size}, top rule: ${sortedCorrections.first().ruleId})")
+                    floatingController.showCorrections(
+                        corrections = sortedCorrections,
                         onAccept = { correction ->
                             applyCorrectionToNode(targetNode, text, correction)
                         },
@@ -524,18 +539,17 @@ class WordPilotAccessibilityService : AccessibilityService(),
             }
 
             val currentText = extractNodeText(node).ifBlank { originalFullText }
-            if (!safeReplacementHelper.validateCorrection(currentText, correction)) {
-                Log.w(TAG, "Aborting correction: text snapshot modified or span mismatch")
-                floatingController.clearCorrection()
+            val applicableCorrection = safeReplacementHelper.findApplicableCorrection(currentText, correction) ?: run {
+                Log.w(TAG, "Aborting correction: unable to find applicable span in current text")
                 return
             }
 
-            val updatedText = safeReplacementHelper.applyCorrection(currentText, correction) ?: run {
-                floatingController.clearCorrection()
+            val updatedText = safeReplacementHelper.applyCorrection(currentText, applicableCorrection) ?: run {
+                Log.w(TAG, "Aborting correction: unable to apply replacement safely to current text")
                 return
             }
 
-            Log.d(TAG, "Applying correction at [${correction.startOffset}, ${correction.endOffset})")
+            Log.d(TAG, "Applying correction at [${applicableCorrection.startOffset}, ${applicableCorrection.endOffset}) -> updatedText: '$updatedText'")
             val arguments = Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updatedText)
             }
@@ -543,21 +557,71 @@ class WordPilotAccessibilityService : AccessibilityService(),
             Log.d(TAG, "ACTION_SET_TEXT result: $success")
 
             if (success) {
-                // Keep cursor at the end of the replaced word
-                val replacementLength = correction.suggestedReplacement?.length ?: 0
-                val newCursor = (correction.startOffset + replacementLength).coerceIn(0, updatedText.length)
-                val cursorArgs = Bundle().apply {
-                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
-                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
-                }
-                node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
                 lastAnalyzedText = updatedText
+                // Keep cursor at the end of the replaced word on a fresh node after UI processes text update
+                val replacementLength = applicableCorrection.suggestedReplacement?.length ?: 0
+                val newCursor = (applicableCorrection.startOffset + replacementLength).coerceIn(0, updatedText.length)
+                serviceScope.launch(Dispatchers.Main) {
+                    delay(80L)
+                    val freshNode = findActiveInputNodeAcrossAllWindows()
+                    if (freshNode != null) {
+                        val cursorArgs = Bundle().apply {
+                            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
+                            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
+                        }
+                        freshNode.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
+                    }
+                }
             }
-
-            // Reset card back to "✓ Clear" monitoring state
-            floatingController.clearCorrection()
         } catch (e: Exception) {
             Log.e(TAG, "Error applying correction", e)
+        }
+    }
+
+    private fun applyFullTextReplacementToNode(
+        targetNode: AccessibilityNodeInfo,
+        fullText: String
+    ): TextOperationResult {
+        return try {
+            val node = findActiveInputNodeAcrossAllWindows() ?: targetNode
+            val nodePkg = node.packageName?.toString()
+            if (isExcludedPackage(nodePkg)) {
+                Log.w(TAG, "Aborting full text replacement: target package is excluded: $nodePkg")
+                return TextOperationResult.UnsupportedEditor
+            }
+
+            val currentText = extractNodeText(node)
+            val arguments = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, fullText)
+            }
+            val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            if (success) {
+                lastAnalyzedText = fullText
+                serviceScope.launch(Dispatchers.Main) {
+                    delay(80L)
+                    val freshNode = findActiveInputNodeAcrossAllWindows()
+                    if (freshNode != null) {
+                        val cursorArgs = Bundle().apply {
+                            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, fullText.length)
+                            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, fullText.length)
+                        }
+                        freshNode.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
+                    }
+                }
+                lastUndoRecord = UndoRecord(
+                    fullTextBefore = currentText,
+                    fullTextAfter = fullText,
+                    selectionBefore = currentText.length
+                )
+                TextOperationResult.Success
+            } else {
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("WordPilot Text", fullText))
+                TextOperationResult.Failure("Field does not support direct replacement. Text copied to clipboard.")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error applying full text replacement", e)
+            TextOperationResult.Failure("Error replacing text: ${e.localizedMessage}")
         }
     }
 
@@ -592,13 +656,19 @@ class WordPilotAccessibilityService : AccessibilityService(),
             Log.d(TAG, "ACTION_SET_TEXT result: $success")
 
             if (success) {
-                val newCursor = (snapshot.sentenceStart + newSentence.length).coerceIn(0, updatedText.length)
-                val cursorArgs = Bundle().apply {
-                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
-                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
-                }
-                node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
                 lastAnalyzedText = updatedText
+                val newCursor = (snapshot.sentenceStart + newSentence.length).coerceIn(0, updatedText.length)
+                serviceScope.launch(Dispatchers.Main) {
+                    delay(80L)
+                    val freshNode = findActiveInputNodeAcrossAllWindows()
+                    if (freshNode != null) {
+                        val cursorArgs = Bundle().apply {
+                            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
+                            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
+                        }
+                        freshNode.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursorArgs)
+                    }
+                }
                 lastUndoRecord = UndoRecord(
                     fullTextBefore = currentText,
                     fullTextAfter = updatedText,

@@ -56,7 +56,7 @@ class UserPreferences(
         if (raw.isBlank()) null else cryptoManager.decrypt(raw)
     }
     val grammarProviderPriority: Flow<String> = context.dataStore.data.map {
-        it[GRAMMAR_PROVIDER_PRIORITY] ?: "sapling,languagetool,grammarbot"
+        it[GRAMMAR_PROVIDER_PRIORITY] ?: "sapling,languagetool"
     }
 
     val autoPauseBankingEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
