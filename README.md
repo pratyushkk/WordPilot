@@ -1,6 +1,7 @@
 # WordPilot — System-Wide Android Writing Assistant
 
 [![Release](https://img.shields.io/badge/Release-v1.0-emerald?style=for-the-badge&logo=android)](https://github.com/pratyushkk/WordPilot/releases/tag/v1.0)
+[![Website](https://img.shields.io/badge/Website-pratyushkk.github.io%2FWordPilot-teal?style=for-the-badge&logo=googlechrome)](https://pratyushkk.github.io/WordPilot/)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--35)-blue?style=for-the-badge&logo=android)](https://developer.android.com)
 [![Architecture](https://img.shields.io/badge/Architecture-Kotlin%20%7C%20Compose%20%7C%20MVVM-purple?style=for-the-badge&logo=kotlin)](https://kotlinlang.org)
 [![Privacy](https://img.shields.io/badge/Privacy-Zero%20Telemetry%20%7C%20Banking%20Shield-green?style=for-the-badge&logo=shield)](https://github.com/pratyushkk/WordPilot)
