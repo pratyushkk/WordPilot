@@ -22,7 +22,23 @@ class GeminiAIEngine(
 
     companion object {
         private const val TAG = "GeminiAIEngine"
-        private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
+        // Prioritized list of active Google Generative AI endpoints
+        val FALLBACK_ENDPOINTS = listOf(
+            // 1. Stable v1 GA endpoint (Standard for Gemini 1.5 Flash)
+            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+            // 2. v1 GA with gemini-2.0-flash
+            "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent",
+            // 3. v1beta latest pointer
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
+            // 4. v1beta 2.0 pointer
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+            // 5. v1 with gemini-1.5-pro as fallback
+            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent"
+        )
+
+        @Volatile
+        var cachedWorkingEndpoint: String = FALLBACK_ENDPOINTS.first()
 
         /**
          * Sanitizes user-pasted API keys to eliminate whitespace, accidental wrapping quotes,
@@ -39,6 +55,72 @@ class GeminiAIEngine(
                 .replace("\r", "")
                 .replace(" ", "")
                 .trim()
+        }
+
+        /**
+         * Dynamically queries Google's ModelService to discover which models are active
+         * and support generateContent for the provided API key.
+         */
+        fun discoverActiveModelEndpoint(apiKey: String): String? {
+            val cleanKey = sanitizeApiKey(apiKey)
+            if (cleanKey.isBlank()) return null
+
+            val listUrls = listOf(
+                "https://generativelanguage.googleapis.com/v1/models?key=$cleanKey",
+                "https://generativelanguage.googleapis.com/v1beta/models?key=$cleanKey"
+            )
+
+            for (listUrl in listUrls) {
+                try {
+                    val url = URL(listUrl)
+                    val conn = (url.openConnection() as HttpURLConnection).apply {
+                        requestMethod = "GET"
+                        connectTimeout = 6000
+                        readTimeout = 8000
+                    }
+                    val code = conn.responseCode
+                    if (code in 200..299) {
+                        val body = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { it.readText() }
+                        val root = JSONObject(body)
+                        val models = root.optJSONArray("models") ?: continue
+
+                        var bestModelName: String? = null
+                        for (i in 0 until models.length()) {
+                            val m = models.optJSONObject(i) ?: continue
+                            val name = m.optString("name", "") // e.g. "models/gemini-1.5-flash"
+                            val methods = m.optJSONArray("supportedGenerationMethods")
+                            var canGenerate = false
+                            if (methods != null) {
+                                for (j in 0 until methods.length()) {
+                                    if (methods.optString(j) == "generateContent") {
+                                        canGenerate = true
+                                        break
+                                    }
+                                }
+                            }
+                            if (canGenerate) {
+                                if (name.contains("flash", ignoreCase = true)) {
+                                    bestModelName = name
+                                    break
+                                } else if (bestModelName == null && name.contains("gemini", ignoreCase = true)) {
+                                    bestModelName = name
+                                }
+                            }
+                        }
+
+                        if (bestModelName != null) {
+                            val baseApi = if (listUrl.contains("/v1/")) "https://generativelanguage.googleapis.com/v1" else "https://generativelanguage.googleapis.com/v1beta"
+                            val resolved = "$baseApi/$bestModelName:generateContent"
+                            cachedWorkingEndpoint = resolved
+                            Log.i(TAG, "Discovered and cached active Gemini endpoint: $resolved")
+                            return resolved
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Model discovery attempt failed on $listUrl: ${e.message}")
+                }
+            }
+            return null
         }
     }
 
@@ -97,96 +179,107 @@ class GeminiAIEngine(
         _modelState.value = ModelState.LOADING
         val prompt = buildPrompt(text, style, customInstruction)
 
-        try {
-            val url = URL("$BASE_URL?key=$cleanKey")
-            val connection = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                setRequestProperty("Accept", "application/json")
-                connectTimeout = 15000
-                readTimeout = 20000
-                doOutput = true
-                doInput = true
-            }
-            activeConnection = connection
+        // Build list of endpoints to attempt, starting with the cached working endpoint
+        val endpointsToTry = mutableListOf<String>()
+        endpointsToTry.add(cachedWorkingEndpoint)
+        FALLBACK_ENDPOINTS.forEach { if (!endpointsToTry.contains(it)) endpointsToTry.add(it) }
 
-            // Construct JSON request body matching Gemini REST API specification
-            val requestJson = JSONObject().apply {
-                val contents = JSONArray().apply {
-                    val contentObj = JSONObject().apply {
-                        put("role", "user")
-                        val parts = JSONArray().apply {
-                            val partObj = JSONObject().apply {
-                                put("text", prompt)
+        var lastErrorMsg = "Failed to connect to Gemini."
+
+        for (endpointBase in endpointsToTry) {
+            try {
+                val url = URL("$endpointBase?key=$cleanKey")
+                val connection = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                    setRequestProperty("Accept", "application/json")
+                    connectTimeout = 12000
+                    readTimeout = 18000
+                    doOutput = true
+                    doInput = true
+                }
+                activeConnection = connection
+
+                val requestJson = JSONObject().apply {
+                    val contents = JSONArray().apply {
+                        val contentObj = JSONObject().apply {
+                            put("role", "user")
+                            val parts = JSONArray().apply {
+                                val partObj = JSONObject().apply {
+                                    put("text", prompt)
+                                }
+                                put(partObj)
                             }
-                            put(partObj)
+                            put("parts", parts)
                         }
-                        put("parts", parts)
+                        put(contentObj)
                     }
-                    put(contentObj)
+                    put("contents", contents)
+
+                    val generationConfig = JSONObject().apply {
+                        put("temperature", 0.3)
+                        put("maxOutputTokens", 1024)
+                    }
+                    put("generationConfig", generationConfig)
                 }
-                put("contents", contents)
 
-                val generationConfig = JSONObject().apply {
-                    put("temperature", 0.3)
-                    put("maxOutputTokens", 1024)
+                OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
+                    writer.write(requestJson.toString())
+                    writer.flush()
                 }
-                put("generationConfig", generationConfig)
+
+                val responseCode = connection.responseCode
+                val responseStream = if (responseCode in 200..299) {
+                    connection.inputStream
+                } else {
+                    connection.errorStream ?: connection.inputStream
+                }
+
+                val responseBody = BufferedReader(InputStreamReader(responseStream, "UTF-8")).use { reader ->
+                    reader.readText()
+                }
+
+                if (responseCode in 200..299) {
+                    // Success! Cache this working endpoint
+                    cachedWorkingEndpoint = endpointBase
+                    val parsedOutput = parseGeminiOutput(responseBody)
+                    val cleanedOutput = cleanRewrittenText(parsedOutput, text)
+
+                    _modelState.value = ModelState.READY
+                    return@withContext RewriteResult(
+                        originalText = text,
+                        rewrittenText = cleanedOutput,
+                        style = style,
+                        isSuccess = true
+                    )
+                } else {
+                    lastErrorMsg = parseErrorMessage(responseBody, responseCode)
+                    Log.w(TAG, "Endpoint $endpointBase failed with HTTP $responseCode: $lastErrorMsg")
+                    // If it's a 404 (model not found on this version), continue to next endpoint
+                    if (responseCode == 404 || responseBody.contains("not found for API version", ignoreCase = true)) {
+                        continue
+                    } else if (responseCode == 400 && responseBody.contains("API_KEY_INVALID", ignoreCase = true)) {
+                        // Key itself is invalid, no need to retry other endpoints
+                        break
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Request to $endpointBase threw exception", e)
+                lastErrorMsg = e.localizedMessage ?: "Network error"
+            } finally {
+                activeConnection?.disconnect()
+                activeConnection = null
             }
-
-            OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
-                writer.write(requestJson.toString())
-                writer.flush()
-            }
-
-            val responseCode = connection.responseCode
-            val responseStream = if (responseCode in 200..299) {
-                connection.inputStream
-            } else {
-                connection.errorStream ?: connection.inputStream
-            }
-
-            val responseBody = BufferedReader(InputStreamReader(responseStream, "UTF-8")).use { reader ->
-                reader.readText()
-            }
-
-            if (responseCode !in 200..299) {
-                Log.e(TAG, "Gemini API HTTP $responseCode: $responseBody")
-                val errorMsg = parseErrorMessage(responseBody, responseCode)
-                _modelState.value = ModelState.READY
-                return@withContext RewriteResult(
-                    originalText = text,
-                    rewrittenText = text,
-                    style = style,
-                    isSuccess = false,
-                    errorMessage = errorMsg
-                )
-            }
-
-            val parsedOutput = parseGeminiOutput(responseBody)
-            val cleanedOutput = cleanRewrittenText(parsedOutput, text)
-
-            _modelState.value = ModelState.READY
-            return@withContext RewriteResult(
-                originalText = text,
-                rewrittenText = cleanedOutput,
-                style = style,
-                isSuccess = true
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Gemini rewrite failed", e)
-            _modelState.value = ModelState.READY
-            return@withContext RewriteResult(
-                originalText = text,
-                rewrittenText = text,
-                style = style,
-                isSuccess = false,
-                errorMessage = e.localizedMessage ?: "Failed to connect to Gemini."
-            )
-        } finally {
-            activeConnection?.disconnect()
-            activeConnection = null
         }
+
+        _modelState.value = ModelState.READY
+        return@withContext RewriteResult(
+            originalText = text,
+            rewrittenText = text,
+            style = style,
+            isSuccess = false,
+            errorMessage = lastErrorMsg
+        )
     }
 
     override suspend fun explainErrors(
@@ -296,7 +389,6 @@ class GeminiAIEngine(
                 val message = error.optString("message", "")
                 val status = error.optString("status", "")
 
-                // Check error details for API_KEY_INVALID specifically
                 val details = error.optJSONArray("details")
                 var isKeyInvalid = false
                 if (details != null) {
@@ -313,7 +405,7 @@ class GeminiAIEngine(
                     return "Invalid Gemini API key. Please check your key from Google AI Studio (aistudio.google.com/app/apikey)."
                 }
                 if (status == "PERMISSION_DENIED" || code == 403) {
-                    return "Permission denied (HTTP 403). Make sure the Generative Language API is enabled for this API key in Google Cloud/AI Studio."
+                    return "Permission denied (HTTP 403). Make sure Generative Language API is enabled for this API key in Google Cloud/AI Studio."
                 }
                 if (status == "RESOURCE_EXHAUSTED" || code == 429) {
                     return "Gemini API quota exceeded (HTTP 429). Please wait a moment."

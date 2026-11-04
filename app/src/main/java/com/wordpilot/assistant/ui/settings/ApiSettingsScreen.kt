@@ -116,39 +116,60 @@ class ApiSettingsViewModel : ViewModel() {
             _uiState.update { it.copy(isTestingGemini = true, geminiTestResult = null, geminiTestSuccess = null) }
             try {
                 val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    val url = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$cleanKey")
-                    val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
-                        requestMethod = "POST"
-                        setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                        setRequestProperty("Accept", "application/json")
-                        connectTimeout = 12000
-                        readTimeout = 15000
-                        doOutput = true
+                    // Discover active endpoint or fall back across candidate endpoints
+                    val discovered = com.wordpilot.assistant.engine.impl.GeminiAIEngine.discoverActiveModelEndpoint(cleanKey)
+                    val endpointsToTry = mutableListOf<String>()
+                    if (discovered != null) endpointsToTry.add(discovered)
+                    endpointsToTry.add(com.wordpilot.assistant.engine.impl.GeminiAIEngine.cachedWorkingEndpoint)
+                    com.wordpilot.assistant.engine.impl.GeminiAIEngine.FALLBACK_ENDPOINTS.forEach {
+                        if (!endpointsToTry.contains(it)) endpointsToTry.add(it)
                     }
-                    val json = org.json.JSONObject().apply {
-                        val contents = org.json.JSONArray().apply {
-                            put(org.json.JSONObject().apply {
-                                put("role", "user")
-                                val parts = org.json.JSONArray().apply {
-                                    put(org.json.JSONObject().apply { put("text", "ping") })
+
+                    var lastErr = "Failed to connect to Gemini."
+                    for (endpoint in endpointsToTry) {
+                        try {
+                            val url = java.net.URL("$endpoint?key=$cleanKey")
+                            val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
+                                requestMethod = "POST"
+                                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                                setRequestProperty("Accept", "application/json")
+                                connectTimeout = 10000
+                                readTimeout = 12000
+                                doOutput = true
+                            }
+                            val json = org.json.JSONObject().apply {
+                                val contents = org.json.JSONArray().apply {
+                                    put(org.json.JSONObject().apply {
+                                        put("role", "user")
+                                        val parts = org.json.JSONArray().apply {
+                                            put(org.json.JSONObject().apply { put("text", "ping") })
+                                        }
+                                        put("parts", parts)
+                                    })
                                 }
-                                put("parts", parts)
-                            })
+                                put("contents", contents)
+                            }
+                            conn.outputStream.use { os ->
+                                java.io.OutputStreamWriter(os, "UTF-8").use { it.write(json.toString()) }
+                            }
+                            val code = conn.responseCode
+                            if (code in 200..299) {
+                                com.wordpilot.assistant.engine.impl.GeminiAIEngine.cachedWorkingEndpoint = endpoint
+                                return@withContext "SUCCESS"
+                            } else {
+                                val stream = conn.errorStream ?: conn.inputStream
+                                val err = java.io.BufferedReader(java.io.InputStreamReader(stream, "UTF-8")).use { it.readText() }
+                                val parsed = com.wordpilot.assistant.engine.impl.GeminiAIEngine { cleanKey }.parseErrorMessage(err, code)
+                                lastErr = parsed
+                                if (code == 400 && err.contains("API_KEY_INVALID", ignoreCase = true)) {
+                                    return@withContext parsed
+                                }
+                            }
+                        } catch (e: Exception) {
+                            lastErr = e.localizedMessage ?: "Connection error"
                         }
-                        put("contents", contents)
                     }
-                    conn.outputStream.use { os ->
-                        java.io.OutputStreamWriter(os, "UTF-8").use { it.write(json.toString()) }
-                    }
-                    val code = conn.responseCode
-                    if (code in 200..299) {
-                        "SUCCESS"
-                    } else {
-                        val stream = conn.errorStream ?: conn.inputStream
-                        val err = java.io.BufferedReader(java.io.InputStreamReader(stream, "UTF-8")).use { it.readText() }
-                        val parsed = com.wordpilot.assistant.engine.impl.GeminiAIEngine { cleanKey }.parseErrorMessage(err, code)
-                        parsed
-                    }
+                    lastErr
                 }
 
                 if (result == "SUCCESS") {
