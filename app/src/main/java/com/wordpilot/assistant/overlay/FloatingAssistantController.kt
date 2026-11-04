@@ -1,4 +1,4 @@
-﻿package com.wordpilot.assistant.overlay
+package com.wordpilot.assistant.overlay
 
 import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
@@ -133,34 +133,6 @@ class FloatingAssistantController(
     private val _canUndo = MutableStateFlow(false)
         private val _currentTone = MutableStateFlow("Default")
 
-    // AI Window Settings & V2 Feature State
-    private val _aiWindowSettings = MutableStateFlow(com.wordpilot.assistant.ui.settings.AiWindowSettings.load(context))
-    val aiWindowSettings: StateFlow<com.wordpilot.assistant.ui.settings.AiWindowSettings> = _aiWindowSettings.asStateFlow()
-
-    private val _chatMessages = MutableStateFlow<List<com.wordpilot.assistant.engine.impl.GeminiChatMessage>>(emptyList())
-    val chatMessages: StateFlow<List<com.wordpilot.assistant.engine.impl.GeminiChatMessage>> = _chatMessages.asStateFlow()
-
-    private val _isChatStreaming = MutableStateFlow(false)
-    val isChatStreaming: StateFlow<Boolean> = _isChatStreaming.asStateFlow()
-
-    private val _summaryText = MutableStateFlow("")
-    val summaryText: StateFlow<String> = _summaryText.asStateFlow()
-
-    private val _isSummaryLoading = MutableStateFlow(false)
-    val isSummaryLoading: StateFlow<Boolean> = _isSummaryLoading.asStateFlow()
-
-    private val _summaryErrorMessage = MutableStateFlow<String?>(null)
-    val summaryErrorMessage: StateFlow<String?> = _summaryErrorMessage.asStateFlow()
-
-    private val _smartReplies = MutableStateFlow<List<String>>(emptyList())
-    val smartReplies: StateFlow<List<String>> = _smartReplies.asStateFlow()
-
-    private val _isSmartReplyLoading = MutableStateFlow(false)
-    val isSmartReplyLoading: StateFlow<Boolean> = _isSmartReplyLoading.asStateFlow()
-
-    private val _smartReplyErrorMessage = MutableStateFlow<String?>(null)
-    val smartReplyErrorMessage: StateFlow<String?> = _smartReplyErrorMessage.asStateFlow()
-
     // Callbacks provided by WordPilotAccessibilityService
     private var onApplySentenceCallback: ((String) -> TextOperationResult)? = null
     private var onApplyFullTextCallback: ((String) -> TextOperationResult)? = null
@@ -247,23 +219,7 @@ class FloatingAssistantController(
                 )
                 lp.y = bubbleRestingY
             }
-            FloatingUiState.MORE_OPTIONS -> {
-                val panelWidthPx = OverlayGeometry.getMoreOptionsWidthPx(density, screenWidthPx)
-                val panelHeightPx = OverlayGeometry.getMoreOptionsHeightPx(density)
-
-                lp.width = panelWidthPx
-                lp.height = panelHeightPx
-                lp.x = OverlayGeometry.calculateEdgeAnchoredX(
-                    isNearRightEdge = _isNearRightEdge.value,
-                    bubbleRestingX = bubbleRestingX,
-                    collapsedWidthPx = collapsedSizePx,
-                    targetWidthPx = panelWidthPx,
-                    screenWidthPx = screenWidthPx,
-                    density = density
-                )
-                lp.y = OverlayGeometry.clampY(bubbleRestingY, panelHeightPx, screenHeightPx, density)
-            }
-                        FloatingUiState.PREVIEW -> {
+            FloatingUiState.PREVIEW -> {
                 val previewWidthPx = OverlayGeometry.getPreviewWidthPx(density, screenWidthPx)
                 val previewHeightPx = OverlayGeometry.getPreviewHeightPx(density)
 
@@ -280,32 +236,12 @@ class FloatingAssistantController(
                 )
                 lp.y = OverlayGeometry.clampY(bubbleRestingY, previewHeightPx, screenHeightPx, density)
             }
-            FloatingUiState.AI_CHAT, FloatingUiState.CUSTOM_PROMPT_INPUT, FloatingUiState.GEMINI_KEY_SETUP -> {
-                // Focusable so keyboard pops up
+            FloatingUiState.TONE_SELECTOR, FloatingUiState.GEMINI_KEY_SETUP -> {
+                // Focusable so keyboard pops up for custom prompt or API key
                 lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
                 lp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-                val aiWin = _aiWindowSettings.value
-                val chatWidthPx = (aiWin.windowWidthDp * density).toInt().coerceAtMost(screenWidthPx)
-                val chatHeightPx = (aiWin.windowHeightDp * density).toInt().coerceAtMost(screenHeightPx)
-
-                lp.width = chatWidthPx
-                lp.height = if (state == FloatingUiState.GEMINI_KEY_SETUP) WindowManager.LayoutParams.WRAP_CONTENT else chatHeightPx
-                lp.x = OverlayGeometry.calculateEdgeAnchoredX(
-                    isNearRightEdge = _isNearRightEdge.value,
-                    bubbleRestingX = bubbleRestingX,
-                    collapsedWidthPx = collapsedSizePx,
-                    targetWidthPx = chatWidthPx,
-                    screenWidthPx = screenWidthPx,
-                    density = density
-                )
-                lp.y = OverlayGeometry.clampY(bubbleRestingY, chatHeightPx, screenHeightPx, density)
-            }
-            FloatingUiState.SUMMARIZE_RESULT, FloatingUiState.SMART_REPLY,
-            FloatingUiState.TRANSLATE_RESULT, FloatingUiState.EXPLAIN_RESULT -> {
-                lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                val aiWin = _aiWindowSettings.value
-                val panelWidthPx = (aiWin.windowWidthDp * density).toInt().coerceAtMost(screenWidthPx)
-                val panelHeightPx = (320 * density).toInt()
+                val panelWidthPx = OverlayGeometry.getMoreOptionsWidthPx(density, screenWidthPx)
+                val panelHeightPx = OverlayGeometry.getMoreOptionsHeightPx(density)
 
                 lp.width = panelWidthPx
                 lp.height = WindowManager.LayoutParams.WRAP_CONTENT
@@ -320,7 +256,6 @@ class FloatingAssistantController(
                 lp.y = OverlayGeometry.clampY(bubbleRestingY, panelHeightPx, screenHeightPx, density)
             }
         }
-
         try {
             windowManager.updateViewLayout(view, lp)
         } catch (e: Exception) {
@@ -531,9 +466,10 @@ class FloatingAssistantController(
     }
 
     fun saveGeminiApiKeyFromOverlay(key: String) {
-        WordPilotApp.instance.updateGeminiApiKey(key)
-        Toast.makeText(context, "Gemini API key saved! AI features ready.", Toast.LENGTH_SHORT).show()
-        setUiState(FloatingUiState.MORE_OPTIONS)
+        val cleanKey = com.wordpilot.assistant.engine.impl.GeminiAIEngine.sanitizeApiKey(key)
+        WordPilotApp.instance.updateGeminiApiKey(cleanKey)
+        Toast.makeText(context, "Gemini API key saved! Ready to rewrite.", Toast.LENGTH_SHORT).show()
+        setUiState(FloatingUiState.TONE_SELECTOR)
     }
 
     fun onActionSelected(actionId: String) {
@@ -541,90 +477,39 @@ class FloatingAssistantController(
             "gemini_setup" -> {
                 setUiState(FloatingUiState.GEMINI_KEY_SETUP)
             }
-            "ai_chat" -> {
+            "rewrite_tone", "tones", "more" -> {
                 if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
+                setUiState(FloatingUiState.GEMINI_KEY_SETUP)
                 } else {
-                    setUiState(FloatingUiState.AI_CHAT)
-                }
-            }
-            "summarize" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeSummarize()
-                }
-            }
-            "smart_reply" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeSmartReply()
-                }
-            }
-            "translate" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeTranslate()
-                }
-            }
-            "explain" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeExplain()
+                    setUiState(FloatingUiState.TONE_SELECTOR)
                 }
             }
             "rewrite_professional" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeRewrite(RewriteStyle.MAKE_PROFESSIONAL, "Professional")
-                }
+                executeRewrite(RewriteStyle.MAKE_PROFESSIONAL, "Professional")
             }
             "rewrite_casual" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeRewrite(RewriteStyle.MAKE_CASUAL, "Casual")
-                }
+                executeRewrite(RewriteStyle.MAKE_CASUAL, "Casual & Friendly")
             }
             "rewrite_concise" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeRewrite(RewriteStyle.MAKE_CONCISE, "Concise")
-                }
+                executeRewrite(RewriteStyle.MAKE_CONCISE, "Concise")
             }
             "rewrite_clarity" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeRewrite(RewriteStyle.IMPROVE_CLARITY, "Clarity")
-                }
+                executeRewrite(RewriteStyle.IMPROVE_CLARITY, "Clarity")
             }
-            "rewrite_friendly" -> {
-                if (isGeminiKeyMissing()) {
-                    setUiState(FloatingUiState.GEMINI_KEY_SETUP)
-                } else {
-                    executeRewrite(RewriteStyle.MAKE_POLITE, "Friendly")
-                }
+            "rewrite_friendly", "rewrite_polite" -> {
+                executeRewrite(RewriteStyle.MAKE_POLITE, "Polite")
             }
-            "fix_grammar", "punctuation" -> {
-                executeFixGrammar()
+            "rewrite_polish", "fix_grammar", "punctuation" -> {
+                executeRewrite(RewriteStyle.FIX_GRAMMAR, "Fix & Polish")
             }
             "settings" -> {
                 openAppearanceSettings()
             }
-            "more" -> {
-                setUiState(FloatingUiState.MORE_OPTIONS)
-            }
             "back_to_expanded" -> {
-                setUiState(FloatingUiState.COLLAPSED)
+                setUiState(FloatingUiState.EXPANDED)
             }
             else -> {
-                executeFixGrammar()
+                executeRewrite(RewriteStyle.REWRITE, "Rewrite")
             }
         }
     }
@@ -751,159 +636,6 @@ class FloatingAssistantController(
             else -> RewriteStyle.REWRITE
         }
         executeRewrite(style = style, toneName = tone)
-    }
-
-    fun executeSummarize(mode: String = "BULLETS") {
-        val targetText = getTargetText()
-        if (targetText.isBlank()) {
-            Toast.makeText(context, "No text to summarize", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        _summaryText.value = ""
-        _summaryErrorMessage.value = null
-        _isSummaryLoading.value = true
-        setUiState(FloatingUiState.SUMMARIZE_RESULT)
-
-        controllerScope.launch {
-            val result = WordPilotApp.instance.rewriteCoordinator.summarize(targetText, mode)
-            result.fold(
-                onSuccess = {
-                    _summaryText.value = it
-                    _summaryErrorMessage.value = null
-                },
-                onFailure = {
-                    _summaryErrorMessage.value = it.localizedMessage ?: "Summarization failed"
-                }
-            )
-            _isSummaryLoading.value = false
-        }
-    }
-
-    fun executeSmartReply() {
-        val targetText = getTargetText()
-        val contextText = if (targetText.isNotBlank()) targetText else "Hello, are you available today?"
-
-        _smartReplies.value = emptyList()
-        _smartReplyErrorMessage.value = null
-        _isSmartReplyLoading.value = true
-        setUiState(FloatingUiState.SMART_REPLY)
-
-        controllerScope.launch {
-            val result = WordPilotApp.instance.rewriteCoordinator.generateSmartReplies(contextText)
-            result.fold(
-                onSuccess = {
-                    _smartReplies.value = it
-                    _smartReplyErrorMessage.value = null
-                },
-                onFailure = {
-                    _smartReplyErrorMessage.value = it.localizedMessage ?: "Failed to generate replies"
-                }
-            )
-            _isSmartReplyLoading.value = false
-        }
-    }
-
-    fun executeTranslate(targetLanguage: String = "Spanish") {
-        val targetText = getTargetText()
-        if (targetText.isBlank()) {
-            Toast.makeText(context, "No text to translate", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val requestId = ++currentRequestId
-        _previewOriginalText.value = targetText
-        _previewImprovedText.value = ""
-        _previewErrorMessage.value = null
-        _isPreviewLoading.value = true
-        _currentTone.value = "Translate ($targetLanguage)"
-        setUiState(FloatingUiState.PREVIEW)
-
-        controllerScope.launch {
-            val result = WordPilotApp.instance.rewriteCoordinator.translate(targetText, targetLanguage)
-            if (requestId != currentRequestId) return@launch
-            result.fold(
-                onSuccess = {
-                    _previewImprovedText.value = it
-                },
-                onFailure = {
-                    _previewErrorMessage.value = it.localizedMessage ?: "Translation failed"
-                }
-            )
-            _isPreviewLoading.value = false
-        }
-    }
-
-    fun executeExplain() {
-        val targetText = getTargetText()
-        if (targetText.isBlank()) {
-            Toast.makeText(context, "No text to explain", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val requestId = ++currentRequestId
-        _previewOriginalText.value = targetText
-        _previewImprovedText.value = ""
-        _previewErrorMessage.value = null
-        _isPreviewLoading.value = true
-        _currentTone.value = "Explain Meaning"
-        setUiState(FloatingUiState.PREVIEW)
-
-        controllerScope.launch {
-            val result = WordPilotApp.instance.rewriteCoordinator.explain(targetText)
-            if (requestId != currentRequestId) return@launch
-            result.fold(
-                onSuccess = {
-                    _previewImprovedText.value = it
-                },
-                onFailure = {
-                    _previewErrorMessage.value = it.localizedMessage ?: "Explanation failed"
-                }
-            )
-            _isPreviewLoading.value = false
-        }
-    }
-
-    fun sendChatMessage(message: String) {
-        if (message.isBlank()) return
-        val userMsg = com.wordpilot.assistant.engine.impl.GeminiChatMessage(role = "user", content = message)
-        _chatMessages.value = _chatMessages.value + userMsg
-
-        _isChatStreaming.value = true
-        val history = _chatMessages.value.dropLast(1)
-        val activeContext = getTargetText()
-
-        val responseBuilder = StringBuilder()
-        controllerScope.launch {
-            WordPilotApp.instance.rewriteCoordinator.gemini.chatStream(
-                message = message,
-                history = history,
-                activeContextText = activeContext,
-                onChunkReceived = { chunk ->
-                    responseBuilder.append(chunk)
-                    val modelMsg = com.wordpilot.assistant.engine.impl.GeminiChatMessage(role = "model", content = responseBuilder.toString())
-                    val currentList = _chatMessages.value.toMutableList()
-                    if (currentList.isNotEmpty() && currentList.last().role == "model") {
-                        currentList[currentList.size - 1] = modelMsg
-                    } else {
-                        currentList.add(modelMsg)
-                    }
-                    _chatMessages.value = currentList
-                },
-                onComplete = { _ ->
-                    _isChatStreaming.value = false
-                },
-                onError = { err ->
-                    _isChatStreaming.value = false
-                    val errorMsg = com.wordpilot.assistant.engine.impl.GeminiChatMessage(role = "model", content = "?? $err")
-                    _chatMessages.value = _chatMessages.value + errorMsg
-                }
-            )
-        }
-    }
-
-    fun clearChat() {
-        _chatMessages.value = emptyList()
     }
 
     fun onSelectEngine(engine: AIEngineType) {
@@ -1208,16 +940,6 @@ class FloatingAssistantController(
                 val tone by _currentTone.collectAsState()
                 val activeEngine by WordPilotApp.instance.rewriteCoordinator.selectedEngine.collectAsState()
 
-                                val aiWin by aiWindowSettings.collectAsState()
-                val chatMsgs by chatMessages.collectAsState()
-                val chatStreaming by isChatStreaming.collectAsState()
-                val sumText by summaryText.collectAsState()
-                val sumLoading by isSummaryLoading.collectAsState()
-                val sumError by summaryErrorMessage.collectAsState()
-                val smartRep by smartReplies.collectAsState()
-                val smartLoading by isSmartReplyLoading.collectAsState()
-                val smartError by smartReplyErrorMessage.collectAsState()
-
                 WordPilotTheme {
                     Box(
                         modifier = Modifier
@@ -1275,24 +997,7 @@ class FloatingAssistantController(
                             onCollapseTransitionCompleted = { onCollapseTransitionCompleted() },
                                                         selectedEngine = activeEngine,
                             onSelectEngine = { onSelectEngine(it) },
-                            aiWindowSettings = aiWin,
-                            chatMessages = chatMsgs,
-                            isChatStreaming = chatStreaming,
-                            activeContextText = getTargetText(),
-                            onSendChatMessage = { msg -> sendChatMessage(msg) },
-                            onClearChat = { clearChat() },
-                            summaryText = sumText,
-                            isSummaryLoading = sumLoading,
-                            summaryErrorMessage = sumError,
-                            onSummarizeModeChange = { mode -> executeSummarize(mode) },
-                            smartReplies = smartRep,
-                            isSmartReplyLoading = smartLoading,
-                            smartReplyErrorMessage = smartError,
-                            onSelectSmartReply = { reply -> 
-                                applyTextDirectly(reply)
-                                setUiState(FloatingUiState.COLLAPSED)
-                            },
-                            onRegenerateSmartReply = { executeSmartReply() },
+                            onToneOptionSelect = { style, title -> executeRewrite(style, title) },
                             onGeminiKeySaved = { key -> saveGeminiApiKeyFromOverlay(key) }
                         )
                     }

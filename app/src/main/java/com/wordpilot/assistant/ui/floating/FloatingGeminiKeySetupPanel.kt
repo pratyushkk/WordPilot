@@ -1,4 +1,4 @@
-﻿package com.wordpilot.assistant.ui.floating
+package com.wordpilot.assistant.ui.floating
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -8,7 +8,6 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -33,6 +32,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wordpilot.assistant.WordPilotApp
+import com.wordpilot.assistant.engine.impl.GeminiAIEngine
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
 import com.wordpilot.assistant.ui.theme.AssistantColors
 
@@ -96,7 +96,7 @@ fun FloatingGeminiKeySetupPanel(
                         )
                     }
                     Text(
-                        text = "Google Gemini AI Setup",
+                        text = "Gemini Model Setup",
                         color = AssistantColors.TextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
@@ -127,14 +127,14 @@ fun FloatingGeminiKeySetupPanel(
             ) {
                 Column(modifier = Modifier.padding(10.dp)) {
                     Text(
-                        text = "Activate V2 AI Features",
+                        text = "Activate Gemini AI",
                         color = Color(0xFFA5B4FC),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Gemini 1.5 Flash powers AI Chat, Summaries, Smart Reply, and Generative Rewrites directly in this floating window.",
+                        text = "The Gemini Model powers AI Rewriting and Tone Adjustments directly in this floating window.",
                         color = AssistantColors.TextSecondary,
                         fontSize = 11.sp,
                         lineHeight = 15.sp
@@ -169,8 +169,9 @@ fun FloatingGeminiKeySetupPanel(
                 keyboardActions = KeyboardActions(
                     onDone = {
                         focusManager.clearFocus()
-                        if (apiKeyText.isNotBlank()) {
-                            onKeySaved(apiKeyText.trim())
+                        val sanitized = GeminiAIEngine.sanitizeApiKey(apiKeyText)
+                        if (sanitized.isNotBlank()) {
+                            onKeySaved(sanitized)
                         }
                     }
                 ),
@@ -229,9 +230,10 @@ fun FloatingGeminiKeySetupPanel(
                         val clip = clipboard?.primaryClip
                         if (clip != null && clip.itemCount > 0) {
                             val pasted = clip.getItemAt(0).text?.toString() ?: ""
-                            if (pasted.isNotBlank()) {
-                                apiKeyText = pasted.trim()
-                                Toast.makeText(context, "Pasted from clipboard", Toast.LENGTH_SHORT).show()
+                            val sanitized = GeminiAIEngine.sanitizeApiKey(pasted)
+                            if (sanitized.isNotBlank()) {
+                                apiKeyText = sanitized
+                                Toast.makeText(context, "Pasted and cleaned API key", Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -309,11 +311,11 @@ fun FloatingGeminiKeySetupPanel(
                 Button(
                     onClick = {
                         focusManager.clearFocus()
-                        val trimmed = apiKeyText.trim()
-                        if (trimmed.isBlank()) {
+                        val sanitized = GeminiAIEngine.sanitizeApiKey(apiKeyText)
+                        if (sanitized.isBlank()) {
                             Toast.makeText(context, "Please enter or paste your Gemini API key", Toast.LENGTH_SHORT).show()
                         } else {
-                            onKeySaved(trimmed)
+                            onKeySaved(sanitized)
                         }
                     },
                     shape = RoundedCornerShape(10.dp),
@@ -330,7 +332,7 @@ fun FloatingGeminiKeySetupPanel(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Save & Activate",
+                        text = "Save Key",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )

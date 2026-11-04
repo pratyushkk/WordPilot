@@ -243,7 +243,7 @@ class FloatingAssistantOverhaulTest {
     @Test
     fun testAIEngineTypeRegistration() {
         assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH, com.wordpilot.assistant.domain.models.AIEngineType.fromId("gemini"))
-        assertEquals("Gemini Flash", com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH.shortName)
+        assertEquals("Gemini Model", com.wordpilot.assistant.domain.models.AIEngineType.GEMINI_FLASH.shortName)
         assertEquals(com.wordpilot.assistant.domain.models.AIEngineType.RULE_BASED, com.wordpilot.assistant.domain.models.AIEngineType.fromId("rule_based"))
     }
 

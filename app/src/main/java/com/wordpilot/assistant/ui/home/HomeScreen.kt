@@ -1,4 +1,4 @@
-﻿package com.wordpilot.assistant.ui.home
+package com.wordpilot.assistant.ui.home
 
 import android.content.Context
 import android.content.Intent
@@ -226,13 +226,13 @@ fun HomeScreen(
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Google Gemini AI Setup Required",
+                                    text = "Gemini Model Setup Required",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Enter your Google Gemini API key to activate floating AI Chat, Summaries, Smart Reply & Tone Rewrites.",
+                                    text = "Enter your Gemini API key to activate floating AI Rewriting and Tone Adjustments.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -295,7 +295,7 @@ fun HomeScreen(
                                     .background(Color(0xFF10B981))
                             )
                             Text(
-                                text = "Google Gemini 1.5 Flash Connected & Active",
+                                text = "Gemini Model Connected & Active",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF047857)

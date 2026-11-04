@@ -1,4 +1,4 @@
-﻿package com.wordpilot.assistant.ui.settings
+package com.wordpilot.assistant.ui.settings
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -97,16 +97,17 @@ class ApiSettingsViewModel : ViewModel() {
     }
 
     fun setGeminiApiKey(key: String) {
-        val trimmed = key.trim()
+        val sanitized = com.wordpilot.assistant.engine.impl.GeminiAIEngine.sanitizeApiKey(key)
+        _uiState.update { it.copy(geminiApiKey = sanitized) }
         viewModelScope.launch {
-            prefs.setGeminiApiKey(trimmed)
-            app.updateGeminiApiKey(trimmed)
+            prefs.setGeminiApiKey(sanitized)
+            app.updateGeminiApiKey(sanitized)
         }
     }
 
     fun testGeminiConnection() {
-        val key = _uiState.value.geminiApiKey.trim()
-        if (key.isBlank()) {
+        val cleanKey = com.wordpilot.assistant.engine.impl.GeminiAIEngine.sanitizeApiKey(_uiState.value.geminiApiKey)
+        if (cleanKey.isBlank()) {
             _uiState.update { it.copy(geminiTestResult = "Please enter your Gemini API key first", geminiTestSuccess = false) }
             return
         }
@@ -115,7 +116,7 @@ class ApiSettingsViewModel : ViewModel() {
             _uiState.update { it.copy(isTestingGemini = true, geminiTestResult = null, geminiTestSuccess = null) }
             try {
                 val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    val url = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$key")
+                    val url = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$cleanKey")
                     val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
                         requestMethod = "POST"
                         setRequestProperty("Content-Type", "application/json; charset=UTF-8")
@@ -127,6 +128,7 @@ class ApiSettingsViewModel : ViewModel() {
                     val json = org.json.JSONObject().apply {
                         val contents = org.json.JSONArray().apply {
                             put(org.json.JSONObject().apply {
+                                put("role", "user")
                                 val parts = org.json.JSONArray().apply {
                                     put(org.json.JSONObject().apply { put("text", "ping") })
                                 }
@@ -144,7 +146,8 @@ class ApiSettingsViewModel : ViewModel() {
                     } else {
                         val stream = conn.errorStream ?: conn.inputStream
                         val err = java.io.BufferedReader(java.io.InputStreamReader(stream, "UTF-8")).use { it.readText() }
-                        "ERROR: HTTP $code - $err"
+                        val parsed = com.wordpilot.assistant.engine.impl.GeminiAIEngine { cleanKey }.parseErrorMessage(err, code)
+                        parsed
                     }
                 }
 
@@ -152,7 +155,7 @@ class ApiSettingsViewModel : ViewModel() {
                     _uiState.update {
                         it.copy(
                             isTestingGemini = false,
-                            geminiTestResult = "✓ Connected to Google Gemini 1.5 Flash successfully!",
+                            geminiTestResult = "✓ Connected to Gemini Model successfully!",
                             geminiTestSuccess = true
                         )
                     }
@@ -485,10 +488,10 @@ fun ApiSettingsScreen(
             // 1.5 GOOGLE GEMINI 1.5 FLASH (V2 CORE LLM)
             // =========================================================================
             ProviderCard(
-                title = "Google Gemini 1.5 Flash",
+                title = "Gemini Model",
                 roleBadge = "V2 Core AI",
                 badgeColor = Color(0xFF8B5CF6),
-                description = "Powers floating AI Chat, Summaries, Smart Reply, and Generative Rewrites across all apps.",
+                description = "Powers generative rewriting and tone adjustments across all apps.",
                 isEnabled = true,
                 onToggleEnabled = { /* Always active for V2 */ }
             ) {
@@ -561,7 +564,7 @@ fun ApiSettingsScreen(
                         } else {
                             Icon(Icons.Filled.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Test Gemini", fontSize = 12.sp)
+                            Text("Test Connection", fontSize = 12.sp)
                         }
                     }
                 }

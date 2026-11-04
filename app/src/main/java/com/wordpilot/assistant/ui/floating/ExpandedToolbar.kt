@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -211,12 +212,12 @@ fun ToolbarActionsContent(
             }
         }
 
-        // Dedicated AI Tools Sparkle Button in Expanded Pill
+        // Dedicated "Rewrite & Tone" Button in Expanded Pill
         Surface(
-            onClick = { onActionClick("more") },
+            onClick = { onActionClick("rewrite_tone") },
             shape = RoundedCornerShape(12.dp),
-            color = Color(0xFF6366F1).copy(alpha = 0.28f),
-            border = BorderStroke(1.dp, Color(0xFF818CF8).copy(alpha = 0.70f)),
+            color = Color(0xFF6366F1).copy(alpha = 0.32f),
+            border = BorderStroke(1.dp, Color(0xFF818CF8).copy(alpha = 0.75f)),
             modifier = Modifier
                 .height(30.dp)
                 .padding(horizontal = 2.dp)
@@ -228,12 +229,12 @@ fun ToolbarActionsContent(
             ) {
                 Icon(
                     imageVector = Icons.Filled.AutoAwesome,
-                    contentDescription = "AI Tools",
+                    contentDescription = "Rewrite & Tone",
                     tint = Color(0xFFA5B4FC),
                     modifier = Modifier.size(13.dp)
                 )
                 Text(
-                    text = "AI Tools",
+                    text = "Rewrite & Tone",
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold

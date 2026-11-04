@@ -19,20 +19,15 @@ import androidx.compose.ui.unit.dp
 import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.Correction
 import com.wordpilot.assistant.domain.models.CorrectionCategory
+import com.wordpilot.assistant.domain.models.RewriteStyle
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
 import com.wordpilot.assistant.ui.theme.AssistantColors
 
 enum class FloatingUiState {
     COLLAPSED,
     EXPANDED,
-    MORE_OPTIONS,
+    TONE_SELECTOR,
     PREVIEW,
-    AI_CHAT,
-    SUMMARIZE_RESULT,
-    SMART_REPLY,
-    TRANSLATE_RESULT,
-    EXPLAIN_RESULT,
-    CUSTOM_PROMPT_INPUT,
     GEMINI_KEY_SETUP
 }
 
@@ -56,6 +51,7 @@ fun FloatingAssistantView(
     onActionClick: (String) -> Unit,
     onCustomPromptSubmit: (String) -> Unit,
     onSelectTone: (String) -> Unit,
+    onToneOptionSelect: (RewriteStyle, String) -> Unit = { _, _ -> },
     onReplace: () -> Unit,
     onInsert: () -> Unit,
     onCopy: () -> Unit,
@@ -71,21 +67,6 @@ fun FloatingAssistantView(
     onCollapseTransitionCompleted: () -> Unit = {},
     selectedEngine: AIEngineType = AIEngineType.GEMINI_FLASH,
     onSelectEngine: (AIEngineType) -> Unit = {},
-    aiWindowSettings: com.wordpilot.assistant.ui.settings.AiWindowSettings = com.wordpilot.assistant.ui.settings.AiWindowSettings(),
-    chatMessages: List<com.wordpilot.assistant.engine.impl.GeminiChatMessage> = emptyList(),
-    isChatStreaming: Boolean = false,
-    activeContextText: String? = null,
-    onSendChatMessage: (String) -> Unit = {},
-    onClearChat: () -> Unit = {},
-    summaryText: String = "",
-    isSummaryLoading: Boolean = false,
-    summaryErrorMessage: String? = null,
-    onSummarizeModeChange: (String) -> Unit = {},
-    smartReplies: List<String> = emptyList(),
-    isSmartReplyLoading: Boolean = false,
-    smartReplyErrorMessage: String? = null,
-    onSelectSmartReply: (String) -> Unit = {},
-    onRegenerateSmartReply: () -> Unit = {},
     onGeminiKeySaved: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -103,7 +84,7 @@ fun FloatingAssistantView(
     val toolbarHeight = settings.toolbarHeightDp.dp
     val toolbarMaxWidth = settings.toolbarMaxWidthDp.dp
 
-    // Morphing Pill Dimensions - Emphasized organic curves
+    // Morphing Pill Dimensions
     val animatedWidth by animateDpAsState(
         targetValue = if (isExpanded) toolbarMaxWidth else bubbleSize,
         animationSpec = if (isExpanded) {
@@ -195,7 +176,7 @@ fun FloatingAssistantView(
         horizontalAlignment = if (isNearRightEdge) Alignment.End else Alignment.Start,
         verticalArrangement = Arrangement.Bottom
     ) {
-        // Upper Panels: AI Gemini Key Setup
+        // Panel 1: Gemini API Key Setup
         AnimatedVisibility(
             visible = uiState == FloatingUiState.GEMINI_KEY_SETUP,
             enter = panelEnterAnim,
@@ -210,83 +191,25 @@ fun FloatingAssistantView(
             }
         }
 
-        // Upper Panels: AI Chat Window
+        // Panel 2: Tone Selector Panel (Rewrite & Tone)
         AnimatedVisibility(
-            visible = uiState == FloatingUiState.AI_CHAT,
+            visible = uiState == FloatingUiState.TONE_SELECTOR,
             enter = panelEnterAnim,
             exit = panelExitAnim
         ) {
             Box(modifier = Modifier.padding(bottom = 6.dp)) {
-                FloatingAiChatPanel(
-                    messages = chatMessages,
-                    isStreaming = isChatStreaming,
-                    activeContextText = activeContextText,
-                    onSendMessage = onSendChatMessage,
-                    onInsertAnswer = { onInsert() },
-                    onClose = onCollapse,
-                    onClearChat = onClearChat,
+                ToneSelectorPanel(
                     settings = settings,
-                    aiWindowSettings = aiWindowSettings
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = uiState == FloatingUiState.SUMMARIZE_RESULT,
-            enter = panelEnterAnim,
-            exit = panelExitAnim
-        ) {
-            Box(modifier = Modifier.padding(bottom = 6.dp)) {
-                SummarizeResultPanel(
-                    summaryText = summaryText,
-                    isLoading = isSummaryLoading,
-                    errorMessage = summaryErrorMessage,
-                    onReplace = { onReplace() },
-                    onInsert = { onInsert() },
-                    onCopy = { onCopy() },
-                    onRegenerate = onSummarizeModeChange,
-                    onClose = onCollapse,
-                    aiWindowSettings = aiWindowSettings
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = uiState == FloatingUiState.SMART_REPLY,
-            enter = panelEnterAnim,
-            exit = panelExitAnim
-        ) {
-            Box(modifier = Modifier.padding(bottom = 6.dp)) {
-                SmartReplyPanel(
-                    replies = smartReplies,
-                    isLoading = isSmartReplyLoading,
-                    errorMessage = smartReplyErrorMessage,
-                    onSelectReply = onSelectSmartReply,
-                    onRegenerate = onRegenerateSmartReply,
-                    onClose = onCollapse,
-                    aiWindowSettings = aiWindowSettings
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = uiState == FloatingUiState.MORE_OPTIONS,
-            enter = panelEnterAnim,
-            exit = panelExitAnim
-        ) {
-            Box(modifier = Modifier.padding(bottom = 6.dp)) {
-                MoreOptionsPanel(
-                    settings = settings,
-                    onActionClick = onActionClick,
-                    onCustomPromptSubmit = onCustomPromptSubmit,
-                    onOpenSettings = onOpenSettings,
-                    onBack = { onActionClick("back_to_expanded") },
                     selectedEngine = selectedEngine,
-                    onSelectEngine = onSelectEngine
+                    onToneSelect = onToneOptionSelect,
+                    onCustomPromptSubmit = onCustomPromptSubmit,
+                    onOpenGeminiSetup = { onActionClick("gemini_setup") },
+                    onClose = onCollapse
                 )
             }
         }
 
+        // Panel 3: Suggestion Preview Panel (Diff & Action buttons)
         AnimatedVisibility(
             visible = uiState == FloatingUiState.PREVIEW,
             enter = panelEnterAnim,
@@ -391,7 +314,7 @@ fun FloatingAssistantView(
                         )
                     }
 
-                    // Actions on right (revealed smoothly as width grows)
+                    // Actions on right
                     if (animatedWidth > bubbleSize + 12.dp) {
                         Box(
                             modifier = Modifier

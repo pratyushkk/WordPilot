@@ -15,11 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wordpilot.assistant.domain.models.AIEngineType
@@ -46,18 +43,23 @@ fun SuggestionPreview(
     modifier: Modifier = Modifier
 ) {
     val textScrollState = rememberScrollState()
+    val toneScrollState = rememberScrollState()
+
+    val quickTones = remember {
+        listOf("Professional", "Casual", "Concise", "Clarity", "Polite", "Polish")
+    }
 
     GlassBackground(
         modifier = modifier
             .widthIn(min = 280.dp, max = 340.dp)
             .wrapContentHeight(),
-        opacity = settings.glassOpacity,
+        opacity = settings.glassOpacity.coerceAtLeast(0.85f),
         baseColor = Color(settings.glassTintArgb),
         cornerRadius = settings.glassCornerRadiusDp.dp,
         borderWidth = settings.glassBorderWidthDp.dp,
-        borderOpacity = settings.glassBorderOpacity,
+        borderOpacity = settings.glassBorderOpacity.coerceAtLeast(0.35f),
         highlightOpacity = settings.glassHighlightOpacity,
-        shadowElevation = settings.glassShadowElevationDp.dp
+        shadowElevation = 18.dp
     ) {
         Column(
             modifier = Modifier
@@ -70,9 +72,18 @@ fun SuggestionPreview(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = AssistantColors.AccentCyan,
+                        modifier = Modifier.size(15.dp)
+                    )
                     Text(
-                        text = if (isLoading) "Checking writing..." else "Grammar Review",
+                        text = if (isLoading) "Rewriting..." else if (currentTone.isNotBlank()) "$currentTone Tone" else "Review",
                         color = AssistantColors.TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
@@ -111,13 +122,13 @@ fun SuggestionPreview(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                             color = AssistantColors.AccentCyan,
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Checking writing...",
+                            text = "Rewriting with Gemini Model...",
                             color = AssistantColors.TextSecondary,
                             fontSize = 12.sp
                         )
@@ -126,11 +137,12 @@ fun SuggestionPreview(
                     Text(
                         text = errorMessage,
                         color = AssistantColors.BadgeSpelling,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
                     )
                 } else {
                     Column {
-                        // Original text (subtle strikethrough or diff view if changed)
+                        // Original text with strikethrough if changed
                         if (originalText.isNotBlank() && originalText != improvedText) {
                             Text(
                                 text = originalText,
@@ -142,7 +154,7 @@ fun SuggestionPreview(
                             Spacer(modifier = Modifier.height(4.dp))
                         }
 
-                        // Improved text (highlighted in crisp clear green/white)
+                        // Improved text
                         Text(
                             text = if (improvedText.isNotBlank()) improvedText else originalText,
                             color = AssistantColors.TextPrimary,
@@ -151,20 +163,51 @@ fun SuggestionPreview(
                             lineHeight = 18.sp
                         )
 
-                        if (!isLoading && originalText.isNotBlank() && originalText == improvedText) {
+                        if (errorMessage != null && improvedText.isNotBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "✓ No grammar errors detected",
-                                color = AssistantColors.AccentGreen,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Normal
+                                text = "Note: $errorMessage",
+                                color = Color(0xFFFBBF24),
+                                fontSize = 10.sp
                             )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Quick Tone Switcher Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(toneScrollState),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                quickTones.forEach { tone ->
+                    val isSelected = currentTone.equals(tone, ignoreCase = true)
+                    Surface(
+                        onClick = { onSelectTone(tone) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) Color(0xFF6366F1).copy(alpha = 0.35f) else Color(0xFF1E232E).copy(alpha = 0.5f),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (isSelected) Color(0xFF818CF8) else Color.White.copy(alpha = 0.08f)
+                        )
+                    ) {
+                        Text(
+                            text = tone,
+                            color = if (isSelected) Color(0xFFA5B4FC) else AssistantColors.TextSecondary,
+                            fontSize = 10.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Bottom action buttons: Replace, Insert, Copy, Undo
             Row(
@@ -176,24 +219,28 @@ fun SuggestionPreview(
                 Button(
                     onClick = onReplace,
                     enabled = !isLoading && improvedText.isNotBlank() && improvedText != originalText,
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AssistantColors.AccentBlue,
-                        disabledContainerColor = AssistantColors.AccentBlue.copy(alpha = 0.3f)
+                        containerColor = AssistantColors.AccentGreen,
+                        contentColor = Color.Black,
+                        disabledContainerColor = AssistantColors.AccentGreen.copy(alpha = 0.25f),
+                        disabledContentColor = Color.White.copy(alpha = 0.4f)
                     ),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.weight(1.2f).height(36.dp)
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .height(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Check,
                         contentDescription = "Replace",
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Replace",
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
@@ -201,18 +248,18 @@ fun SuggestionPreview(
                 OutlinedButton(
                     onClick = onCopy,
                     enabled = !isLoading && (improvedText.isNotBlank() || originalText.isNotBlank()),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = AssistantColors.TextPrimary
                     ),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                    modifier = Modifier.height(36.dp)
+                    modifier = Modifier.height(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ContentCopy,
                         contentDescription = "Copy",
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
 
@@ -220,18 +267,18 @@ fun SuggestionPreview(
                 OutlinedButton(
                     onClick = onInsert,
                     enabled = !isLoading && improvedText.isNotBlank(),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = AssistantColors.TextPrimary
                     ),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                    modifier = Modifier.height(36.dp)
+                    modifier = Modifier.height(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Input,
                         contentDescription = "Insert",
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
 
@@ -239,18 +286,18 @@ fun SuggestionPreview(
                 if (canUndo) {
                     OutlinedButton(
                         onClick = onUndo,
-                        shape = RoundedCornerShape(14.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = AssistantColors.TextSecondary
                         ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                        modifier = Modifier.height(36.dp)
+                        modifier = Modifier.height(34.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Undo,
                             contentDescription = "Undo",
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
