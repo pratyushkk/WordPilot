@@ -93,6 +93,20 @@ class RewriteCoordinator(
         }
     }
 
+        val gemini: GeminiAIEngine get() = geminiEngine
+
+    suspend fun summarize(text: String, mode: String = "BULLETS"): Result<String> =
+        geminiEngine.summarize(text, mode)
+
+    suspend fun generateSmartReplies(incomingContext: String): Result<List<String>> =
+        geminiEngine.generateSmartReplies(incomingContext)
+
+    suspend fun translate(text: String, targetLanguage: String): Result<String> =
+        geminiEngine.translate(text, targetLanguage)
+
+    suspend fun explain(text: String): Result<String> =
+        geminiEngine.explain(text)
+
     fun cancel() {
         geminiEngine.cancelInference()
         localEngine.cancelInference()

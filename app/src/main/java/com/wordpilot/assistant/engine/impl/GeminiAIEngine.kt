@@ -16,6 +16,12 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class GeminiChatMessage(
+    val role: String, // "user" or "model"
+    val content: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 class GeminiAIEngine(
     private val apiKeyProvider: () -> String?
 ) : LocalAIEngine {
@@ -217,6 +223,221 @@ class GeminiAIEngine(
         } catch (e: Exception) {
             return@withContext "Explanation unavailable: ${e.localizedMessage}"
         }
+    }
+
+    
+    suspend fun executeDirectPrompt(
+        prompt: String,
+        temperature: Float = 0.2f,
+        maxTokens: Int = 1024
+    ): Result<String> = withContext(Dispatchers.IO) {
+        val rawApiKey = apiKeyProvider()?.trim()
+        if (rawApiKey.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Gemini API key is not configured."))
+        }
+
+        try {
+            val url = URL("$BASE_URL?key=$rawApiKey")
+            val connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("x-goog-api-key", rawApiKey)
+                connectTimeout = 15000
+                readTimeout = 25000
+                doOutput = true
+                doInput = true
+            }
+
+            val requestJson = JSONObject().apply {
+                val contents = JSONArray().apply {
+                    val contentObj = JSONObject().apply {
+                        val parts = JSONArray().apply {
+                            put(JSONObject().apply { put("text", prompt) })
+                        }
+                        put("parts", parts)
+                    }
+                    put(contentObj)
+                }
+                put("contents", contents)
+
+                val generationConfig = JSONObject().apply {
+                    put("temperature", temperature.toDouble())
+                    put("maxOutputTokens", maxTokens)
+                }
+                put("generationConfig", generationConfig)
+            }
+
+            OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
+                writer.write(requestJson.toString())
+                writer.flush()
+            }
+
+            val responseCode = connection.responseCode
+            val responseStream = if (responseCode in 200..299) {
+                connection.inputStream
+            } else {
+                connection.errorStream ?: connection.inputStream
+            }
+
+            val responseBody = BufferedReader(InputStreamReader(responseStream, "UTF-8")).use { it.readText() }
+            if (responseCode !in 200..299) {
+                return@withContext Result.failure(Exception(parseErrorMessage(responseBody, responseCode)))
+            }
+
+            val output = parseGeminiOutput(responseBody)
+            Result.success(output)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun chatStream(
+        message: String,
+        history: List<GeminiChatMessage>,
+        activeContextText: String?,
+        onChunkReceived: (String) -> Unit,
+        onComplete: (String) -> Unit,
+        onError: (String) -> Unit
+    ) = withContext(Dispatchers.IO) {
+        val apiKey = apiKeyProvider()?.trim()
+        if (apiKey.isNullOrBlank()) {
+            withContext(Dispatchers.Main) {
+                onError("Gemini API key is not configured. Please add it in Settings.")
+            }
+            return@withContext
+        }
+
+        try {
+            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=$apiKey")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Accept", "text/event-stream")
+                setRequestProperty("x-goog-api-key", apiKey)
+                doOutput = true
+                connectTimeout = 12000
+                readTimeout = 30000
+            }
+
+            val contentsArray = JSONArray()
+            val systemInstruction = "You are WordPilot, an elite floating AI writing assistant on Android. " +
+                "The user is typing in an app. Context of active text: '$activeContextText'. " +
+                "Be direct, concise, insightful, and helpful. Format in clean markdown."
+
+            for (msg in history.takeLast(6)) {
+                val role = if (msg.role == "user") "user" else "model"
+                contentsArray.put(JSONObject().apply {
+                    put("role", role)
+                    put("parts", JSONArray().put(JSONObject().put("text", msg.content)))
+                })
+            }
+            contentsArray.put(JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().put(JSONObject().put("text", message)))
+            })
+
+            val requestBody = JSONObject().apply {
+                put("contents", contentsArray)
+                put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", systemInstruction))))
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", 0.7)
+                    put("maxOutputTokens", 1024)
+                })
+            }
+
+            OutputStreamWriter(conn.outputStream, "UTF-8").use { it.write(requestBody.toString()) }
+
+            val fullResponse = StringBuilder()
+            BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { reader ->
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val currentLine = line ?: continue
+                    if (currentLine.startsWith("data: ")) {
+                        val jsonStr = currentLine.substring(6).trim()
+                        if (jsonStr.isNotEmpty()) {
+                            try {
+                                val candidate = JSONObject(jsonStr)
+                                    .getJSONArray("candidates")
+                                    .getJSONObject(0)
+                                    .getJSONObject("content")
+                                    .getJSONArray("parts")
+                                    .getJSONObject(0)
+                                    .getString("text")
+                                fullResponse.append(candidate)
+                                withContext(Dispatchers.Main) {
+                                    onChunkReceived(candidate)
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                onComplete(fullResponse.toString())
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                onError("Gemini Chat failed: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    suspend fun summarize(
+        text: String,
+        mode: String = "BULLETS"
+    ): Result<String> {
+        val prompt = when (mode) {
+            "ONE_SENTENCE" -> "Summarize the following text in exactly one clear, impactful sentence:\n\n$text"
+            "KEY_TAKEAWAYS" -> "Extract the top 3 key takeaways from this text with bullet points:\n\n$text"
+            else -> "Provide a concise bulleted summary of the following text, highlighting core facts:\n\n$text"
+        }
+        return executeDirectPrompt(prompt, temperature = 0.2f)
+    }
+
+    suspend fun generateSmartReplies(
+        incomingContext: String
+    ): Result<List<String>> {
+        val prompt = """
+        The user received the following message in a chat app:
+        "$incomingContext"
+
+        Generate exactly 3 smart, natural, contextual replies:
+        1: Short agreement/affirmative
+        2: Friendly elaboration or follow-up question
+        3: Polite decline or alternative proposal
+
+        Output ONLY a valid JSON array of 3 strings, e.g. ["Yes, sounds great!", "I'd love to, what time?", "Sorry, I'm tied up today."]. Do not include markdown or extra text.
+        """.trimIndent()
+
+        val rawResult = executeDirectPrompt(prompt, temperature = 0.4f)
+        return rawResult.map { jsonString ->
+            try {
+                val cleaned = jsonString.replace("`json", "").replace("`", "").trim()
+                val arr = JSONArray(cleaned)
+                val list = mutableListOf<String>()
+                for (i in 0 until arr.length()) list.add(arr.getString(i))
+                list
+            } catch (e: Exception) {
+                listOf("Sounds good!", "Thanks for letting me know.", "Let me get back to you soon.")
+            }
+        }
+    }
+
+    suspend fun translate(
+        text: String,
+        targetLanguage: String
+    ): Result<String> {
+        val prompt = "Translate the following text accurately into $targetLanguage. Output ONLY the translated text without commentary:\n\n$text"
+        return executeDirectPrompt(prompt, temperature = 0.1f)
+    }
+
+    suspend fun explain(
+        text: String
+    ): Result<String> {
+        val prompt = "Explain the meaning, context, and key terms in the following text simply and clearly in 2-3 sentences:\n\n$text"
+        return executeDirectPrompt(prompt, temperature = 0.3f)
     }
 
     override fun cancelInference() {

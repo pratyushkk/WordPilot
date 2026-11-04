@@ -1,4 +1,4 @@
-package com.wordpilot.assistant.ui.home
+﻿package com.wordpilot.assistant.ui.home
 
 import android.content.Context
 import android.content.Intent
@@ -41,11 +41,14 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToDictionary: () -> Unit,
     onNavigateToApiSettings: () -> Unit,
-    onNavigateToBubbleCustomization: () -> Unit = {}
+    onNavigateToBubbleCustomization: () -> Unit = {},
+    onNavigateToAiWindowStudio: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var showAccessibilityGuide by remember { mutableStateOf(false) }
     val isServiceActive = WordPilotAccessibilityService.instance != null
+    val app = com.wordpilot.assistant.WordPilotApp.instance
+    val geminiApiKey by app.userPreferences.geminiApiKey.collectAsState(initial = null)
 
     if (showAccessibilityGuide) {
         AccessibilityGuideDialog(
@@ -89,7 +92,7 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "Your Writing Assistant v1.0",
+                                "Your AI Writing Companion v2.0",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -193,6 +196,121 @@ fun HomeScreen(
                 }
             }
 
+                        if (geminiApiKey.isNullOrBlank()) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.7f)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF59E0B).copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Key,
+                                    contentDescription = null,
+                                    tint = Color(0xFFF59E0B),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Google Gemini AI Setup Required",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Enter your Google Gemini API key to activate floating AI Chat, Summaries, Smart Reply & Tone Rewrites.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey")).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(browserIntent)
+                                    } catch (e: Exception) {}
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Get Free Key", fontSize = 12.sp)
+                            }
+                            Button(
+                                onClick = onNavigateToApiSettings,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF8B5CF6)
+                                ),
+                                modifier = Modifier.weight(1.2f)
+                            ) {
+                                Icon(Icons.Filled.Key, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Enter Key", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF10B981).copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF10B981))
+                            )
+                            Text(
+                                text = "Google Gemini 1.5 Flash Connected & Active",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF047857)
+                            )
+                        }
+                        TextButton(
+                            onClick = onNavigateToApiSettings,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text("Manage", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(2.dp))
 
             // Main action cards
@@ -217,11 +335,18 @@ fun HomeScreen(
                 onClick = { showAccessibilityGuide = true }
             )
 
-            HomeActionCard(
+                        HomeActionCard(
                 icon = Icons.Outlined.Palette,
                 title = "Appearance & Layout Studio",
                 description = "Customize bubble size, AI logo icon, error badge & 30% edge tuck",
                 onClick = onNavigateToBubbleCustomization
+            )
+
+            HomeActionCard(
+                icon = Icons.Outlined.AutoAwesome,
+                title = "AI Window Studio",
+                description = "Customize floating AI chat window size, glass theme, anchors & custom prompts",
+                onClick = onNavigateToAiWindowStudio
             )
 
             HomeActionCard(

@@ -26,7 +26,14 @@ enum class FloatingUiState {
     COLLAPSED,
     EXPANDED,
     MORE_OPTIONS,
-    PREVIEW
+    PREVIEW,
+    AI_CHAT,
+    SUMMARIZE_RESULT,
+    SMART_REPLY,
+    TRANSLATE_RESULT,
+    EXPLAIN_RESULT,
+    CUSTOM_PROMPT_INPUT,
+    GEMINI_KEY_SETUP
 }
 
 @Composable
@@ -64,6 +71,22 @@ fun FloatingAssistantView(
     onCollapseTransitionCompleted: () -> Unit = {},
     selectedEngine: AIEngineType = AIEngineType.GEMINI_FLASH,
     onSelectEngine: (AIEngineType) -> Unit = {},
+    aiWindowSettings: com.wordpilot.assistant.ui.settings.AiWindowSettings = com.wordpilot.assistant.ui.settings.AiWindowSettings(),
+    chatMessages: List<com.wordpilot.assistant.engine.impl.GeminiChatMessage> = emptyList(),
+    isChatStreaming: Boolean = false,
+    activeContextText: String? = null,
+    onSendChatMessage: (String) -> Unit = {},
+    onClearChat: () -> Unit = {},
+    summaryText: String = "",
+    isSummaryLoading: Boolean = false,
+    summaryErrorMessage: String? = null,
+    onSummarizeModeChange: (String) -> Unit = {},
+    smartReplies: List<String> = emptyList(),
+    isSmartReplyLoading: Boolean = false,
+    smartReplyErrorMessage: String? = null,
+    onSelectSmartReply: (String) -> Unit = {},
+    onRegenerateSmartReply: () -> Unit = {},
+    onGeminiKeySaved: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val badgeColor = when (activeCorrection?.category) {
@@ -172,7 +195,80 @@ fun FloatingAssistantView(
         horizontalAlignment = if (isNearRightEdge) Alignment.End else Alignment.Start,
         verticalArrangement = Arrangement.Bottom
     ) {
-        // Upper Panels: More Options or Preview appear above the morphing pill
+        // Upper Panels: AI Gemini Key Setup
+        AnimatedVisibility(
+            visible = uiState == FloatingUiState.GEMINI_KEY_SETUP,
+            enter = panelEnterAnim,
+            exit = panelExitAnim
+        ) {
+            Box(modifier = Modifier.padding(bottom = 6.dp)) {
+                FloatingGeminiKeySetupPanel(
+                    settings = settings,
+                    onKeySaved = onGeminiKeySaved,
+                    onClose = onCollapse
+                )
+            }
+        }
+
+        // Upper Panels: AI Chat Window
+        AnimatedVisibility(
+            visible = uiState == FloatingUiState.AI_CHAT,
+            enter = panelEnterAnim,
+            exit = panelExitAnim
+        ) {
+            Box(modifier = Modifier.padding(bottom = 6.dp)) {
+                FloatingAiChatPanel(
+                    messages = chatMessages,
+                    isStreaming = isChatStreaming,
+                    activeContextText = activeContextText,
+                    onSendMessage = onSendChatMessage,
+                    onInsertAnswer = { onInsert() },
+                    onClose = onCollapse,
+                    onClearChat = onClearChat,
+                    settings = settings,
+                    aiWindowSettings = aiWindowSettings
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = uiState == FloatingUiState.SUMMARIZE_RESULT,
+            enter = panelEnterAnim,
+            exit = panelExitAnim
+        ) {
+            Box(modifier = Modifier.padding(bottom = 6.dp)) {
+                SummarizeResultPanel(
+                    summaryText = summaryText,
+                    isLoading = isSummaryLoading,
+                    errorMessage = summaryErrorMessage,
+                    onReplace = { onReplace() },
+                    onInsert = { onInsert() },
+                    onCopy = { onCopy() },
+                    onRegenerate = onSummarizeModeChange,
+                    onClose = onCollapse,
+                    aiWindowSettings = aiWindowSettings
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = uiState == FloatingUiState.SMART_REPLY,
+            enter = panelEnterAnim,
+            exit = panelExitAnim
+        ) {
+            Box(modifier = Modifier.padding(bottom = 6.dp)) {
+                SmartReplyPanel(
+                    replies = smartReplies,
+                    isLoading = isSmartReplyLoading,
+                    errorMessage = smartReplyErrorMessage,
+                    onSelectReply = onSelectSmartReply,
+                    onRegenerate = onRegenerateSmartReply,
+                    onClose = onCollapse,
+                    aiWindowSettings = aiWindowSettings
+                )
+            }
+        }
+
         AnimatedVisibility(
             visible = uiState == FloatingUiState.MORE_OPTIONS,
             enter = panelEnterAnim,
@@ -236,7 +332,6 @@ fun FloatingAssistantView(
             ) {
                 if (isNearRightEdge) {
                     // Expanding to the left:
-                    // Actions on left (revealed smoothly as width grows)
                     if (animatedWidth > bubbleSize + 12.dp) {
                         Box(
                             modifier = Modifier
@@ -255,7 +350,8 @@ fun FloatingAssistantView(
                                 errorCount = errorCount,
                                 isChecking = isChecking,
                                 onAcceptCorrection = onAcceptCorrection,
-                                onDismissCorrection = onDismissCorrection
+                                onDismissCorrection = onDismissCorrection,
+                                onActionClick = onActionClick
                             )
                         }
                     }
@@ -314,7 +410,8 @@ fun FloatingAssistantView(
                                 errorCount = errorCount,
                                 isChecking = isChecking,
                                 onAcceptCorrection = onAcceptCorrection,
-                                onDismissCorrection = onDismissCorrection
+                                onDismissCorrection = onDismissCorrection,
+                                onActionClick = onActionClick
                             )
                         }
                     }

@@ -57,6 +57,7 @@ fun ToolbarActionsContent(
     isChecking: Boolean = false,
     onAcceptCorrection: (Correction) -> Unit = {},
     onDismissCorrection: () -> Unit = {},
+    onActionClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -89,10 +90,7 @@ fun ToolbarActionsContent(
         }
 
         if (correctionsToShow.isNotEmpty()) {
-            // =========================================================================
-            // DIRECT CORRECTED WORD(S): Tapping directly auto-applies!
-            // No Settings button! No Apply button!
-            // =========================================================================
+            // Direct Corrected Word pills
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -109,7 +107,6 @@ fun ToolbarActionsContent(
                         CorrectionCategory.CAPITALIZATION -> AssistantColors.BadgeCapitalization
                     }
 
-                    // Tactile clickable pill: tapping the corrected word auto-applies it!
                     Surface(
                         onClick = { onAcceptCorrection(correction) },
                         shape = RoundedCornerShape(14.dp),
@@ -124,7 +121,6 @@ fun ToolbarActionsContent(
                             horizontalArrangement = Arrangement.spacedBy(5.dp),
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            // Category Dot
                             Box(
                                 modifier = Modifier
                                     .size(7.dp)
@@ -132,7 +128,6 @@ fun ToolbarActionsContent(
                                     .background(categoryColor)
                             )
 
-                            // Original text with strikethrough if available
                             if (correction.originalText.isNotBlank()) {
                                 Text(
                                     text = correction.originalText,
@@ -149,10 +144,9 @@ fun ToolbarActionsContent(
                                 )
                             }
 
-                            // Corrected Replacement Word
                             Text(
                                 text = correction.suggestedReplacement ?: "",
-                                color = Color(0xFF34D399), // Crisp Vivid Emerald Green
+                                color = Color(0xFF34D399),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -162,7 +156,6 @@ fun ToolbarActionsContent(
                     }
                 }
 
-                // Subtle dismiss 'x' button
                 IconButton(
                     onClick = onDismissCorrection,
                     modifier = Modifier.size(24.dp)
@@ -176,7 +169,6 @@ fun ToolbarActionsContent(
                 }
             }
         } else if (isChecking) {
-            // Checking state: subtle spinner + "Checking..."
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -196,7 +188,6 @@ fun ToolbarActionsContent(
                 )
             }
         } else {
-            // All clear state: "✓ All clear"
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -216,6 +207,36 @@ fun ToolbarActionsContent(
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        // Dedicated AI Tools Sparkle Button in Expanded Pill
+        Surface(
+            onClick = { onActionClick("more") },
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFF6366F1).copy(alpha = 0.28f),
+            border = BorderStroke(1.dp, Color(0xFF818CF8).copy(alpha = 0.70f)),
+            modifier = Modifier
+                .height(30.dp)
+                .padding(horizontal = 2.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(horizontal = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.AutoAwesome,
+                    contentDescription = "AI Tools",
+                    tint = Color(0xFFA5B4FC),
+                    modifier = Modifier.size(13.dp)
+                )
+                Text(
+                    text = "AI Tools",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -247,7 +268,8 @@ fun ExpandedToolbar(
     errorCount: Int = 0,
     isChecking: Boolean = false,
     onAcceptCorrection: (Correction) -> Unit = {},
-    onDismissCorrection: () -> Unit = {}
+    onDismissCorrection: () -> Unit = {},
+    onActionClick: (String) -> Unit = {}
 ) {
     GlassBackground(
         modifier = modifier
@@ -270,7 +292,8 @@ fun ExpandedToolbar(
             errorCount = errorCount,
             isChecking = isChecking,
             onAcceptCorrection = onAcceptCorrection,
-            onDismissCorrection = onDismissCorrection
+            onDismissCorrection = onDismissCorrection,
+            onActionClick = onActionClick
         )
     }
 }

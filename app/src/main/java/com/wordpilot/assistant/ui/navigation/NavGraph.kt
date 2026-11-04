@@ -27,6 +27,7 @@ object Routes {
     const val MODEL_MANAGEMENT = "api_settings"
     const val BUBBLE_CUSTOMIZATION = "bubble_customization"
     const val APPEARANCE_STUDIO = "bubble_customization"
+    const val AI_WINDOW_STUDIO = "ai_window_studio"
 }
 
 @Composable
@@ -44,7 +45,8 @@ fun WordPilotNavGraph(
                 onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
                 onNavigateToDictionary = { navController.navigate(Routes.DICTIONARY) },
                 onNavigateToApiSettings = { navController.navigate(Routes.API_SETTINGS) },
-                onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) }
+                onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) },
+                onNavigateToAiWindowStudio = { navController.navigate(Routes.AI_WINDOW_STUDIO) }
             )
         }
         composable(Routes.EDITOR) {
@@ -74,7 +76,8 @@ fun WordPilotNavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToDictionary = { navController.navigate(Routes.DICTIONARY) },
                 onNavigateToApiSettings = { navController.navigate(Routes.API_SETTINGS) },
-                onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) }
+                onNavigateToBubbleCustomization = { navController.navigate(Routes.BUBBLE_CUSTOMIZATION) },
+                onNavigateToAiWindowStudio = { navController.navigate(Routes.AI_WINDOW_STUDIO) }
             )
         }
         composable(Routes.BUBBLE_CUSTOMIZATION) {
@@ -91,6 +94,9 @@ fun WordPilotNavGraph(
         }
         composable(Routes.REWRITE) {
             RewriteScreen(onNavigateBack = { navController.popBackStack() })
+        }
+                composable(Routes.AI_WINDOW_STUDIO) {
+            com.wordpilot.assistant.ui.settings.AiWindowCustomizationScreen(onNavigateBack = { navController.popBackStack() })
         }
         composable(Routes.API_SETTINGS) {
             ApiSettingsScreen(onNavigateBack = { navController.popBackStack() })

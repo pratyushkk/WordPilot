@@ -36,6 +36,8 @@ object AssistantColors {
     val BadgePunctuation = Color(0xFF8B5CF6)
     val BadgeStyle = Color(0xFF10B981)
     val BadgeCapitalization = Color(0xFFF59E0B)
+    val TextError = Color(0xFFEF4444)
+    val Divider = Color(0xFFFFFFFF).copy(alpha = 0.12f)
 
     // Preview diff colors
     val DiffOriginalBackground = Color(0xFFEF4444).copy(alpha = 0.15f)

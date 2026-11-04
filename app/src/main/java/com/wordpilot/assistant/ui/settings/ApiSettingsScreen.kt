@@ -1,4 +1,4 @@
-package com.wordpilot.assistant.ui.settings
+﻿package com.wordpilot.assistant.ui.settings
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +43,10 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class ApiSettingsUiState(
+    val geminiApiKey: String = "",
+    val isTestingGemini: Boolean = false,
+    val geminiTestResult: String? = null,
+    val geminiTestSuccess: Boolean? = null,
     val saplingApiKey: String = "",
     val saplingEnabled: Boolean = true,
     val languageToolBaseUrl: String = "https://api.languagetool.org",
@@ -64,12 +69,14 @@ class ApiSettingsViewModel : ViewModel() {
     init {
         viewModelScope.launch {
             combine(
+                prefs.geminiApiKey,
                 prefs.saplingApiKey,
                 prefs.saplingEnabled,
                 prefs.languageToolBaseUrl,
                 prefs.languageToolEnabled
-            ) { sapKey, sapEnabled, ltUrl, ltEnabled ->
+            ) { gemKey, sapKey, sapEnabled, ltUrl, ltEnabled ->
                 ApiSettingsUiState(
+                    geminiApiKey = gemKey ?: "",
                     saplingApiKey = sapKey ?: "",
                     saplingEnabled = sapEnabled,
                     languageToolBaseUrl = ltUrl,
@@ -78,10 +85,92 @@ class ApiSettingsViewModel : ViewModel() {
             }.collect { newState ->
                 _uiState.update { current ->
                     current.copy(
+                        geminiApiKey = newState.geminiApiKey,
                         saplingApiKey = newState.saplingApiKey,
                         saplingEnabled = newState.saplingEnabled,
                         languageToolBaseUrl = newState.languageToolBaseUrl,
                         languageToolEnabled = newState.languageToolEnabled
+                    )
+                }
+            }
+        }
+    }
+
+    fun setGeminiApiKey(key: String) {
+        val trimmed = key.trim()
+        viewModelScope.launch {
+            prefs.setGeminiApiKey(trimmed)
+            app.updateGeminiApiKey(trimmed)
+        }
+    }
+
+    fun testGeminiConnection() {
+        val key = _uiState.value.geminiApiKey.trim()
+        if (key.isBlank()) {
+            _uiState.update { it.copy(geminiTestResult = "Please enter your Gemini API key first", geminiTestSuccess = false) }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isTestingGemini = true, geminiTestResult = null, geminiTestSuccess = null) }
+            try {
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val url = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$key")
+                    val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
+                        requestMethod = "POST"
+                        setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                        setRequestProperty("Accept", "application/json")
+                        connectTimeout = 12000
+                        readTimeout = 15000
+                        doOutput = true
+                    }
+                    val json = org.json.JSONObject().apply {
+                        val contents = org.json.JSONArray().apply {
+                            put(org.json.JSONObject().apply {
+                                val parts = org.json.JSONArray().apply {
+                                    put(org.json.JSONObject().apply { put("text", "ping") })
+                                }
+                                put("parts", parts)
+                            })
+                        }
+                        put("contents", contents)
+                    }
+                    conn.outputStream.use { os ->
+                        java.io.OutputStreamWriter(os, "UTF-8").use { it.write(json.toString()) }
+                    }
+                    val code = conn.responseCode
+                    if (code in 200..299) {
+                        "SUCCESS"
+                    } else {
+                        val stream = conn.errorStream ?: conn.inputStream
+                        val err = java.io.BufferedReader(java.io.InputStreamReader(stream, "UTF-8")).use { it.readText() }
+                        "ERROR: HTTP $code - $err"
+                    }
+                }
+
+                if (result == "SUCCESS") {
+                    _uiState.update {
+                        it.copy(
+                            isTestingGemini = false,
+                            geminiTestResult = "✓ Connected to Google Gemini 1.5 Flash successfully!",
+                            geminiTestSuccess = true
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isTestingGemini = false,
+                            geminiTestResult = "✗ $result",
+                            geminiTestSuccess = false
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isTestingGemini = false,
+                        geminiTestResult = "✗ Network error: ${e.localizedMessage ?: "Unknown error"}",
+                        geminiTestSuccess = false
                     )
                 }
             }
@@ -391,6 +480,130 @@ fun ApiSettingsScreen(
                     }
                 }
             }
+
+            // =========================================================================
+            // 1.5 GOOGLE GEMINI 1.5 FLASH (V2 CORE LLM)
+            // =========================================================================
+            ProviderCard(
+                title = "Google Gemini 1.5 Flash",
+                roleBadge = "V2 Core AI",
+                badgeColor = Color(0xFF8B5CF6),
+                description = "Powers floating AI Chat, Summaries, Smart Reply, and Generative Rewrites across all apps.",
+                isEnabled = true,
+                onToggleEnabled = { /* Always active for V2 */ }
+            ) {
+                var isPasswordVisible by remember { mutableStateOf(false) }
+
+                OutlinedTextField(
+                    value = uiState.geminiApiKey,
+                    onValueChange = { viewModel.setGeminiApiKey(it) },
+                    label = { Text("Gemini API Key") },
+                    placeholder = { Text("AIzaSy...") },
+                    singleLine = true,
+                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    trailingIcon = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                Icon(
+                                    if (isPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = "Toggle key visibility",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            if (uiState.geminiApiKey.isNotBlank()) {
+                                IconButton(onClick = { viewModel.setGeminiApiKey("") }) {
+                                    Icon(Icons.Filled.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val clipText = clipboardManager.getText()?.text ?: ""
+                            if (clipText.isNotBlank()) {
+                                viewModel.setGeminiApiKey(clipText)
+                                focusManager.clearFocus()
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Paste Key", fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus()
+                            viewModel.testGeminiConnection()
+                        },
+                        enabled = !uiState.isTestingGemini && uiState.geminiApiKey.isNotBlank(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF8B5CF6)
+                        ),
+                        modifier = Modifier.weight(1.3f)
+                    ) {
+                        if (uiState.isTestingGemini) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                        } else {
+                            Icon(Icons.Filled.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Test Gemini", fontSize = 12.sp)
+                        }
+                    }
+                }
+
+                if (uiState.geminiTestResult != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    TestResultBox(
+                        message = uiState.geminiTestResult ?: "",
+                        isSuccess = uiState.geminiTestSuccess == true
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            try {
+                                uriHandler.openUri("https://aistudio.google.com/app/apikey")
+                            } catch (e: Exception) {}
+                        }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.OpenInNew,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "Get free Gemini API key at Google AI Studio (30 secs)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // =========================================================================
             // 2. SAPLING (PRIMARY) CARD

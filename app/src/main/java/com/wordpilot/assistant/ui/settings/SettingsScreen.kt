@@ -25,6 +25,7 @@ fun SettingsScreen(
     onNavigateToDictionary: () -> Unit,
     onNavigateToApiSettings: () -> Unit,
     onNavigateToBubbleCustomization: () -> Unit = {},
+    onNavigateToAiWindowStudio: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -95,10 +96,15 @@ fun SettingsScreen(
                     currentTheme = uiState.theme,
                     onThemeSelected = { viewModel.setTheme(it) }
                 )
-                SettingsClickable(
+                                SettingsClickable(
                     title = "Appearance & Layout Studio",
                     subtitle = "Customize bubble size (smaller/bigger), alert gradients & glass styling",
                     onClick = onNavigateToBubbleCustomization
+                )
+                SettingsClickable(
+                    title = "AI Window Studio",
+                    subtitle = "Customize floating AI chat dimensions, typewriter speed, glass theme & prompts",
+                    onClick = onNavigateToAiWindowStudio
                 )
             }
 
