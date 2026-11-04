@@ -25,20 +25,22 @@ class GeminiAIEngine(
 
         // Prioritized list of active Google Generative AI endpoints
         val FALLBACK_ENDPOINTS = listOf(
-            // 1. Stable v1 GA endpoint (Standard for Gemini 1.5 Flash)
-            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
-            // 2. v1 GA with gemini-2.0-flash
+            // 1. v1 GA with gemini-2.5-flash
+            "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent",
+            // 2. v1 GA with gemini-3.8-flash (suggested by Google API)
+            "https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent",
+            // 3. v1beta with gemini-2.5-flash
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            // 4. v1beta with gemini-3.8-flash
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+            // 5. v1 GA with gemini-2.0-flash
             "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent",
-            // 3. v1beta latest pointer
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
-            // 4. v1beta 2.0 pointer
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-            // 5. v1 with gemini-1.5-pro as fallback
-            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent"
+            // 6. v1 GA standard fallback
+            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
         )
 
         @Volatile
-        var cachedWorkingEndpoint: String = FALLBACK_ENDPOINTS.first()
+        var cachedWorkingEndpoint: String? = null
 
         /**
          * Sanitizes user-pasted API keys to eliminate whitespace, accidental wrapping quotes,
@@ -58,13 +60,14 @@ class GeminiAIEngine(
         }
 
         /**
-         * Dynamically queries Google's ModelService to discover which models are active
-         * and support generateContent for the provided API key.
+         * Dynamically queries Google's ModelService across both v1 and v1beta to discover
+         * all models that are active and support generateContent for the provided API key.
          */
-        fun discoverActiveModelEndpoint(apiKey: String): String? {
+        fun discoverActiveModelEndpoints(apiKey: String): List<String> {
             val cleanKey = sanitizeApiKey(apiKey)
-            if (cleanKey.isBlank()) return null
+            if (cleanKey.isBlank()) return emptyList()
 
+            val discovered = mutableListOf<String>()
             val listUrls = listOf(
                 "https://generativelanguage.googleapis.com/v1/models?key=$cleanKey",
                 "https://generativelanguage.googleapis.com/v1beta/models?key=$cleanKey"
@@ -83,11 +86,22 @@ class GeminiAIEngine(
                         val body = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { it.readText() }
                         val root = JSONObject(body)
                         val models = root.optJSONArray("models") ?: continue
+                        val baseApi = if (listUrl.contains("/v1/")) "https://generativelanguage.googleapis.com/v1" else "https://generativelanguage.googleapis.com/v1beta"
 
-                        var bestModelName: String? = null
+                        val candidateList = mutableListOf<String>()
                         for (i in 0 until models.length()) {
                             val m = models.optJSONObject(i) ?: continue
-                            val name = m.optString("name", "") // e.g. "models/gemini-1.5-flash"
+                            val name = m.optString("name", "") // e.g. "models/gemini-2.5-flash"
+                            
+                            // Exclude audio/tts, image, and embedding models
+                            if (name.contains("tts", ignoreCase = true) ||
+                                name.contains("image", ignoreCase = true) ||
+                                name.contains("audio", ignoreCase = true) ||
+                                name.contains("embedding", ignoreCase = true) ||
+                                name.contains("aqa", ignoreCase = true)) {
+                                continue
+                            }
+
                             val methods = m.optJSONArray("supportedGenerationMethods")
                             var canGenerate = false
                             if (methods != null) {
@@ -98,29 +112,44 @@ class GeminiAIEngine(
                                     }
                                 }
                             }
-                            if (canGenerate) {
-                                if (name.contains("flash", ignoreCase = true)) {
-                                    bestModelName = name
-                                    break
-                                } else if (bestModelName == null && name.contains("gemini", ignoreCase = true)) {
-                                    bestModelName = name
-                                }
+                            if (canGenerate && name.isNotBlank()) {
+                                candidateList.add("$baseApi/$name:generateContent")
                             }
                         }
 
-                        if (bestModelName != null) {
-                            val baseApi = if (listUrl.contains("/v1/")) "https://generativelanguage.googleapis.com/v1" else "https://generativelanguage.googleapis.com/v1beta"
-                            val resolved = "$baseApi/$bestModelName:generateContent"
-                            cachedWorkingEndpoint = resolved
-                            Log.i(TAG, "Discovered and cached active Gemini endpoint: $resolved")
-                            return resolved
+                        // Sort candidates: 3.5-flash-lite / 3.8-flash first, then flash models, then other gemini
+                        candidateList.sortedWith(compareByDescending<String> { endpoint ->
+                            when {
+                                endpoint.contains("3.5-flash-lite", ignoreCase = true) -> 120
+                                endpoint.contains("3.8-flash", ignoreCase = true) -> 110
+                                endpoint.contains("2.5-flash", ignoreCase = true) -> 100
+                                endpoint.contains("flash", ignoreCase = true) && !endpoint.contains("1.5-flash", ignoreCase = true) && !endpoint.contains("2.0-flash", ignoreCase = true) -> 90
+                                endpoint.contains("flash", ignoreCase = true) -> 60
+                                endpoint.contains("gemini", ignoreCase = true) -> 40
+                                else -> 10
+                            }
+                        }).forEach { ep ->
+                            if (!discovered.contains(ep)) {
+                                discovered.add(ep)
+                            }
                         }
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Model discovery attempt failed on $listUrl: ${e.message}")
                 }
             }
-            return null
+
+            Log.i(TAG, "Discovered active text endpoints (${discovered.size}): $discovered")
+            if (discovered.isNotEmpty() && cachedWorkingEndpoint == null) {
+                cachedWorkingEndpoint = discovered.first()
+                Log.i(TAG, "Discovered and cached primary Gemini endpoint: ${discovered.first()}")
+            }
+            return discovered
+        }
+
+        fun discoverActiveModelEndpoint(apiKey: String): String? {
+            val list = discoverActiveModelEndpoints(apiKey)
+            return list.firstOrNull() ?: cachedWorkingEndpoint
         }
     }
 
@@ -181,7 +210,12 @@ class GeminiAIEngine(
 
         // Build list of endpoints to attempt, starting with the cached working endpoint
         val endpointsToTry = mutableListOf<String>()
-        endpointsToTry.add(cachedWorkingEndpoint)
+        cachedWorkingEndpoint?.let { endpointsToTry.add(it) }
+
+        // Discover active model endpoints dynamically from Google's ModelService
+        val discovered = discoverActiveModelEndpoints(cleanKey)
+        discovered.forEach { if (!endpointsToTry.contains(it)) endpointsToTry.add(it) }
+
         FALLBACK_ENDPOINTS.forEach { if (!endpointsToTry.contains(it)) endpointsToTry.add(it) }
 
         var lastErrorMsg = "Failed to connect to Gemini."
@@ -193,8 +227,8 @@ class GeminiAIEngine(
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                     setRequestProperty("Accept", "application/json")
-                    connectTimeout = 12000
-                    readTimeout = 18000
+                    connectTimeout = 6000
+                    readTimeout = 8000
                     doOutput = true
                     doInput = true
                 }

@@ -80,6 +80,14 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".receiver.AiFeatureDeviceTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.wordpilot.assistant.TEST_AI_FEATURES" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

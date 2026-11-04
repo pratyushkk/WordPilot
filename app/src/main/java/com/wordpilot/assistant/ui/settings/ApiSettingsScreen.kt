@@ -120,7 +120,7 @@ class ApiSettingsViewModel : ViewModel() {
                     val discovered = com.wordpilot.assistant.engine.impl.GeminiAIEngine.discoverActiveModelEndpoint(cleanKey)
                     val endpointsToTry = mutableListOf<String>()
                     if (discovered != null) endpointsToTry.add(discovered)
-                    endpointsToTry.add(com.wordpilot.assistant.engine.impl.GeminiAIEngine.cachedWorkingEndpoint)
+                    com.wordpilot.assistant.engine.impl.GeminiAIEngine.cachedWorkingEndpoint?.let { if (!endpointsToTry.contains(it)) endpointsToTry.add(it) }
                     com.wordpilot.assistant.engine.impl.GeminiAIEngine.FALLBACK_ENDPOINTS.forEach {
                         if (!endpointsToTry.contains(it)) endpointsToTry.add(it)
                     }
