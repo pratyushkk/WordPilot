@@ -245,9 +245,10 @@ class WordPilotAccessibilityService : AccessibilityService(),
             return
         }
 
+        val isInteracting = floatingController.isInteracting()
         val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
         val isTyping = event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
-        if (autoHide && !isKeyboardVisible() && !isTyping) {
+        if (!isInteracting && autoHide && !isKeyboardVisible() && !isTyping) {
             floatingController.hideAssistant()
             return
         }
@@ -312,9 +313,9 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 }
             }
         } else {
-            if (autoHide) {
+            if (!isInteracting && autoHide) {
                 floatingController.hideAssistant()
-            } else {
+            } else if (!isInteracting) {
                 floatingController.clearCorrection()
             }
         }
@@ -334,14 +335,15 @@ class WordPilotAccessibilityService : AccessibilityService(),
             return
         }
 
+        val isInteracting = floatingController.isInteracting()
         val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
-        if (autoHide) {
+        if (autoHide && !isInteracting) {
             if (!isKeyboardVisible()) {
                 // Keyboard is not visible: hide immediately with brief debounce
                 hideJob?.cancel()
                 hideJob = serviceScope.launch {
                     delay(120L)
-                    if (!isKeyboardVisible()) {
+                    if (!isKeyboardVisible() && !floatingController.isInteracting()) {
                         floatingController.hideAssistant()
                     }
                 }
@@ -350,7 +352,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
                 if (node != null && !node.isPassword) {
                     hideJob?.cancel()
                     floatingController.showAssistant()
-                } else {
+                } else if (!floatingController.isInteracting()) {
                     floatingController.hideAssistant()
                 }
             }

@@ -173,6 +173,10 @@ class FloatingAssistantController(
         }
     }
 
+    fun isInteracting(): Boolean {
+        return _uiState.value != FloatingUiState.COLLAPSED
+    }
+
     private fun updateWindowLayoutForState(state: FloatingUiState) {
         val view = overlayView ?: return
         val lp = windowLayoutParams ?: return
@@ -237,14 +241,14 @@ class FloatingAssistantController(
                 lp.y = OverlayGeometry.clampY(bubbleRestingY, previewHeightPx, screenHeightPx, density)
             }
             FloatingUiState.TONE_SELECTOR, FloatingUiState.GEMINI_KEY_SETUP -> {
-                // Focusable so keyboard pops up for custom prompt or API key
-                lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-                lp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                // Accessibility overlays must always keep FLAG_NOT_FOCUSABLE to maintain stability,
+                // prevent touch routing detachment, and keep the user's software keyboard open.
+                lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                 val panelWidthPx = OverlayGeometry.getMoreOptionsWidthPx(density, screenWidthPx)
                 val panelHeightPx = OverlayGeometry.getMoreOptionsHeightPx(density)
 
                 lp.width = panelWidthPx
-                lp.height = WindowManager.LayoutParams.WRAP_CONTENT
+                lp.height = panelHeightPx
                 lp.x = OverlayGeometry.calculateEdgeAnchoredX(
                     isNearRightEdge = _isNearRightEdge.value,
                     bubbleRestingX = bubbleRestingX,
@@ -290,6 +294,8 @@ class FloatingAssistantController(
         _isChecking.value = checking
     }
 
+    private var lastValidTargetText: String = ""
+
     fun updateTextContext(
         snapshot: EditorSnapshot,
         onApplySentence: (String) -> TextOperationResult,
@@ -299,6 +305,10 @@ class FloatingAssistantController(
     ) {
         _currentFullText.value = snapshot.fullText
         _currentSentence.value = snapshot.sentenceText
+        val candidate = snapshot.fullText.ifBlank { snapshot.sentenceText }
+        if (candidate.isNotBlank()) {
+            lastValidTargetText = candidate
+        }
         this.onApplySentenceCallback = onApplySentence
         this.onUndoCallback = onUndo
         this.onInsertCallback = onInsert
@@ -769,8 +779,25 @@ class FloatingAssistantController(
         context.startActivity(intent)
     }
 
-    private fun getTargetText(): String {
-        return _currentFullText.value.ifBlank { _currentSentence.value }
+    fun getTargetText(): String {
+        val direct = _currentFullText.value.ifBlank { _currentSentence.value }
+        if (direct.isNotBlank()) {
+            lastValidTargetText = direct
+            return direct
+        }
+        if (lastValidTargetText.isNotBlank()) {
+            return lastValidTargetText
+        }
+        try {
+            val clip = clipboardManager.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val clipText = clip.getItemAt(0).text?.toString() ?: ""
+                if (clipText.isNotBlank()) {
+                    return clipText
+                }
+            }
+        } catch (_: Exception) {}
+        return ""
     }
 
     // =========================================================================
@@ -944,13 +971,6 @@ class FloatingAssistantController(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .pointerInput(currentUiState) {
-                                if (currentUiState != FloatingUiState.COLLAPSED) {
-                                    detectTapGestures {
-                                        setUiState(FloatingUiState.COLLAPSED)
-                                    }
-                                }
-                            }
                             .padding(horizontal = OverlayGeometry.CONTENT_PADDING_DP.dp, vertical = OverlayGeometry.CONTENT_PADDING_DP.dp),
                         contentAlignment = if (nearRight) Alignment.BottomEnd else Alignment.BottomStart
                     ) {
