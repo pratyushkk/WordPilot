@@ -58,6 +58,9 @@ data class AiWindowSettings(
         "IMPROVE_CLARITY"
     ),
 
+    // Quick Tone Selection for Floating Overlay (Default: strictly the 4 requested tones)
+    val enabledToneStyles: List<String> = DEFAULT_TONE_STYLES,
+
     // Quick Tone Chips
     val defaultToneChips: List<String> = listOf(
         "Professional", "Casual", "Assertive", "Friendly", "Urgent", "Persuasive"
@@ -74,6 +77,13 @@ data class AiWindowSettings(
     companion object {
         const val PREFS_NAME = "wordpilot_ai_window_prefs"
 
+        val DEFAULT_TONE_STYLES = listOf(
+            "FIX_GRAMMAR",
+            "MAKE_CONCISE",
+            "REWRITE",
+            "MAKE_POLITE"
+        )
+
         fun load(context: Context): AiWindowSettings {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val anchorName = prefs.getString("ai_win_anchor", WindowAnchorPosition.SNAP_TO_BUBBLE.name)
@@ -87,6 +97,13 @@ data class AiWindowSettings(
             val preset = try { WindowGlassPreset.valueOf(presetName) } catch (_: Exception) { WindowGlassPreset.FROSTED_GLASS }
             val speed = try { StreamingSpeed.valueOf(speedName) } catch (_: Exception) { StreamingSpeed.TYPEWRITER_FAST }
 
+            val toneStylesStr = prefs.getString("ai_win_tone_styles", null)
+            val enabledTones = if (!toneStylesStr.isNullOrBlank()) {
+                toneStylesStr.split(",").map { it.trim() }.filter { it.isNotBlank() }
+            } else {
+                DEFAULT_TONE_STYLES
+            }
+
             return AiWindowSettings(
                 windowWidthDp = prefs.getFloat("ai_win_width", 340f),
                 windowHeightDp = prefs.getFloat("ai_win_height", 460f),
@@ -99,7 +116,8 @@ data class AiWindowSettings(
                 showSummarizeTab = prefs.getBoolean("ai_win_show_sum", true),
                 showSmartReplyTab = prefs.getBoolean("ai_win_show_smart", true),
                 showTranslateTab = prefs.getBoolean("ai_win_show_trans", true),
-                showExplainTab = prefs.getBoolean("ai_win_show_exp", true)
+                showExplainTab = prefs.getBoolean("ai_win_show_exp", true),
+                enabledToneStyles = enabledTones
             )
         }
 
@@ -117,6 +135,7 @@ data class AiWindowSettings(
                 putBoolean("ai_win_show_smart", settings.showSmartReplyTab)
                 putBoolean("ai_win_show_trans", settings.showTranslateTab)
                 putBoolean("ai_win_show_exp", settings.showExplainTab)
+                putString("ai_win_tone_styles", settings.enabledToneStyles.joinToString(","))
                 apply()
             }
         }

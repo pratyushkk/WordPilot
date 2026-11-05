@@ -25,18 +25,16 @@ class GeminiAIEngine(
 
         // Prioritized list of active Google Generative AI endpoints
         val FALLBACK_ENDPOINTS = listOf(
-            // 1. v1 GA with gemini-2.5-flash
-            "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent",
-            // 2. v1 GA with gemini-3.8-flash (suggested by Google API)
-            "https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent",
-            // 3. v1beta with gemini-2.5-flash
+            // 1. Gemini 2.0 Flash on v1beta (Official standard for Google AI Studio)
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+            // 2. Gemini 2.0 Flash Lite on v1beta
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
+            // 3. Gemini 2.5 Flash on v1beta
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-            // 4. v1beta with gemini-3.8-flash
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-            // 5. v1 GA with gemini-2.0-flash
+            // 4. Gemini 2.0 Flash on v1
             "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent",
-            // 6. v1 GA standard fallback
-            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+            // 5. Gemini 2.5 Flash on v1
+            "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent"
         )
 
         @Volatile
@@ -69,8 +67,8 @@ class GeminiAIEngine(
 
             val discovered = mutableListOf<String>()
             val listUrls = listOf(
-                "https://generativelanguage.googleapis.com/v1/models?key=$cleanKey",
-                "https://generativelanguage.googleapis.com/v1beta/models?key=$cleanKey"
+                "https://generativelanguage.googleapis.com/v1beta/models?key=$cleanKey",
+                "https://generativelanguage.googleapis.com/v1/models?key=$cleanKey"
             )
 
             for (listUrl in listUrls) {
@@ -78,6 +76,8 @@ class GeminiAIEngine(
                     val url = URL(listUrl)
                     val conn = (url.openConnection() as HttpURLConnection).apply {
                         requestMethod = "GET"
+                        setRequestProperty("x-goog-api-key", cleanKey)
+                        setRequestProperty("Accept", "application/json")
                         connectTimeout = 6000
                         readTimeout = 8000
                     }
@@ -91,7 +91,7 @@ class GeminiAIEngine(
                         val candidateList = mutableListOf<String>()
                         for (i in 0 until models.length()) {
                             val m = models.optJSONObject(i) ?: continue
-                            val name = m.optString("name", "") // e.g. "models/gemini-2.5-flash"
+                            val name = m.optString("name", "") // e.g. "models/gemini-2.0-flash"
                             
                             // Exclude audio/tts, image, and embedding models
                             if (name.contains("tts", ignoreCase = true) ||
@@ -99,6 +99,12 @@ class GeminiAIEngine(
                                 name.contains("audio", ignoreCase = true) ||
                                 name.contains("embedding", ignoreCase = true) ||
                                 name.contains("aqa", ignoreCase = true)) {
+                                continue
+                            }
+
+                            // CRITICAL: Exclude legacy 1.5 models that fail on v1beta generateContent
+                            if (name.contains("1.5-flash", ignoreCase = true) ||
+                                name.contains("1.5-pro", ignoreCase = true)) {
                                 continue
                             }
 
@@ -117,15 +123,15 @@ class GeminiAIEngine(
                             }
                         }
 
-                        // Sort candidates: 3.5-flash-lite / 3.8-flash first, then flash models, then other gemini
+                        // Sort candidates: gemini-2.0-flash / 2.5-flash first, then lite models, then other flash
                         candidateList.sortedWith(compareByDescending<String> { endpoint ->
                             when {
-                                endpoint.contains("3.5-flash-lite", ignoreCase = true) -> 120
-                                endpoint.contains("3.8-flash", ignoreCase = true) -> 110
-                                endpoint.contains("2.5-flash", ignoreCase = true) -> 100
-                                endpoint.contains("flash", ignoreCase = true) && !endpoint.contains("1.5-flash", ignoreCase = true) && !endpoint.contains("2.0-flash", ignoreCase = true) -> 90
-                                endpoint.contains("flash", ignoreCase = true) -> 60
-                                endpoint.contains("gemini", ignoreCase = true) -> 40
+                                endpoint.contains("gemini-2.0-flash", ignoreCase = true) && !endpoint.contains("lite", ignoreCase = true) -> 100
+                                endpoint.contains("gemini-2.5-flash", ignoreCase = true) && !endpoint.contains("lite", ignoreCase = true) -> 95
+                                endpoint.contains("gemini-2.0-flash-lite", ignoreCase = true) -> 90
+                                endpoint.contains("gemini-2.5-flash-lite", ignoreCase = true) -> 85
+                                endpoint.contains("flash", ignoreCase = true) -> 70
+                                endpoint.contains("gemini", ignoreCase = true) -> 50
                                 else -> 10
                             }
                         }).forEach { ep ->
@@ -443,6 +449,9 @@ class GeminiAIEngine(
                 }
                 if (status == "RESOURCE_EXHAUSTED" || code == 429) {
                     return "Gemini API quota exceeded (HTTP 429). Please wait a moment."
+                }
+                if (code == 404 || message.contains("not found for API version", ignoreCase = true) || message.contains("is not found", ignoreCase = true)) {
+                    return "Model endpoint not found for this API version. Trying alternative Gemini models..."
                 }
                 if (message.isNotBlank()) {
                     return "Gemini error: $message"

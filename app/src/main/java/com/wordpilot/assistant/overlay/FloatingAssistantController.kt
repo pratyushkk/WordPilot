@@ -513,7 +513,7 @@ class FloatingAssistantController(
                 executeRewrite(RewriteStyle.FIX_GRAMMAR, "Fix & Polish")
             }
             "settings" -> {
-                openAppearanceSettings()
+                openAppearanceSettings(Routes.BUBBLE_CUSTOMIZATION)
             }
             "back_to_expanded" -> {
                 setUiState(FloatingUiState.EXPANDED)
@@ -770,11 +770,11 @@ class FloatingAssistantController(
         }
     }
 
-    fun openAppearanceSettings() {
+    fun openAppearanceSettings(destination: String = Routes.AI_WINDOW_STUDIO) {
         setUiState(FloatingUiState.COLLAPSED)
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("navigate_to", Routes.BUBBLE_CUSTOMIZATION)
+            putExtra("navigate_to", destination)
         }
         context.startActivity(intent)
     }

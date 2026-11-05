@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wordpilot.assistant.ui.floating.ALL_TONE_DEFINITIONS
 import com.wordpilot.assistant.ui.floating.GlassBackground
 import com.wordpilot.assistant.ui.theme.AssistantColors
 
@@ -314,7 +315,115 @@ fun AiWindowCustomizationScreen(
                 }
             }
 
-            // Section 5: Custom Prompts Manager
+            // Section 5: Floating Quick Tone Selection
+            StudioCard(title = "FLOATING QUICK TONE OPTIONS") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "WordPilot defaults to 4 core quick tones (Fix & Polish, Short, Rewrite, Polite). Choose which tone options appear in your floating panel:",
+                        color = AssistantColors.TextSecondary,
+                        fontSize = 12.sp
+                    )
+
+                    ALL_TONE_DEFINITIONS.forEach { toneDef ->
+                        val isEnabled = toneDef.id in settings.enabledToneStyles
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isEnabled) Color(0xFF1E2638) else Color(0xFF141720))
+                                .border(
+                                    1.dp,
+                                    if (isEnabled) toneDef.accentColor.copy(alpha = 0.6f) else Color(0xFF262C38),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .clickable {
+                                    val current = settings.enabledToneStyles.toMutableList()
+                                    if (isEnabled) {
+                                        if (current.size > 1) {
+                                            current.remove(toneDef.id)
+                                        }
+                                    } else {
+                                        current.add(toneDef.id)
+                                    }
+                                    updateSettings(settings.copy(enabledToneStyles = current))
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(CircleShape)
+                                        .background(toneDef.accentColor.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = toneDef.icon,
+                                        contentDescription = null,
+                                        tint = toneDef.accentColor,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = toneDef.title,
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = toneDef.subtitle,
+                                        color = AssistantColors.TextMuted,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = isEnabled,
+                                onCheckedChange = { checked ->
+                                    val current = settings.enabledToneStyles.toMutableList()
+                                    if (!checked) {
+                                        if (current.size > 1) {
+                                            current.remove(toneDef.id)
+                                        }
+                                    } else {
+                                        if (!current.contains(toneDef.id)) {
+                                            current.add(toneDef.id)
+                                        }
+                                    }
+                                    updateSettings(settings.copy(enabledToneStyles = current))
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = toneDef.accentColor,
+                                    uncheckedThumbColor = Color.Gray,
+                                    uncheckedTrackColor = Color(0xFF1E232E)
+                                )
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            updateSettings(settings.copy(enabledToneStyles = AiWindowSettings.DEFAULT_TONE_STYLES))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF10B981))
+                    ) {
+                        Text("Reset to 4 Default Tones (Fix & Polish, Short, Rewrite, Polite)", fontSize = 11.sp)
+                    }
+                }
+            }
+
+            // Section 6: Custom Prompts Manager
             StudioCard(title = "CUSTOM PROMPT SHORTCUTS") {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     // Prompt chips list

@@ -153,5 +153,26 @@ class GeminiAIEngineTest {
         """.trimIndent()
         val quotaMsg = engine.parseErrorMessage(quotaJson, 429)
         assertTrue(quotaMsg.contains("quota exceeded"))
+
+        // 404 Model not found
+        val notFoundJson = """
+            {
+              "error": {
+                "code": 404,
+                "message": "models/gemini-1.5-flash is not found for API version v1beta",
+                "status": "NOT_FOUND"
+              }
+            }
+        """.trimIndent()
+        val notFoundMsg = engine.parseErrorMessage(notFoundJson, 404)
+        assertTrue(notFoundMsg.contains("Trying alternative Gemini models") || notFoundMsg.contains("not found"))
+    }
+
+    @Test
+    fun testFallbackEndpoints_strictlyExcludeLegacy15Models() {
+        for (ep in GeminiAIEngine.FALLBACK_ENDPOINTS) {
+            assertFalse("Fallback endpoint must not contain gemini-1.5: $ep", ep.contains("gemini-1.5"))
+            assertTrue("Fallback endpoint must be a valid Google Generative API: $ep", ep.contains("generativelanguage.googleapis.com"))
+        }
     }
 }

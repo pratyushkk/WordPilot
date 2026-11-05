@@ -116,16 +116,18 @@ class ApiSettingsViewModel : ViewModel() {
             _uiState.update { it.copy(isTestingGemini = true, geminiTestResult = null, geminiTestSuccess = null) }
             try {
                 val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    // Discover active endpoint or fall back across candidate endpoints
-                    val discovered = com.wordpilot.assistant.engine.impl.GeminiAIEngine.discoverActiveModelEndpoint(cleanKey)
+                    // Discover active endpoints or fall back across candidate endpoints
+                    val discoveredList = com.wordpilot.assistant.engine.impl.GeminiAIEngine.discoverActiveModelEndpoints(cleanKey)
                     val endpointsToTry = mutableListOf<String>()
-                    if (discovered != null) endpointsToTry.add(discovered)
-                    com.wordpilot.assistant.engine.impl.GeminiAIEngine.cachedWorkingEndpoint?.let { if (!endpointsToTry.contains(it)) endpointsToTry.add(it) }
+                    discoveredList.forEach { if (!endpointsToTry.contains(it)) endpointsToTry.add(it) }
+                    com.wordpilot.assistant.engine.impl.GeminiAIEngine.cachedWorkingEndpoint?.let {
+                        if (!endpointsToTry.contains(it)) endpointsToTry.add(it)
+                    }
                     com.wordpilot.assistant.engine.impl.GeminiAIEngine.FALLBACK_ENDPOINTS.forEach {
                         if (!endpointsToTry.contains(it)) endpointsToTry.add(it)
                     }
 
-                    var lastErr = "Failed to connect to Gemini."
+                    var lastErr = "Unable to connect with this API key. Please verify that your Gemini key is active in Google AI Studio."
                     for (endpoint in endpointsToTry) {
                         try {
                             val url = java.net.URL("$endpoint?key=$cleanKey")
@@ -133,8 +135,9 @@ class ApiSettingsViewModel : ViewModel() {
                                 requestMethod = "POST"
                                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                                 setRequestProperty("Accept", "application/json")
-                                connectTimeout = 10000
-                                readTimeout = 12000
+                                setRequestProperty("x-goog-api-key", cleanKey)
+                                connectTimeout = 8000
+                                readTimeout = 10000
                                 doOutput = true
                             }
                             val json = org.json.JSONObject().apply {
@@ -161,8 +164,11 @@ class ApiSettingsViewModel : ViewModel() {
                                 val err = java.io.BufferedReader(java.io.InputStreamReader(stream, "UTF-8")).use { it.readText() }
                                 val parsed = com.wordpilot.assistant.engine.impl.GeminiAIEngine { cleanKey }.parseErrorMessage(err, code)
                                 lastErr = parsed
-                                if (code == 400 && err.contains("API_KEY_INVALID", ignoreCase = true)) {
-                                    return@withContext parsed
+                                if (code == 400 && (err.contains("API_KEY_INVALID", ignoreCase = true) || err.contains("API key not valid", ignoreCase = true))) {
+                                    return@withContext "Invalid Gemini API key. Please check your key from Google AI Studio (aistudio.google.com/app/apikey)."
+                                }
+                                if (code == 429) {
+                                    return@withContext "Gemini API quota exceeded (HTTP 429). Please wait a moment."
                                 }
                             }
                         } catch (e: Exception) {

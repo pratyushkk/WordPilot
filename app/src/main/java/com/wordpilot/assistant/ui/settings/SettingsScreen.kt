@@ -184,6 +184,11 @@ fun SettingsScreen(
                     checked = uiState.autoCheckEnabled,
                     onCheckedChange = { viewModel.setAutoCheckEnabled(it) }
                 )
+                SettingsClickable(
+                    title = "Floating Tone & Rewrite Options",
+                    subtitle = "Select which quick tones appear in your floating panel (Fix & Polish, Short, Rewrite, Polite, etc.)",
+                    onClick = onNavigateToAiWindowStudio
+                )
             }
 
             // Banking & App Shield

@@ -204,6 +204,7 @@ fun FloatingAssistantView(
                     onToneSelect = onToneOptionSelect,
                     onCustomPromptSubmit = onCustomPromptSubmit,
                     onOpenGeminiSetup = { onActionClick("gemini_setup") },
+                    onOpenSettings = onOpenSettings,
                     onClose = onCollapse
                 )
             }

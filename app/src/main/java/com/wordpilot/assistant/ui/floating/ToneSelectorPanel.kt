@@ -2,15 +2,12 @@ package com.wordpilot.assistant.ui.floating
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,18 +18,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wordpilot.assistant.WordPilotApp
 import com.wordpilot.assistant.domain.models.AIEngineType
 import com.wordpilot.assistant.domain.models.RewriteStyle
+import com.wordpilot.assistant.ui.settings.AiWindowSettings
 import com.wordpilot.assistant.ui.settings.AppearanceSettings
 import com.wordpilot.assistant.ui.theme.AssistantColors
 
 data class ToneOption(
+    val id: String,
     val style: RewriteStyle,
     val title: String,
     val subtitle: String,
@@ -40,65 +38,98 @@ data class ToneOption(
     val accentColor: Color
 )
 
+/**
+ * Universal catalog of all tone options available in WordPilot V2.
+ * The top 4 (Fix & Polish, Short, Rewrite, Polite) are enabled by default on the floating panel.
+ * Additional tones can be toggled by the user in Settings.
+ */
+val ALL_TONE_DEFINITIONS = listOf(
+    ToneOption(
+        id = "FIX_GRAMMAR",
+        style = RewriteStyle.FIX_GRAMMAR,
+        title = "Fix & Polish",
+        subtitle = "Grammar, spelling & flow",
+        icon = Icons.Filled.AutoAwesome,
+        accentColor = Color(0xFF10B981)
+    ),
+    ToneOption(
+        id = "MAKE_CONCISE",
+        style = RewriteStyle.MAKE_CONCISE,
+        title = "Short",
+        subtitle = "Concise, direct & cut filler",
+        icon = Icons.Filled.Compress,
+        accentColor = Color(0xFF34D399)
+    ),
+    ToneOption(
+        id = "REWRITE",
+        style = RewriteStyle.REWRITE,
+        title = "Rewrite",
+        subtitle = "Fluent, natural & expressive",
+        icon = Icons.Filled.Refresh,
+        accentColor = Color(0xFF60A5FA)
+    ),
+    ToneOption(
+        id = "MAKE_POLITE",
+        style = RewriteStyle.MAKE_POLITE,
+        title = "Polite",
+        subtitle = "Courteous & diplomatic",
+        icon = Icons.Filled.FavoriteBorder,
+        accentColor = Color(0xFFF472B6)
+    ),
+    ToneOption(
+        id = "MAKE_PROFESSIONAL",
+        style = RewriteStyle.MAKE_PROFESSIONAL,
+        title = "Professional",
+        subtitle = "Polished, formal & executive",
+        icon = Icons.Filled.WorkOutline,
+        accentColor = Color(0xFF38BDF8)
+    ),
+    ToneOption(
+        id = "MAKE_CASUAL",
+        style = RewriteStyle.MAKE_CASUAL,
+        title = "Casual & Friendly",
+        subtitle = "Warm, relaxed & casual",
+        icon = Icons.Filled.SentimentSatisfied,
+        accentColor = Color(0xFFFBBF24)
+    ),
+    ToneOption(
+        id = "IMPROVE_CLARITY",
+        style = RewriteStyle.IMPROVE_CLARITY,
+        title = "Clarity",
+        subtitle = "Clear, crisp & easy to read",
+        icon = Icons.Filled.Lightbulb,
+        accentColor = Color(0xFFA78BFA)
+    ),
+    ToneOption(
+        id = "IMPROVE_NATURAL",
+        style = RewriteStyle.IMPROVE_NATURAL,
+        title = "Natural",
+        subtitle = "Native English phrasing",
+        icon = Icons.Filled.RecordVoiceOver,
+        accentColor = Color(0xFFFB7185)
+    )
+)
+
 @Composable
 fun ToneSelectorPanel(
     settings: AppearanceSettings,
     selectedEngine: AIEngineType = AIEngineType.GEMINI_FLASH,
     onToneSelect: (RewriteStyle, String) -> Unit,
-    onCustomPromptSubmit: (String) -> Unit,
+    onCustomPromptSubmit: ((String) -> Unit)? = null,
     onOpenGeminiSetup: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var customPromptText by remember { mutableStateOf("") }
-    val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+    val aiSettings = remember { AiWindowSettings.load(context) }
     val isGeminiConfigured = !WordPilotApp.instance.cachedGeminiApiKey.isNullOrBlank()
 
-    val tones = remember {
-        listOf(
-            ToneOption(
-                style = RewriteStyle.MAKE_PROFESSIONAL,
-                title = "Professional",
-                subtitle = "Polished, formal & business-ready",
-                icon = Icons.Filled.WorkOutline,
-                accentColor = Color(0xFF60A5FA)
-            ),
-            ToneOption(
-                style = RewriteStyle.MAKE_CASUAL,
-                title = "Casual & Friendly",
-                subtitle = "Warm, relaxed & conversational",
-                icon = Icons.Filled.SentimentSatisfied,
-                accentColor = Color(0xFFFBBF24)
-            ),
-            ToneOption(
-                style = RewriteStyle.MAKE_CONCISE,
-                title = "Concise",
-                subtitle = "Direct, short & cuts filler",
-                icon = Icons.Filled.Compress,
-                accentColor = Color(0xFF34D399)
-            ),
-            ToneOption(
-                style = RewriteStyle.IMPROVE_CLARITY,
-                title = "Clarity",
-                subtitle = "Clear, crisp & easy to read",
-                icon = Icons.Filled.Lightbulb,
-                accentColor = Color(0xFFA78BFA)
-            ),
-            ToneOption(
-                style = RewriteStyle.MAKE_POLITE,
-                title = "Make Polite",
-                subtitle = "Courteous & diplomatic",
-                icon = Icons.Filled.FavoriteBorder,
-                accentColor = Color(0xFFF472B6)
-            ),
-            ToneOption(
-                style = RewriteStyle.FIX_GRAMMAR,
-                title = "Fix & Polish",
-                subtitle = "Refine grammar, spelling & flow",
-                icon = Icons.Filled.AutoAwesome,
-                accentColor = Color(0xFF10B981)
-            )
-        )
+    // Filter tones based on user preferences in settings (default: strictly the 4 requested tones)
+    val activeTones = remember(aiSettings.enabledToneStyles) {
+        val enabledSet = aiSettings.enabledToneStyles.toSet()
+        val filtered = ALL_TONE_DEFINITIONS.filter { it.id in enabledSet }
+        if (filtered.isNotEmpty()) filtered else ALL_TONE_DEFINITIONS.take(4)
     }
 
     GlassBackground(
@@ -209,7 +240,7 @@ fun ToneSelectorPanel(
                     .fillMaxWidth()
                     .heightIn(max = 240.dp)
             ) {
-                items(tones) { tone ->
+                items(activeTones) { tone ->
                     Surface(
                         onClick = { onToneSelect(tone.style, tone.title) },
                         shape = RoundedCornerShape(10.dp),
@@ -226,9 +257,9 @@ fun ToneSelectorPanel(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(tone.accentColor.copy(alpha = 0.18f)),
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(tone.accentColor.copy(alpha = 0.18f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -261,66 +292,33 @@ fun ToneSelectorPanel(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Custom Instruction / Prompt Input Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            // Footer: Direct Action to Customize / Select More Tones in Settings
+            Surface(
+                onClick = onOpenSettings,
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFF1E232E).copy(alpha = 0.55f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedTextField(
-                    value = customPromptText,
-                    onValueChange = { customPromptText = it },
-                    placeholder = {
-                        Text(
-                            "Custom tone: e.g. persuasive...",
-                            color = AssistantColors.TextMuted,
-                            fontSize = 11.sp
-                        )
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (customPromptText.isNotBlank()) {
-                                focusManager.clearFocus()
-                                onCustomPromptSubmit(customPromptText.trim())
-                            }
-                        }
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = AssistantColors.AccentCyan,
-                        unfocusedBorderColor = AssistantColors.Divider,
-                        focusedContainerColor = Color(0xFF1E232E).copy(alpha = 0.5f),
-                        unfocusedContainerColor = Color(0xFF1E232E).copy(alpha = 0.3f)
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.weight(1f)
-                )
-
-                IconButton(
-                    onClick = {
-                        if (customPromptText.isNotBlank()) {
-                            focusManager.clearFocus()
-                            onCustomPromptSubmit(customPromptText.trim())
-                        }
-                    },
+                Row(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(
-                            if (customPromptText.isNotBlank())
-                                Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF06B6D4)))
-                            else
-                                Brush.linearGradient(listOf(Color(0xFF374151), Color(0xFF1F2937)))
-                        )
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Send,
-                        contentDescription = "Send",
-                        tint = if (customPromptText.isNotBlank()) Color.White else AssistantColors.TextMuted,
-                        modifier = Modifier.size(16.dp)
+                        imageVector = Icons.Filled.Tune,
+                        contentDescription = "Customize Tones",
+                        tint = Color(0xFFA78BFA),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "More Tones & Options in Settings ➔",
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
