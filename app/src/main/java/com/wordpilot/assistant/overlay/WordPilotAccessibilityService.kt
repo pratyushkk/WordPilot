@@ -65,8 +65,23 @@ class WordPilotAccessibilityService : AccessibilityService(),
         val selectionBefore: Int
     )
 
-    lateinit var floatingController: FloatingAssistantController
+    var floatingController: FloatingAssistantController? = null
         private set
+    val isControllerReady: Boolean get() = floatingController != null
+
+    var isAssistantPaused: Boolean = false
+        private set
+
+    fun setAssistantPaused(paused: Boolean) {
+        isAssistantPaused = paused
+        if (paused) {
+            floatingController?.hideAssistant()
+            floatingController?.clearCorrection()
+        } else {
+            floatingController?.showAssistant()
+        }
+    }
+
     private var lastAnalyzedText: String = ""
     private var hideJob: Job? = null
     private var lastUndoRecord: UndoRecord? = null
@@ -117,10 +132,11 @@ class WordPilotAccessibilityService : AccessibilityService(),
         info.notificationTimeout = 50
         serviceInfo = info
 
-        val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
-        if (!autoHide || isKeyboardVisible()) {
+        val controller = floatingController
+        val autoHide = controller?.appearanceSettings?.value?.autoHideWhenKeyboardClosed ?: true
+        if (!isAssistantPaused && (!autoHide || isKeyboardVisible())) {
             serviceScope.launch(Dispatchers.Main) {
-                floatingController.showAssistant()
+                controller?.showAssistant()
             }
         }
         com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, true)
@@ -208,11 +224,18 @@ class WordPilotAccessibilityService : AccessibilityService(),
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
+        if (isAssistantPaused) {
+            hideJob?.cancel()
+            floatingController?.hideAssistant()
+            floatingController?.clearCorrection()
+            return
+        }
+
         val packageName = event.packageName?.toString()
         if (isExcludedPackage(packageName)) {
             hideJob?.cancel()
-            floatingController.hideAssistant()
-            floatingController.clearCorrection()
+            floatingController?.hideAssistant()
+            floatingController?.clearCorrection()
 
             if (isAutoPauseBankingEnabled) {
                 Toast.makeText(this, "WordPilot paused for banking app. Tap Quick Tile to re-enable.", Toast.LENGTH_LONG).show()
@@ -237,19 +260,21 @@ class WordPilotAccessibilityService : AccessibilityService(),
     }
 
     private fun handleTextInputEvent(event: AccessibilityEvent) {
+        val controller = floatingController ?: return
+
         val packageName = event.packageName?.toString()
         if (isExcludedPackage(packageName)) {
             hideJob?.cancel()
-            floatingController.hideAssistant()
-            floatingController.clearCorrection()
+            controller.hideAssistant()
+            controller.clearCorrection()
             return
         }
 
-        val isInteracting = floatingController.isInteracting()
-        val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
+        val isInteracting = controller.isInteracting()
+        val autoHide = controller.appearanceSettings.value.autoHideWhenKeyboardClosed
         val isTyping = event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
         if (!isInteracting && autoHide && !isKeyboardVisible() && !isTyping) {
-            floatingController.hideAssistant()
+            controller.hideAssistant()
             return
         }
 
@@ -260,11 +285,11 @@ class WordPilotAccessibilityService : AccessibilityService(),
             hideJob?.cancel()
 
             // Keep assistant visible on screen
-            floatingController.showAssistant()
+            controller.showAssistant()
 
             val text = extractNodeText(node)
             if (text.isBlank()) {
-                floatingController.clearCorrection()
+                controller.clearCorrection()
                 return
             }
 
@@ -290,7 +315,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
             )
             currentSnapshot = snapshot
 
-            floatingController.updateTextContext(
+            controller.updateTextContext(
                 snapshot = snapshot,
                 onApplySentence = { newSentence ->
                     applySentenceReplacementToNode(node, snapshot, newSentence)
@@ -314,19 +339,21 @@ class WordPilotAccessibilityService : AccessibilityService(),
             }
         } else {
             if (!isInteracting && autoHide) {
-                floatingController.hideAssistant()
+                controller.hideAssistant()
             } else if (!isInteracting) {
-                floatingController.clearCorrection()
+                controller.clearCorrection()
             }
         }
     }
 
     private fun handleWindowStateChanged(event: AccessibilityEvent) {
+        val controller = floatingController ?: return
+
         val packageName = event.packageName?.toString()
         if (isExcludedPackage(packageName)) {
             hideJob?.cancel()
-            floatingController.hideAssistant()
-            floatingController.clearCorrection()
+            controller.hideAssistant()
+            controller.clearCorrection()
 
             if (isAutoPauseBankingEnabled) {
                 Toast.makeText(this, "WordPilot paused for banking app. Tap Quick Tile to re-enable.", Toast.LENGTH_LONG).show()
@@ -335,30 +362,30 @@ class WordPilotAccessibilityService : AccessibilityService(),
             return
         }
 
-        val isInteracting = floatingController.isInteracting()
-        val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
+        val isInteracting = controller.isInteracting()
+        val autoHide = controller.appearanceSettings.value.autoHideWhenKeyboardClosed
         if (autoHide && !isInteracting) {
             if (!isKeyboardVisible()) {
                 // Keyboard is not visible: hide immediately with brief debounce
                 hideJob?.cancel()
                 hideJob = serviceScope.launch {
                     delay(120L)
-                    if (!isKeyboardVisible() && !floatingController.isInteracting()) {
-                        floatingController.hideAssistant()
+                    if (!isKeyboardVisible() && !controller.isInteracting()) {
+                        controller.hideAssistant()
                     }
                 }
             } else {
                 val node = findActiveInputNodeAcrossAllWindows()
                 if (node != null && !node.isPassword) {
                     hideJob?.cancel()
-                    floatingController.showAssistant()
-                } else if (!floatingController.isInteracting()) {
-                    floatingController.hideAssistant()
+                    controller.showAssistant()
+                } else if (!controller.isInteracting()) {
+                    controller.hideAssistant()
                 }
             }
         } else {
             hideJob?.cancel()
-            floatingController.showAssistant()
+            controller.showAssistant()
         }
     }
 
@@ -460,7 +487,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
         try {
             withContext(Dispatchers.Main) {
-                floatingController.setChecking(true)
+                floatingController?.setChecking(true)
             }
 
             val corrections = app.correctionCoordinator.checkText(text)
@@ -488,14 +515,15 @@ class WordPilotAccessibilityService : AccessibilityService(),
             )
 
             withContext(Dispatchers.Main) {
-                floatingController.setChecking(false)
-                floatingController.setCachedCorrections(text, sortedCorrections)
-                val autoHide = floatingController.appearanceSettings.value.autoHideWhenKeyboardClosed
+                val controller = floatingController
+                controller?.setChecking(false)
+                controller?.setCachedCorrections(text, sortedCorrections)
+                val autoHide = controller?.appearanceSettings?.value?.autoHideWhenKeyboardClosed ?: true
                 if (autoHide && !isKeyboardVisible()) {
-                    floatingController.hideAssistant()
+                    controller?.hideAssistant()
                 } else if (sortedCorrections.isNotEmpty()) {
                     Log.d(TAG, "Showing corrections (total: ${sortedCorrections.size}, top rule: ${sortedCorrections.first().ruleId})")
-                    floatingController.showCorrections(
+                    controller?.showCorrections(
                         corrections = sortedCorrections,
                         onAccept = { correction ->
                             applyCorrectionToNode(targetNode, text, correction)
@@ -513,14 +541,14 @@ class WordPilotAccessibilityService : AccessibilityService(),
                         }
                     )
                 } else {
-                    floatingController.clearCorrection()
+                    controller?.clearCorrection()
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error analyzing text", e)
+        } finally {
             withContext(Dispatchers.Main) {
-                floatingController.setChecking(false)
-                floatingController.clearCorrection()
+                floatingController?.setChecking(false)
             }
         }
     }
@@ -536,7 +564,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
             val nodePkg = node.packageName?.toString()
             if (isExcludedPackage(nodePkg)) {
                 Log.w(TAG, "Aborting correction: target package is excluded: $nodePkg")
-                floatingController.clearCorrection()
+                floatingController?.clearCorrection()
                 return
             }
 
@@ -767,7 +795,7 @@ class WordPilotAccessibilityService : AccessibilityService(),
 
     override fun onInterrupt() {
         Log.d(TAG, "onInterrupt: service interrupted")
-        floatingController.hideAssistant()
+        floatingController?.hideAssistant()
     }
 
     override fun onDestroy() {
@@ -775,7 +803,8 @@ class WordPilotAccessibilityService : AccessibilityService(),
         instance = null
         com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, false)
         Log.d(TAG, "onDestroy: service destroyed")
-        floatingController.destroy()
+        floatingController?.destroy()
+        floatingController = null
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)

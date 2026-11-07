@@ -218,6 +218,50 @@ fun AppearanceSettingsScreen(
                 }
             }
 
+            // Quick Style Presets Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Presets:",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                listOf(
+                    Triple("Compact", 36f, 18f),
+                    Triple("Default", 48f, 24f),
+                    Triple("Large", 56f, 28f),
+                    Triple("Minimal", 32f, 16f)
+                ).forEach { (name, bSize, iSize) ->
+                    val isMatch = settings.bubbleSizeDp == bSize && settings.iconSizeDp == iSize
+                    SuggestionChip(
+                        onClick = {
+                            val newS = when (name) {
+                                "Compact" -> settings.copy(bubbleSizeDp = 36f, iconSizeDp = 18f, edgeTuckPercent = 0.35f, backgroundOpacity = 0.85f)
+                                "Default" -> settings.copy(bubbleSizeDp = 48f, iconSizeDp = 24f, edgeTuckPercent = 0.30f, backgroundOpacity = 0.90f)
+                                "Large" -> settings.copy(bubbleSizeDp = 56f, iconSizeDp = 28f, edgeTuckPercent = 0.25f, backgroundOpacity = 0.95f)
+                                "Minimal" -> settings.copy(bubbleSizeDp = 32f, iconSizeDp = 16f, edgeTuckPercent = 0.40f, backgroundOpacity = 0.70f)
+                                else -> settings
+                            }
+                            updateAndSave(newS)
+                        },
+                        label = { Text(name, fontSize = 11.sp, fontWeight = if (isMatch) FontWeight.Bold else FontWeight.Normal) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = if (isMatch) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                            labelColor = if (isMatch) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        border = BorderStroke(1.dp, if (isMatch) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.height(28.dp)
+                    )
+                }
+            }
+
             // =========================================================================
             // 2. CATEGORY TABS
             // =========================================================================

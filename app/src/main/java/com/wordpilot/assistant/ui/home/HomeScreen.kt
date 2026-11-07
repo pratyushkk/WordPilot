@@ -1,13 +1,20 @@
 package com.wordpilot.assistant.ui.home
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
+import android.text.TextUtils
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,12 +31,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.wordpilot.assistant.R
 import com.wordpilot.assistant.overlay.WordPilotAccessibilityService
 
@@ -45,10 +55,36 @@ fun HomeScreen(
     onNavigateToAiWindowStudio: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var resumeSignal by remember { mutableIntStateOf(0) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                resumeSignal++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val isServiceActive = remember(resumeSignal) {
+        WordPilotAccessibilityService.instance != null || isAccessibilityServiceEnabled(context)
+    }
+    val isBatteryOptimized = remember(resumeSignal) {
+        isBatteryOptimizationIgnored(context)
+    }
+    val serviceInstance = WordPilotAccessibilityService.instance
+    var isPaused by remember { mutableStateOf(serviceInstance?.isAssistantPaused ?: false) }
+
     var showAccessibilityGuide by remember { mutableStateOf(false) }
-    val isServiceActive = WordPilotAccessibilityService.instance != null
     val app = com.wordpilot.assistant.WordPilotApp.instance
     val geminiApiKey by app.userPreferences.geminiApiKey.collectAsState(initial = null)
+    val saplingApiKey by app.userPreferences.saplingApiKey.collectAsState(initial = null)
+
+    var demoFixed by remember { mutableStateOf(false) }
 
     if (showAccessibilityGuide) {
         AccessibilityGuideDialog(
@@ -92,7 +128,7 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "Your AI Writing Companion v2.0",
+                                "Control Center • v2.0",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -113,229 +149,411 @@ fun HomeScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // Primary Writing Assistant Hero Card
+            // =========================================================================
+            // 1. HERO STATUS CARD ("State of the Assistant")
+            // =========================================================================
             Card(
-                onClick = onNavigateToEditor,
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = if (!isServiceActive) {
+                        Color(0xFF1E1F24)
+                    } else if (isPaused) {
+                        Color(0xFF241D14)
+                    } else {
+                        Color(0xFF0D251C)
+                    }
                 ),
-                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (!isServiceActive) {
+                        Color(0xFF374151)
+                    } else if (isPaused) {
+                        Color(0xFFF59E0B).copy(alpha = 0.5f)
+                    } else {
+                        Color(0xFF10B981).copy(alpha = 0.6f)
+                    }
+                ),
+                shape = RoundedCornerShape(22.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.EditNote,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(42.dp)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Open Writing Editor",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Type or paste text for instant grammar, spelling & tone correction",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                    Icon(
-                        Icons.Filled.ChevronRight,
-                        contentDescription = null
-                    )
-                }
-            }
-
-            // Quick Service Status Pill
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = if (isServiceActive) Color(0xFF10B981).copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                border = BorderStroke(1.dp, if (isServiceActive) Color(0xFF10B981).copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showAccessibilityGuide = true }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Column(modifier = Modifier.padding(18.dp)) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(if (isServiceActive) Color(0xFF10B981) else Color(0xFFF59E0B))
-                        )
-                        Text(
-                            text = if (isServiceActive) "Floating Assistant is Active & Ready" else "Floating Assistant Inactive — Tap to Setup",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isServiceActive) Color(0xFF047857) else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Icon(
-                        Icons.Filled.HelpOutline,
-                        contentDescription = "Setup Guide",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-                        if (geminiApiKey.isNullOrBlank()) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
-                    ),
-                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.7f)),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(12.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFF59E0B).copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Key,
-                                    contentDescription = null,
-                                    tint = Color(0xFFF59E0B),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Gemini Model Setup Required",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Enter your Gemini API key to activate floating AI Rewriting and Tone Adjustments.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                                    .background(
+                                        if (!isServiceActive) Color(0xFFEF4444)
+                                        else if (isPaused) Color(0xFFF59E0B)
+                                        else Color(0xFF10B981)
+                                    )
+                            )
+                            Text(
+                                text = if (!isServiceActive) "ASSISTANT INACTIVE"
+                                else if (isPaused) "ASSISTANT PAUSED"
+                                else "ASSISTANT ACTIVE & LIVE",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.sp,
+                                color = if (!isServiceActive) Color(0xFFF87171)
+                                else if (isPaused) Color(0xFFFBBF24)
+                                else Color(0xFF34D399)
+                            )
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
+
+                        // Hero Action Button
+                        if (isServiceActive) {
+                            FilledTonalButton(
                                 onClick = {
-                                    try {
-                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey")).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                        context.startActivity(browserIntent)
-                                    } catch (e: Exception) {}
+                                    val newPaused = !isPaused
+                                    isPaused = newPaused
+                                    serviceInstance?.setAssistantPaused(newPaused)
+                                    Toast.makeText(
+                                        context,
+                                        if (newPaused) "WordPilot paused across apps" else "WordPilot resumed & active",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Get Free Key", fontSize = 12.sp)
-                            }
-                            Button(
-                                onClick = onNavigateToApiSettings,
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF8B5CF6)
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (isPaused) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.2f),
+                                    contentColor = if (isPaused) Color(0xFF34D399) else Color(0xFFFBBF24)
                                 ),
-                                modifier = Modifier.weight(1.2f)
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
                             ) {
-                                Icon(Icons.Filled.Key, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Icon(
+                                    if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Enter Key", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(if (isPaused) "Resume" else "Pause", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Button(
+                                onClick = { showAccessibilityGuide = true },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("Setup →", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
-                }
-            } else {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF10B981).copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = if (!isServiceActive) {
+                            "Enable WordPilot in Accessibility Settings to monitor your writing and floating suggestions across all compatible apps."
+                        } else if (isPaused) {
+                            "WordPilot is temporarily paused. Tap 'Resume' above or via the Quick Settings tile to restore floating suggestions."
+                        } else {
+                            "Floating assistant is actively monitoring text inputs in WhatsApp, Notes, Instagram, Gmail, and Chrome with automatic banking shield."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Connected Engine Badges
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        EngineBadge(
+                            name = "Gemini Model",
+                            role = "V2 Core AI",
+                            color = if (!geminiApiKey.isNullOrBlank()) Color(0xFF8B5CF6) else Color(0xFF6B7280)
+                        )
+                        EngineBadge(
+                            name = "Sapling AI",
+                            role = "Primary",
+                            color = if (!saplingApiKey.isNullOrBlank()) Color(0xFF10B981) else Color(0xFF6B7280)
+                        )
+                        EngineBadge(
+                            name = "LanguageTool",
+                            role = "Auto Fallback",
+                            color = Color(0xFF06B6D4)
+                        )
+                    }
+                }
+            }
+
+            // =========================================================================
+            // 2. INTERACTIVE SETUP CHECKLIST (Auto-refreshes on ON_RESUME)
+            // =========================================================================
+            val totalSteps = 3
+            val completedSteps = (if (isServiceActive) 1 else 0) +
+                (if (!geminiApiKey.isNullOrBlank()) 1 else 0) +
+                (if (isBatteryOptimized) 1 else 0)
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Assistant Setup",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (completedSteps == totalSteps) Color(0xFF10B981).copy(alpha = 0.15f) else MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "$completedSteps of $totalSteps Ready",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (completedSteps == totalSteps) Color(0xFF10B981) else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Row 1: Accessibility Service
+                    SetupChecklistRow(
+                        title = "Accessibility Service",
+                        description = if (isServiceActive) "Active & monitoring text inputs" else "Required for floating bubble & overlay",
+                        isDone = isServiceActive,
+                        actionLabel = if (isServiceActive) "Settings" else "Enable",
+                        onClick = {
+                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            try { context.startActivity(intent) } catch (e: Exception) {}
+                        }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 8.dp))
+
+                    // Row 2: Gemini API Key
+                    SetupChecklistRow(
+                        title = "Gemini Model (V2 AI)",
+                        description = if (!geminiApiKey.isNullOrBlank()) "Connected for Rewrite & 4 Tone styles" else "Enter free API key to activate tone rewrites",
+                        isDone = !geminiApiKey.isNullOrBlank(),
+                        actionLabel = if (!geminiApiKey.isNullOrBlank()) "Manage" else "Add Key",
+                        onClick = onNavigateToApiSettings
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 8.dp))
+
+                    // Row 3: Battery Optimization
+                    SetupChecklistRow(
+                        title = "Battery Background Guard",
+                        description = if (isBatteryOptimized) "Unrestricted: Android won't sleep assistant" else "Prevent Android OS from killing assistant",
+                        isDone = isBatteryOptimized,
+                        actionLabel = if (isBatteryOptimized) "Protected" else "Fix",
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                try {
+                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    try {
+                                        val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(fallbackIntent)
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            // =========================================================================
+            // 3. "TRY IT NOW" INTERACTIVE PLAYGROUND
+            // =========================================================================
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF10B981))
+                            Icon(
+                                Icons.Filled.AutoAwesome,
+                                contentDescription = null,
+                                tint = Color(0xFF8B5CF6),
+                                modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Gemini Model Connected & Active",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF047857)
+                                text = "Try It Now",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        TextButton(
-                            onClick = onNavigateToApiSettings,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        Text(
+                            text = "Interactive Demo",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Live Playground Box
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            if (!demoFixed) {
+                                Text(
+                                    text = "Their going to the store tomorrow and its amazing.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    SuggestionChip(
+                                        onClick = { demoFixed = true },
+                                        label = {
+                                            Text("Fix: Their ➔ They're", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        },
+                                        colors = SuggestionChipDefaults.suggestionChipColors(
+                                            containerColor = Color(0xFFEF4444).copy(alpha = 0.12f),
+                                            labelColor = Color(0xFFEF4444)
+                                        ),
+                                        border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.3f))
+                                    )
+                                    SuggestionChip(
+                                        onClick = { demoFixed = true },
+                                        label = {
+                                            Text("Fix: its ➔ it's", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        },
+                                        colors = SuggestionChipDefaults.suggestionChipColors(
+                                            containerColor = Color(0xFF10B981).copy(alpha = 0.12f),
+                                            labelColor = Color(0xFF10B981)
+                                        ),
+                                        border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f))
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "They're going to the store tomorrow and it's amazing.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF10B981)
+                                    )
+                                    IconButton(
+                                        onClick = { demoFixed = false },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Filled.Refresh, contentDescription = "Reset", modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onNavigateToEditor,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Text("Manage", fontSize = 12.sp)
+                            Icon(Icons.Outlined.EditNote, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Open Editor", fontSize = 12.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                if (isServiceActive) {
+                                    val controller = serviceInstance?.floatingController
+                                    if (controller != null) {
+                                        controller.showAssistant()
+                                        Toast.makeText(context, "Floating bubble activated!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Tap anywhere inside a text field to use bubble", Toast.LENGTH_LONG).show()
+                                    }
+                                } else {
+                                    showAccessibilityGuide = true
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF8B5CF6)
+                            ),
+                            modifier = Modifier.weight(1.2f)
+                        ) {
+                            Icon(Icons.Filled.BubbleChart, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Test Bubble", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
-
-            // Main action cards
-            HomeActionCard(
-                icon = Icons.Outlined.CloudQueue,
-                title = "API Providers & Keys",
-                description = "Configure Sapling (Primary) & LanguageTool automatic failover",
-                onClick = onNavigateToApiSettings
+            // =========================================================================
+            // 4. QUICK TOOLS & STUDIOS HUB
+            // =========================================================================
+            Text(
+                text = "Quick Tools & Studios",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
             )
 
             HomeActionCard(
-                icon = Icons.Outlined.Assistant,
-                title = "Floating Assistant (Cross-App)",
-                description = if (isServiceActive) "Active. Tap to view status or open accessibility settings" else "Enable floating bubble to check writing directly inside other apps",
-                onClick = { showAccessibilityGuide = true }
-            )
-
-            HomeActionCard(
-                icon = Icons.Outlined.HelpOutline,
-                title = "Accessibility & Auto-Pause Guide",
-                description = "Complete steps to enable service, banking shield & how to resume",
-                onClick = { showAccessibilityGuide = true }
-            )
-
-                        HomeActionCard(
                 icon = Icons.Outlined.Palette,
                 title = "Appearance & Layout Studio",
                 description = "Customize bubble size, AI logo icon, error badge & 30% edge tuck",
@@ -344,9 +562,16 @@ fun HomeScreen(
 
             HomeActionCard(
                 icon = Icons.Outlined.AutoAwesome,
-                title = "AI Window Studio",
-                description = "Customize floating AI chat window size, glass theme, anchors & custom prompts",
+                title = "AI Window & Tone Studio",
+                description = "Select floating quick tones, window size, glass theme & custom prompts",
                 onClick = onNavigateToAiWindowStudio
+            )
+
+            HomeActionCard(
+                icon = Icons.Outlined.CloudQueue,
+                title = "API Providers & Keys",
+                description = "Configure Gemini Model, Sapling (Primary) & LanguageTool failover",
+                onClick = onNavigateToApiSettings
             )
 
             HomeActionCard(
@@ -370,7 +595,7 @@ fun HomeScreen(
                 onClick = onNavigateToSettings
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Privacy info
             Card(
@@ -400,6 +625,101 @@ fun HomeScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun SetupChecklistRow(
+    title: String,
+    description: String,
+    isDone: Boolean,
+    actionLabel: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(if (isDone) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isDone) Icons.Filled.Check else Icons.Filled.WarningAmber,
+                    contentDescription = null,
+                    tint = if (isDone) Color(0xFF10B981) else Color(0xFFF59E0B),
+                    modifier = Modifier.size(13.dp)
+                )
+            }
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
+                )
+            }
+        }
+        TextButton(
+            onClick = onClick,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = actionLabel,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun EngineBadge(
+    name: String,
+    role: String,
+    color: Color
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = color.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+            Text(
+                text = "$name ($role)",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = color
+            )
         }
     }
 }
@@ -450,6 +770,31 @@ private fun HomeActionCard(
             )
         }
     }
+}
+
+fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    val expectedComponentName = ComponentName(context, WordPilotAccessibilityService::class.java)
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+    val colonSplitter = TextUtils.SimpleStringSplitter(':')
+    colonSplitter.setString(enabledServices)
+    while (colonSplitter.hasNext()) {
+        val componentNameString = colonSplitter.next()
+        val enabledComponent = ComponentName.unflattenFromString(componentNameString)
+        if (enabledComponent != null && enabledComponent == expectedComponentName) {
+            return true
+        }
+    }
+    return false
+}
+
+fun isBatteryOptimizationIgnored(context: Context): Boolean {
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+    } else true
 }
 
 @Composable
@@ -569,6 +914,7 @@ fun AccessibilityGuideDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+
                         GuideStepItem(number = "1", text = "Tap the 'Open Accessibility Settings' button below.")
                         GuideStepItem(number = "2", text = "Scroll to 'Downloaded apps' (or 'Installed services').")
                         GuideStepItem(number = "3", text = "Select 'WordPilot Assistant', turn the toggle ON, and tap 'Allow'.")

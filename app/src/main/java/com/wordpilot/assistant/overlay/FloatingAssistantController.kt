@@ -177,13 +177,28 @@ class FloatingAssistantController(
         return _uiState.value != FloatingUiState.COLLAPSED
     }
 
+    fun getScreenDimensions(): Pair<Int, Int> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val windowMetrics = windowManager.currentWindowMetrics
+                val bounds = windowMetrics.bounds
+                Pair(bounds.width(), bounds.height())
+            } catch (_: Exception) {
+                val dm = context.resources.displayMetrics
+                Pair(dm.widthPixels, dm.heightPixels)
+            }
+        } else {
+            val dm = context.resources.displayMetrics
+            Pair(dm.widthPixels, dm.heightPixels)
+        }
+    }
+
     private fun updateWindowLayoutForState(state: FloatingUiState) {
         val view = overlayView ?: return
         val lp = windowLayoutParams ?: return
         val displayMetrics = context.resources.displayMetrics
         val density = displayMetrics.density
-        val screenWidthPx = displayMetrics.widthPixels
-        val screenHeightPx = displayMetrics.heightPixels
+        val (screenWidthPx, screenHeightPx) = getScreenDimensions()
 
         val s = appearanceSettings.value
         val collapsedSizePx = OverlayGeometry.getCollapsedSizePx(density, s.bubbleSizeDp)
@@ -807,8 +822,7 @@ class FloatingAssistantController(
     fun onDrag(deltaX: Float, deltaY: Float) {
         val view = overlayView ?: return
         val lp = windowLayoutParams ?: return
-        val screenWidth = context.resources.displayMetrics.widthPixels
-        val screenHeight = context.resources.displayMetrics.heightPixels
+        val (screenWidth, screenHeight) = getScreenDimensions()
         val density = context.resources.displayMetrics.density
         val s = appearanceSettings.value
 
@@ -845,7 +859,7 @@ class FloatingAssistantController(
     fun onDragEnd() {
         val view = overlayView ?: return
         val lp = windowLayoutParams ?: return
-        val screenWidth = context.resources.displayMetrics.widthPixels
+        val (screenWidth, _) = getScreenDimensions()
         val density = context.resources.displayMetrics.density
         val s = appearanceSettings.value
 
@@ -907,7 +921,8 @@ class FloatingAssistantController(
         bubbleRestingX = savedX
         bubbleRestingY = savedY
 
-        _isNearRightEdge.value = savedX > displayMetrics.widthPixels / 2
+        val (screenWidthPx, _) = getScreenDimensions()
+        _isNearRightEdge.value = savedX > screenWidthPx / 2
 
         val s = appearanceSettings.value
         val collapsedSizePx = OverlayGeometry.getCollapsedSizePx(density, s.bubbleSizeDp)
