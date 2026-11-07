@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WordPilot — System-Wide Android Writing Assistant</title>
-    <meta name="description" content="Production-grade, privacy-first Android writing assistant providing real-time grammar, spelling, and tone corrections across third-party applications.">
+    <title>WordPilot v2.0 — System-Wide Android AI Writing Assistant</title>
+    <meta name="description" content="WordPilot v2.0: Production-grade, privacy-first Android writing assistant with Gemini Core AI, instant 1-tap grammar corrections, frosted blur tone expander, and 50+ banking apps privacy shield.">
     <link rel="icon" type="image/png" href="assets/logo.png">
     
     <!-- Open Graph / Social Meta -->
-    <meta property="og:title" content="WordPilot — System-Wide Android Writing Assistant">
-    <meta property="og:description" content="Real-time grammar, spelling, and tone corrections across any Android app with 1-tap auto-apply and banking-grade privacy shield.">
+    <meta property="og:title" content="WordPilot v2.0 — System-Wide Android AI Writing Assistant">
+    <meta property="og:description" content="Gemini Core AI rewrite & tone expander, 1-tap instant grammar auto-apply, 8 dynamic multi-color gradients, and bank-grade privacy shield across any Android app.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://github.com/pratyushkk/WordPilot">
     <meta property="og:image" content="assets/logo.png">
@@ -55,7 +55,7 @@
                     animation: {
                         'float': 'floating 4s ease-in-out infinite',
                         'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
-                        'tuck-peek': 'tuckPeek 5s ease-in-out infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
                     },
                     keyframes: {
                         floating: {
@@ -66,9 +66,9 @@
                             '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
                             '50%': { opacity: '0.8', transform: 'scale(1.04)' },
                         },
-                        tuckPeek: {
-                            '0%, 100%': { transform: 'translateX(0px)' },
-                            '50%': { transform: 'translateX(-12px)' },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' }
                         }
                     }
                 }
@@ -80,7 +80,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -96,31 +95,44 @@
         }
 
         .glass-card {
-            background: rgba(16, 23, 38, 0.7);
+            background: rgba(16, 23, 38, 0.72);
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .glass-card-hover:hover {
-            border-color: rgba(34, 197, 94, 0.3);
-            box-shadow: 0 10px 30px -10px rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.35);
+            box-shadow: 0 10px 30px -10px rgba(34, 197, 94, 0.2);
         }
 
         .gradient-text {
-            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #86efac 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 40%, #4ade80 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .gradient-accent {
-            background: linear-gradient(135deg, #22c55e 0%, #10b981 50%, #06b6d4 100%);
+        .gradient-ai-text {
+            background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 50%, #f472b6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .phone-notch {
-            width: 110px;
-            height: 18px;
-            background: #000;
-            border-radius: 0 0 12px 12px;
-            margin: 0 auto;
+        /* 8 Signature Multi-Color Gradient Presets */
+        .grad-aurora { background: linear-gradient(135deg, #00F5A0 0%, #00D9F5 50%, #0072FF 100%); }
+        .grad-ocean { background: linear-gradient(135deg, #00E5FF 0%, #2979FF 50%, #651FFF 100%); }
+        .grad-sunset { background: linear-gradient(135deg, #FFD200 0%, #FF5E36 50%, #E02476 100%); }
+        .grad-cosmic { background: linear-gradient(135deg, #FF007F 0%, #8B5CF6 50%, #3B82F6 100%); }
+        .grad-cyberpunk { background: linear-gradient(135deg, #00F0FF 0%, #FF006E 50%, #8338EC 100%); }
+        .grad-solar { background: linear-gradient(135deg, #FFB703 0%, #FB8500 50%, #D00000 100%); }
+        .grad-emerald { background: linear-gradient(135deg, #34D399 0%, #059669 50%, #0F766E 100%); }
+        .grad-prism { background: linear-gradient(135deg, #06B6D4 0%, #6366F1 35%, #EC4899 70%, #F59E0B 100%); }
+
+        /* Frosted Glass Expander Effect */
+        .frosted-expander {
+            background: rgba(22, 27, 38, 0.78);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
     </style>
 </head>
@@ -128,41 +140,43 @@
 
     <!-- Global Background Glows -->
     <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-emerald-500/15 rounded-full blur-[140px] animate-pulse-glow"></div>
-        <div class="absolute top-[35%] -left-32 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[140px]"></div>
-        <div class="absolute top-[65%] -right-32 w-[550px] h-[550px] bg-violetAccent-500/10 rounded-full blur-[150px]"></div>
+        <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[750px] h-[550px] bg-emerald-500/15 rounded-full blur-[140px] animate-pulse-glow"></div>
+        <div class="absolute top-[35%] -left-32 w-[550px] h-[550px] bg-cyan-500/10 rounded-full blur-[140px]"></div>
+        <div class="absolute top-[60%] -right-32 w-[600px] h-[600px] bg-violetAccent-500/15 rounded-full blur-[150px]"></div>
     </div>
 
     <!-- Navigation Header -->
-    <header class="sticky top-0 z-50 backdrop-blur-xl bg-slateDark-950/80 border-b border-slate-800/80">
+    <header class="sticky top-0 z-50 backdrop-blur-xl bg-slateDark-950/85 border-b border-slate-800/80">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <a href="#" class="flex items-center gap-3 group">
                 <img src="assets/logo.png" alt="WordPilot Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-brand-500/20 group-hover:scale-105 transition-transform duration-300">
                 <div class="flex flex-col">
                     <span class="font-display font-bold text-xl tracking-tight text-white flex items-center gap-2">
                         WordPilot
-                        <span class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-400 border border-brand-500/30">v1.0</span>
+                        <span class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">v2.0</span>
                     </span>
-                    <span class="text-xs text-slate-400 font-medium">System-Wide Android Assistant</span>
+                    <span class="text-xs text-slate-400 font-medium">System-Wide Android AI Assistant</span>
                 </div>
             </a>
 
             <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-                <a href="#features" class="hover:text-white transition-colors">Features</a>
+                <a href="#v2-highlights" class="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> What's New in v2.0
+                </a>
                 <a href="#interactive-demo" class="hover:text-white transition-colors">Interactive Demo</a>
-                <a href="#studio" class="hover:text-white transition-colors">Logo Studio</a>
-                <a href="#architecture" class="hover:text-white transition-colors">API Failover</a>
+                <a href="#studio" class="hover:text-white transition-colors">Appearance Studio</a>
+                <a href="#architecture" class="hover:text-white transition-colors">Gemini & Failover</a>
                 <a href="#privacy" class="hover:text-white transition-colors">Privacy Shield</a>
-                <a href="#setup" class="hover:text-white transition-colors">Setup Guide</a>
+                <a href="#setup" class="hover:text-white transition-colors">Download</a>
             </nav>
 
             <div class="flex items-center gap-3">
                 <a href="https://github.com/pratyushkk/WordPilot" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white transition-all">
                     <i data-lucide="github" class="w-5 h-5"></i>
                 </a>
-                <a href="https://github.com/pratyushkk/WordPilot/releases/download/v1.0/WordPilot-v1.0.apk" class="relative group px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 flex items-center gap-2">
+                <a href="https://github.com/pratyushkk/WordPilot/releases/download/v2.0/WordPilot-v2.0.apk" class="relative group px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 flex items-center gap-2">
                     <i data-lucide="download" class="w-4 h-4"></i>
-                    <span>Download APK</span>
+                    <span>Download v2.0 APK</span>
                 </a>
             </div>
         </div>
@@ -177,59 +191,59 @@
                 <div class="lg:col-span-7 flex flex-col items-start text-left space-y-6">
                     <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slateDark-850 border border-slate-700/80 text-xs font-medium text-slate-300">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span class="text-emerald-400 font-semibold">Official Release v1.0</span>
+                        <span class="text-emerald-400 font-semibold">Official Release v2.0</span>
                         <span class="text-slate-500">•</span>
-                        <span>Zero Telemetry • Free & Open Source</span>
+                        <span class="text-indigo-300 font-medium">Gemini Core AI + Frosted Blur</span>
                     </div>
 
                     <h1 class="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.12]">
-                        Type Flawlessly <br>
-                        <span class="gradient-text">Across Any Android App.</span>
+                        Intelligent AI Writing <br>
+                        <span class="gradient-text">Over Every Android App.</span>
                     </h1>
 
                     <p class="text-base sm:text-lg text-slate-300 max-w-xl leading-relaxed">
-                        WordPilot floats non-intrusively over WhatsApp, Chrome, Gmail, Notes, and Slack. It instantly catches grammar, spelling, and punctuation errors with <strong>1-tap auto-apply replacements</strong> and a 50+ banking apps privacy shield.
+                        WordPilot floats seamlessly over WhatsApp, Chrome, Instagram, Gmail, and Notes. Powered by <strong>Gemini Core AI</strong>, it delivers 1-tap instant grammar auto-fixes, a frosted blur <strong>✨ AI Rewrite & Tone expander</strong>, and 50+ banking apps privacy shield.
                     </p>
 
                     <!-- CTAs -->
                     <div class="flex flex-wrap items-center gap-4 pt-2 w-full sm:w-auto">
-                        <a href="https://github.com/pratyushkk/WordPilot/releases/download/v1.0/WordPilot-v1.0.apk" class="px-7 py-4 rounded-xl font-bold text-base text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all duration-300 shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2.5 w-full sm:w-auto">
+                        <a href="https://github.com/pratyushkk/WordPilot/releases/download/v2.0/WordPilot-v2.0.apk" class="px-7 py-4 rounded-xl font-bold text-base text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all duration-300 shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2.5 w-full sm:w-auto">
                             <i data-lucide="download" class="w-5 h-5"></i>
-                            <span>Download WordPilot v1.0</span>
-                            <span class="text-xs px-2 py-0.5 rounded bg-slate-900/15 text-slate-900 font-mono">12.3 MB</span>
+                            <span>Download WordPilot v2.0</span>
+                            <span class="text-xs px-2 py-0.5 rounded bg-slate-900/15 text-slate-900 font-mono">12.9 MB</span>
                         </a>
 
                         <a href="#interactive-demo" class="px-6 py-4 rounded-xl font-semibold text-base text-slate-200 glass-card hover:bg-slate-800/80 transition-all duration-300 flex items-center justify-center gap-2 w-full sm:w-auto">
                             <i data-lucide="play-circle" class="w-5 h-5 text-emerald-400"></i>
-                            <span>Try Interactive Sandbox</span>
+                            <span>Try Live Sandbox</span>
                         </a>
                     </div>
 
                     <!-- Trust Points -->
                     <div class="grid grid-cols-3 gap-4 pt-4 border-t border-slate-800/80 w-full max-w-lg">
                         <div>
-                            <div class="text-xl font-bold text-white font-display">1-Tap</div>
-                            <div class="text-xs text-slate-400">Auto-Apply Chips</div>
+                            <div class="text-xl font-bold text-white font-display">✨ AI Expander</div>
+                            <div class="text-xs text-slate-400">8 Instant Tones</div>
+                        </div>
+                        <div>
+                            <div class="text-xl font-bold text-white font-display">Frosted Blur</div>
+                            <div class="text-xs text-slate-400">12 / 20 / 32dp Radius</div>
                         </div>
                         <div>
                             <div class="text-xl font-bold text-white font-display">50+ Apps</div>
-                            <div class="text-xs text-slate-400">Banking Shielded</div>
-                        </div>
-                        <div>
-                            <div class="text-xl font-bold text-white font-display">100%</div>
-                            <div class="text-xs text-slate-400">Zero Telemetry</div>
+                            <div class="text-xs text-slate-400">Bank Privacy Shield</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right Column: Interactive Live Preview Phone Mockup -->
+                <!-- Right Column: Interactive Live Preview Phone Mockup with V2 Pill & AI Expander -->
                 <div class="lg:col-span-5 flex justify-center lg:justify-end">
-                    <div class="relative w-[310px] sm:w-[330px] rounded-[44px] p-3 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 shadow-2xl shadow-emerald-500/10 border-4 border-slate-700/60">
+                    <div class="relative w-[320px] sm:w-[340px] rounded-[44px] p-3 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 shadow-2xl shadow-emerald-500/10 border-4 border-slate-700/60">
                         <!-- Phone Screen -->
-                        <div class="relative bg-slateDark-950 rounded-[36px] overflow-hidden flex flex-col h-[610px] border border-slate-800">
+                        <div class="relative bg-slateDark-950 rounded-[36px] overflow-hidden flex flex-col h-[620px] border border-slate-800">
                             <!-- Notch & Status -->
                             <div class="flex items-center justify-between px-6 pt-3 text-[11px] text-slate-400 font-mono">
-                                <span>12:54</span>
+                                <span>8:35</span>
                                 <div class="w-16 h-4 bg-black rounded-full"></div>
                                 <div class="flex items-center gap-1.5">
                                     <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
@@ -243,80 +257,117 @@
                                     WP
                                 </div>
                                 <div class="flex-1">
-                                    <div class="text-xs font-semibold text-white">Writing in Messaging App</div>
+                                    <div class="text-xs font-semibold text-white">Messaging App (WhatsApp / IG)</div>
                                     <div class="text-[10px] text-emerald-400 flex items-center gap-1">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> WordPilot Active
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> WordPilot v2.0 Live
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Chat Messages Area -->
-                            <div class="flex-1 p-4 space-y-3 overflow-y-auto text-xs">
+                            <div class="flex-1 p-4 space-y-3 overflow-y-auto text-xs relative">
                                 <div class="bg-slateDark-850 p-3 rounded-2xl rounded-tl-sm text-slate-300 max-w-[85%] border border-slate-800">
-                                    Hey! How is the project update coming along?
+                                    Can you send the client pitch draft before lunch?
                                 </div>
 
                                 <div class="bg-emerald-600/20 border border-emerald-500/30 text-emerald-100 p-3 rounded-2xl rounded-tr-sm ml-auto max-w-[85%]">
-                                    Almost ready! Reviewing the final documents right now.
+                                    Sure! Just finalizing the tone and grammar now.
                                 </div>
 
                                 <!-- Active Typing Input Area -->
-                                <div class="pt-6">
-                                    <div class="text-[10px] text-slate-400 mb-1 font-mono uppercase tracking-wider">Active Input Field</div>
+                                <div class="pt-4">
+                                    <div class="text-[10px] text-slate-400 mb-1 font-mono uppercase tracking-wider flex items-center justify-between">
+                                        <span>Active Text Input</span>
+                                        <span id="tone-indicator-tag" class="hidden text-[9px] text-indigo-400 font-mono font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/30">Rewritten by AI</span>
+                                    </div>
                                     <div id="mock-input-box" class="p-3.5 rounded-xl bg-slateDark-900 border-2 border-emerald-500/50 text-white font-medium text-xs shadow-inner min-h-[58px] transition-all duration-300">
-                                        I <span class="bg-red-500/20 text-red-300 line-through px-1 rounded">have went</span> to the meeting and ate <span class="bg-red-500/20 text-red-300 line-through px-1 rounded">a apple</span>.
+                                        They <span class="bg-red-500/20 text-red-300 line-through px-1 rounded">is going</span> to the meeting and ate <span class="bg-red-500/20 text-red-300 line-through px-1 rounded">a apple</span>.
+                                    </div>
+                                </div>
+
+                                <!-- V2 Frosted Blur AI Tone Expander Window (Interactive Popup) -->
+                                <div id="hero-expander-window" class="hidden absolute inset-x-3 bottom-2 frosted-expander rounded-2xl p-3 z-30 transition-all duration-200 animate-fadeIn">
+                                    <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-2.5">
+                                        <div class="flex items-center gap-1.5 text-xs font-bold text-white">
+                                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                            <span>Gemini Model Tone</span>
+                                        </div>
+                                        <button onclick="toggleHeroExpander()" class="w-5 h-5 rounded-full bg-slate-800/80 text-slate-400 hover:text-white flex items-center justify-center text-[10px]" title="Collapse (Back gesture)">
+                                            <i data-lucide="x" class="w-3 h-3"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- 8 Single-Word Tone Options (No Icon, No Subtext) -->
+                                    <div class="grid grid-cols-4 gap-1.5">
+                                        <button onclick="applyToneTransform('Polish')" class="px-2 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold text-center transition-all active:scale-95">Polish</button>
+                                        <button onclick="applyToneTransform('Short')" class="px-2 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold text-center transition-all active:scale-95">Short</button>
+                                        <button onclick="applyToneTransform('Rewrite')" class="px-2 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold text-center transition-all active:scale-95">Rewrite</button>
+                                        <button onclick="applyToneTransform('Polite')" class="px-2 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold text-center transition-all active:scale-95">Polite</button>
+                                        <button onclick="applyToneTransform('Formal')" class="px-2 py-2 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-[11px] font-bold text-center transition-all active:scale-95">Formal</button>
+                                        <button onclick="applyToneTransform('Casual')" class="px-2 py-2 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-[11px] font-bold text-center transition-all active:scale-95">Casual</button>
+                                        <button onclick="applyToneTransform('Clarity')" class="px-2 py-2 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-[11px] font-bold text-center transition-all active:scale-95">Clarity</button>
+                                        <button onclick="applyToneTransform('Natural')" class="px-2 py-2 rounded-lg bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-[11px] font-bold text-center transition-all active:scale-95">Natural</button>
+                                    </div>
+                                    <div class="text-[9px] text-slate-400 text-center pt-2 font-mono">
+                                        Back gesture / button collapses back to pill
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Floating Bubble & Expanded Toolbar Overlay Inside Mockup -->
-                            <div class="relative px-3 py-2 bg-slateDark-900/90 border-t border-slate-800/80">
-                                <!-- Expanded Pill -->
-                                <div id="hero-floating-pill" class="flex items-center gap-2 p-1.5 rounded-full bg-slateDark-850 border border-slate-700/80 shadow-lg">
-                                    <!-- Dynamic AI Logo -->
-                                    <div id="hero-logo-icon" class="w-8 h-8 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-bold shadow-md shadow-emerald-500/30 shrink-0">
-                                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            <!-- V2 Floating Overlay Inside Mockup -->
+                            <div class="relative px-3 py-2 bg-slateDark-900/95 border-t border-slate-800/80">
+                                <!-- Expanded Pill with Dedicated AI Button -->
+                                <div id="hero-floating-pill" class="flex items-center gap-1.5 p-1 rounded-full bg-slateDark-850 border border-slate-700/90 shadow-xl">
+                                    <!-- Dynamic Gradient Anchor Bubble -->
+                                    <div id="hero-bubble-anchor" class="w-7 h-7 rounded-full grad-aurora text-slate-950 flex items-center justify-center font-bold shadow-md shrink-0 transition-all duration-300">
+                                        <i data-lucide="zap" id="hero-anchor-icon" class="w-3.5 h-3.5 text-slate-950"></i>
                                     </div>
 
                                     <!-- Suggestion Chips Container -->
-                                    <div class="flex-1 flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
-                                        <button onclick="applyHeroCorrection('has gone')" class="px-2.5 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 text-[11px] font-semibold flex items-center gap-1 transition-all active:scale-95 shrink-0">
-                                            <span class="text-red-400 line-through text-[10px]">went</span>
+                                    <div class="flex-1 flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar">
+                                        <button id="chip-1" onclick="applyHeroCorrection('are going')" class="px-2 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 text-[10.5px] font-semibold flex items-center gap-1 transition-all active:scale-95 shrink-0">
+                                            <span class="text-red-400 line-through text-[9.5px]">is</span>
                                             <span>➔</span>
-                                            <span>has gone</span>
+                                            <span>are going</span>
                                         </button>
-                                        <button onclick="applyHeroCorrection('an apple')" class="px-2.5 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 text-[11px] font-semibold flex items-center gap-1 transition-all active:scale-95 shrink-0">
-                                            <span class="text-red-400 line-through text-[10px]">a</span>
+                                        <button id="chip-2" onclick="applyHeroCorrection('an apple')" class="px-2 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 text-[10.5px] font-semibold flex items-center gap-1 transition-all active:scale-95 shrink-0">
+                                            <span class="text-red-400 line-through text-[9.5px]">a</span>
                                             <span>➔</span>
                                             <span>an apple</span>
                                         </button>
                                     </div>
 
-                                    <!-- Collapse Indicator -->
-                                    <div class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[10px]">
-                                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                                    <!-- Dedicated AI Button with Sparkle Emblem -->
+                                    <button onclick="toggleHeroExpander()" class="px-2.5 py-1 rounded-full bg-indigo-500/30 hover:bg-indigo-500/50 border border-indigo-400/70 text-indigo-200 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 shrink-0 shadow-sm shadow-indigo-500/20">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-300"></i>
+                                        <span>AI</span>
+                                    </button>
+
+                                    <!-- Collapse Chevron -->
+                                    <div class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[9px] shrink-0">
+                                        <i data-lucide="chevron-right" class="w-3 h-3"></i>
                                     </div>
                                 </div>
                                 <div class="text-[9px] text-center text-slate-400 pt-1.5 font-mono">
-                                    👆 Tap any correction chip to auto-apply!
+                                    ✨ Tap <strong class="text-indigo-300">AI</strong> to test frosted tone expander!
                                 </div>
                             </div>
 
                             <!-- Phone Virtual Keyboard Representation -->
-                            <div class="bg-slateDark-900 px-2 py-3 border-t border-slate-800/80">
+                            <div class="bg-slateDark-900 px-2 py-2.5 border-t border-slate-800/80">
                                 <div class="grid grid-cols-10 gap-1 mb-1">
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">Q</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">W</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">E</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">R</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">T</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">Y</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">U</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">I</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">O</div>
-                                    <div class="h-6 rounded bg-slate-800/80 text-[10px] text-slate-400 flex items-center justify-center font-mono">P</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">Q</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">W</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">E</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">R</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">T</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">Y</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">U</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">I</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">O</div>
+                                    <div class="h-5 rounded bg-slate-800/80 text-[9px] text-slate-400 flex items-center justify-center font-mono">P</div>
                                 </div>
-                                <div class="h-6 rounded bg-slate-800/60 text-[10px] text-slate-400 flex items-center justify-center font-mono mx-8">
+                                <div class="h-5 rounded bg-slate-800/60 text-[9px] text-slate-400 flex items-center justify-center font-mono mx-10">
                                     SPACE
                                 </div>
                             </div>
@@ -328,18 +379,101 @@
         </div>
     </section>
 
+    <!-- Section 2: What's New in v2.0 Highlights Grid -->
+    <section id="v2-highlights" class="py-20 border-t border-slate-800/80 bg-slateDark-900/40 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center space-y-3 mb-16">
+                <span class="text-xs font-mono font-semibold text-emerald-400 uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    Version 2.0 Architectural Leap
+                </span>
+                <h2 class="font-display font-bold text-3xl sm:text-4xl text-white">
+                    Built for Effortless Fluency & High Aesthetic Craft
+                </h2>
+                <p class="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
+                    WordPilot v2.0 combines Google Gemini AI intelligence, frosted glass physics, and ultra-vibrant dynamic gradient themes into an unobtrusive overlay.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Feature 1: Dedicated AI Button & Expander -->
+                <div class="glass-card rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/40 transition-all">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4">
+                            <i data-lucide="sparkles" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-display font-bold text-lg text-white mb-2">Dedicated ✨ AI Button</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            A compact, dedicated AI button right in the floating pill triggers 8 instant one-word tone presets: Polish, Short, Rewrite, Polite, Formal, Casual, Clarity, and Natural.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] font-mono text-indigo-300">
+                        Zero clutter • Single-word actions
+                    </div>
+                </div>
+
+                <!-- Feature 2: Frosted Glass Blur -->
+                <div class="glass-card rounded-2xl p-6 flex flex-col justify-between hover:border-cyan-500/40 transition-all">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4">
+                            <i data-lucide="layers" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-display font-bold text-lg text-white mb-2">Frosted Blur Backdrop</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            The expander window renders a smoked frosted glass backdrop with real-time blur radius customization (Subtle 12dp, Medium 20dp, Deep 32dp) for world-class visual depth.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] font-mono text-cyan-300">
+                        Dynamic translucent backdrop
+                    </div>
+                </div>
+
+                <!-- Feature 3: Smart Back Button Interception -->
+                <div class="glass-card rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/40 transition-all">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
+                            <i data-lucide="corner-down-left" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-display font-bold text-lg text-white mb-2">Smart Back-Key Interception</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Pressing the system back button or gesture while the overlay is expanded cleanly collapses it back into the small floating pill without accidentally navigating away from your chat.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] font-mono text-emerald-300">
+                        FLAG_REQUEST_FILTER_KEY_EVENTS
+                    </div>
+                </div>
+
+                <!-- Feature 4: 8 Vibrant Gradient Colorways -->
+                <div class="glass-card rounded-2xl p-6 flex flex-col justify-between hover:border-pink-500/40 transition-all">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center mb-4">
+                            <i data-lucide="palette" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-display font-bold text-lg text-white mb-2">8 Dynamic Gradients</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Overhauled gradient engine with full dynamic bounds linear shaders. Kept Aurora & Ocean, and introduced Sunset Blaze, Cosmic Violet, Cyberpunk, Solar Flare, Emerald Glow, and Prism.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] font-mono text-pink-300">
+                        Zero flat rendering • Multi-stop flow
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Interactive Live Sandbox Section -->
-    <section id="interactive-demo" class="py-20 border-t border-slate-800/80 bg-slateDark-900/40 relative">
+    <section id="interactive-demo" class="py-20 border-t border-slate-800/80 relative">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center space-y-3 mb-12">
                 <span class="text-xs font-mono font-semibold text-emerald-400 uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    Live Simulator
+                    Live Web Sandbox
                 </span>
                 <h2 class="font-display font-bold text-3xl sm:text-4xl text-white">
-                    Try WordPilot Auto-Correction Right Here
+                    Try WordPilot v2.0 Correction & AI Rewrite
                 </h2>
                 <p class="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
-                    Type a sentence with typos or select a preset below to see how the floating assistant checks and fixes sentences with a single tap.
+                    Type any text below or choose a preset. Test instant grammar correction chips or click <strong>✨ AI</strong> to trigger tone rewriting right in your browser.
                 </p>
             </div>
 
@@ -347,46 +481,78 @@
             <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
                 <!-- Preset Buttons -->
                 <div class="flex flex-wrap items-center gap-2 mb-4">
-                    <span class="text-xs text-slate-400 font-medium">Quick Presets:</span>
-                    <button onclick="setSandboxText('She go to school everyday.')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
-                        "She go to school everyday."
+                    <span class="text-xs text-slate-400 font-medium">Quick Test Prompts:</span>
+                    <button onclick="setSandboxText('She go to school everyday and its awesome.')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
+                        "She go to school everyday..."
                     </button>
-                    <button onclick="setSandboxText('Their going to there new house.')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
-                        "Their going to there new house."
+                    <button onclick="setSandboxText('Their going to there new house tomorrow.')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
+                        "Their going to there new house..."
                     </button>
-                    <button onclick="setSandboxText('He ate a apple yesterday.')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
-                        "He ate a apple yesterday."
+                    <button onclick="setSandboxText('He ate a apple yesterday in the garden.')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
+                        "He ate a apple yesterday..."
                     </button>
                 </div>
 
                 <!-- Text Area Input -->
                 <div class="relative mb-6">
-                    <label for="sandbox-input" class="block text-xs font-mono text-slate-400 mb-2">Editable Test Canvas</label>
-                    <textarea id="sandbox-input" rows="3" oninput="analyzeSandboxText()" class="w-full bg-slateDark-950 rounded-2xl p-4 text-white text-base border border-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-sans" placeholder="Type anything here with spelling or grammar mistakes...">She go to school everyday.</textarea>
+                    <label for="sandbox-input" class="block text-xs font-mono text-slate-400 mb-2 flex items-center justify-between">
+                        <span>Editable Test Canvas</span>
+                        <span id="sandbox-action-log" class="text-emerald-400 font-mono text-[11px]"></span>
+                    </label>
+                    <textarea id="sandbox-input" rows="3" oninput="analyzeSandboxText()" class="w-full bg-slateDark-950 rounded-2xl p-4 text-white text-base border border-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-sans" placeholder="Type anything here with spelling or grammar mistakes...">She go to school everyday and its awesome.</textarea>
                 </div>
 
                 <!-- Virtual Floating Overlay Result -->
                 <div class="rounded-2xl bg-slateDark-950 p-4 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div class="flex items-center gap-3 w-full sm:w-auto">
-                        <div id="sandbox-logo-pill" class="w-10 h-10 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-bold shadow-lg shadow-emerald-500/25 shrink-0">
-                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        <div id="sandbox-bubble-anchor" class="w-10 h-10 rounded-full grad-aurora text-slate-950 flex items-center justify-center font-bold shadow-lg shadow-emerald-500/25 shrink-0 transition-all duration-300">
+                            <i data-lucide="zap" id="sandbox-anchor-icon" class="w-5 h-5 text-slate-950"></i>
                         </div>
                         <div>
                             <div class="text-xs font-semibold text-white flex items-center gap-2">
                                 WordPilot Floating Bar
                                 <span id="sandbox-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">1 Issue</span>
                             </div>
-                            <div class="text-[11px] text-slate-400">Click replacement chip to auto-apply</div>
+                            <div class="text-[11px] text-slate-400">1-Tap fix chip or click AI for tone rewrite</div>
                         </div>
                     </div>
 
-                    <!-- Correction Chips Container -->
-                    <div id="sandbox-chips-container" class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                        <button onclick="applySandboxFix('go', 'goes')" class="px-4 py-2 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500 text-emerald-300 text-xs font-bold flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-emerald-500/10">
-                            <span class="text-red-400 line-through text-[11px]">go</span>
-                            <span>➔</span>
-                            <span>goes</span>
+                    <!-- Correction Chips Container & Dedicated AI Button -->
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                        <div id="sandbox-chips-container" class="flex items-center gap-2">
+                            <button onclick="applySandboxFix('go', 'goes')" class="px-3.5 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-md shadow-emerald-500/10">
+                                <span class="text-red-400 line-through text-[11px]">go</span>
+                                <span>➔</span>
+                                <span>goes</span>
+                            </button>
+                        </div>
+
+                        <!-- Dedicated AI Trigger Button -->
+                        <button onclick="toggleSandboxToneMenu()" class="px-3.5 py-1.5 rounded-full bg-indigo-500/25 hover:bg-indigo-500/40 border border-indigo-400/80 text-indigo-200 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-md shadow-indigo-500/20">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-300"></i>
+                            <span>AI</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Sandbox Tone Expander Drawer -->
+                <div id="sandbox-tone-drawer" class="hidden mt-4 p-4 rounded-2xl frosted-expander border border-indigo-500/30 animate-fadeIn">
+                    <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
+                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
+                            Gemini AI Tone Expander (One-Word Options)
+                        </span>
+                        <button onclick="toggleSandboxToneMenu()" class="text-xs text-slate-400 hover:text-white">✕ Close</button>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
+                        <button onclick="runSandboxTone('Polish')" class="p-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-400/40 text-indigo-200 text-xs font-bold text-center transition-all">Polish</button>
+                        <button onclick="runSandboxTone('Short')" class="p-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-400/40 text-indigo-200 text-xs font-bold text-center transition-all">Short</button>
+                        <button onclick="runSandboxTone('Rewrite')" class="p-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-400/40 text-indigo-200 text-xs font-bold text-center transition-all">Rewrite</button>
+                        <button onclick="runSandboxTone('Polite')" class="p-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-400/40 text-indigo-200 text-xs font-bold text-center transition-all">Polite</button>
+                        <button onclick="runSandboxTone('Formal')" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold text-center transition-all">Formal</button>
+                        <button onclick="runSandboxTone('Casual')" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold text-center transition-all">Casual</button>
+                        <button onclick="runSandboxTone('Clarity')" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold text-center transition-all">Clarity</button>
+                        <button onclick="runSandboxTone('Natural')" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold text-center transition-all">Natural</button>
                     </div>
                 </div>
 
@@ -397,193 +563,243 @@
         </div>
     </section>
 
-    <!-- AI Logo Studio Customization Section -->
-    <section id="studio" class="py-20 border-t border-slate-800/80 relative">
+    <!-- Appearance & Layout Studio Customization Section -->
+    <section id="studio" class="py-20 border-t border-slate-800/80 bg-slateDark-900/30 relative">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center space-y-3 mb-12">
+            <div class="text-center space-y-3 mb-14">
                 <span class="text-xs font-mono font-semibold text-emerald-400 uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                     Appearance & Layout Studio
                 </span>
                 <h2 class="font-display font-bold text-3xl sm:text-4xl text-white">
-                    Choose Your Favorite AI Logo Icon
+                    8 Vibrant Dynamic Gradients & Curated Emblems
                 </h2>
                 <p class="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
-                    WordPilot allows you to customize the AI Star logo in the editing section. Pick from 12 distinct Material icons and adjust the size to fit your aesthetic.
+                    WordPilot v2.0 lets you fine-tune the look and feel of your floating assistant. Select a signature gradient preset, choose your AI emblem, or preview the frosted blur effect in real time.
                 </p>
             </div>
 
-            <!-- Logo Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5 mb-8">
-                <!-- 12 Selectable Logo Cards -->
-                <button onclick="selectLogoStyle('sparkles', 'Sparkle Star')" class="logo-card active p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-emerald-500 bg-emerald-500/10">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
-                        <i data-lucide="sparkles" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Sparkle Star</div>
-                    <div class="text-[10px] text-slate-400">Classic AI Constellation</div>
-                </button>
+            <!-- Gradient Presets Swatches Grid (8 Multi-Color Linear Gradients) -->
+            <div class="glass-card rounded-3xl p-6 sm:p-8 mb-8">
+                <h3 class="font-display font-bold text-base text-white mb-2 flex items-center justify-between">
+                    <span>Gradient Colorway Presets</span>
+                    <span class="text-xs text-slate-400 font-mono">Dynamic Full-Bleed Shaders</span>
+                </h3>
+                <p class="text-xs text-slate-400 mb-6">
+                    Tap any gradient swatch below to update the live phone mockup and sandbox bubble instantly.
+                </p>
 
-                <button onclick="selectLogoStyle('wand', 'Magic Wand')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="wand-2" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Magic Wand</div>
-                    <div class="text-[10px] text-slate-400">Precise Grammar</div>
-                </button>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <!-- 1. Aurora -->
+                    <button onclick="setGradientStyle('grad-aurora', 'Aurora', '#00F5A0')" class="gradient-choice-card active p-3 rounded-2xl bg-slateDark-900/80 border-2 border-emerald-500 text-left transition-all hover:scale-[1.02] flex items-center gap-3">
+                        <div class="w-10 h-6 rounded-lg grad-aurora border border-white/25 shrink-0 shadow-sm"></div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Aurora</div>
+                            <div class="text-[10px] text-emerald-400 font-mono">Neon Mint • Cyan</div>
+                        </div>
+                    </button>
 
-                <button onclick="selectLogoStyle('zap', 'Lightning Bolt')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="zap" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Lightning Bolt</div>
-                    <div class="text-[10px] text-slate-400">Instant Speed</div>
-                </button>
+                    <!-- 2. Ocean -->
+                    <button onclick="setGradientStyle('grad-ocean', 'Ocean', '#00E5FF')" class="gradient-choice-card p-3 rounded-2xl bg-slateDark-900/80 border border-slate-800 text-left transition-all hover:scale-[1.02] flex items-center gap-3">
+                        <div class="w-10 h-6 rounded-lg grad-ocean border border-white/25 shrink-0 shadow-sm"></div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Ocean</div>
+                            <div class="text-[10px] text-cyan-400 font-mono">Aqua • Indigo</div>
+                        </div>
+                    </button>
 
-                <button onclick="selectLogoStyle('pen-tool', 'Writing Pen')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="pen-tool" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Writing Pen</div>
-                    <div class="text-[10px] text-slate-400">Editorial Craft</div>
-                </button>
+                    <!-- 3. Sunset Blaze -->
+                    <button onclick="setGradientStyle('grad-sunset', 'Sunset Blaze', '#FFD200')" class="gradient-choice-card p-3 rounded-2xl bg-slateDark-900/80 border border-slate-800 text-left transition-all hover:scale-[1.02] flex items-center gap-3">
+                        <div class="w-10 h-6 rounded-lg grad-sunset border border-white/25 shrink-0 shadow-sm"></div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Sunset Blaze</div>
+                            <div class="text-[10px] text-amber-400 font-mono">Gold • Magenta</div>
+                        </div>
+                    </button>
 
-                <button onclick="selectLogoStyle('brain', 'Neural AI')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="brain" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Neural AI</div>
-                    <div class="text-[10px] text-slate-400">Deep Context Engine</div>
-                </button>
+                    <!-- 4. Cosmic Violet -->
+                    <button onclick="setGradientStyle('grad-cosmic', 'Cosmic Violet', '#FF007F')" class="gradient-choice-card p-3 rounded-2xl bg-slateDark-900/80 border border-slate-800 text-left transition-all hover:scale-[1.02] flex items-center gap-3">
+                        <div class="w-10 h-6 rounded-lg grad-cosmic border border-white/25 shrink-0 shadow-sm"></div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Cosmic Violet</div>
+                            <div class="text-[10px] text-purple-400 font-mono">Pink • Violet</div>
+                        </div>
+                    </button>
 
-                <button onclick="selectLogoStyle('bot', 'Smart Assistant')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="bot" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Smart Assistant</div>
-                    <div class="text-[10px] text-slate-400">Autonomous Helper</div>
-                </button>
+                    <!-- 5. Cyberpunk -->
+                    <button onclick="setGradientStyle('grad-cyberpunk', 'Cyberpunk', '#00F0FF')" class="gradient-choice-card p-3 rounded-2xl bg-slateDark-900/80 border border-slate-800 text-left transition-all hover:scale-[1.02] flex items-center gap-3">
+                        <div class="w-10 h-6 rounded-lg grad-cyberpunk border border-white/25 shrink-0 shadow-sm"></div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Cyberpunk</div>
+                            <div class="text-[10px] text-pink-400 font-mono">Cyan • Laser Pink</div>
+                        </div>
+                    </button>
 
-                <button onclick="selectLogoStyle('lightbulb', 'Idea & Insight')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="lightbulb" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Idea & Insight</div>
-                    <div class="text-[10px] text-slate-400">Clear Clarity</div>
-                </button>
+                    <!-- 6. Solar Flare -->
+                    <button onclick="setGradientStyle('grad-solar', 'Solar Flare', '#FFB703')" class="gradient-choice-card p-3 rounded-2xl bg-slateDark-900/80 border border-slate-800 text-left transition-all hover:scale-[1.02] flex items-center gap-3">
+                        <div class="w-10 h-6 rounded-lg grad-solar border border-white/25 shrink-0 shadow-sm"></div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Solar Flare</div>
+                            <div class="text-[10px] text-orange-400 font-mono">Citrus • Crimson</div>
+                        </div>
+                    </button>
 
-                <button onclick="selectLogoStyle('rocket', 'Rocket Flow')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="rocket" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Rocket Flow</div>
-                    <div class="text-[10px] text-slate-400">Productivity Boost</div>
-                </button>
+                    <!-- 7. Emerald Glow -->
+                    <button onclick="setGradientStyle('grad-emerald', 'Emerald Glow', '#34D399')" class="gradient-choice-card p-3 rounded-2xl bg-slateDark-900/80 border border-slate-800 text-left transition-all hover:scale-[1.02] flex items-center gap-3">
+                        <div class="w-10 h-6 rounded-lg grad-emerald border border-white/25 shrink-0 shadow-sm"></div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Emerald Glow</div>
+                            <div class="text-[10px] text-emerald-400 font-mono">Lime • Teal</div>
+                        </div>
+                    </button>
 
-                <button onclick="selectLogoStyle('gem', 'Diamond')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="gem" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Diamond</div>
-                    <div class="text-[10px] text-slate-400">Polished Prose</div>
-                </button>
-
-                <button onclick="selectLogoStyle('star', 'Star Emblem')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="star" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Star Emblem</div>
-                    <div class="text-[10px] text-slate-400">Certified Quality</div>
-                </button>
-
-                <button onclick="selectLogoStyle('feather', 'Editorial Quill')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="feather" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Editorial Quill</div>
-                    <div class="text-[10px] text-slate-400">Classic Literature</div>
-                </button>
-
-                <button onclick="selectLogoStyle('check-circle', 'Verified Check')" class="logo-card p-4 rounded-2xl glass-card text-left transition-all hover:scale-105 border-slate-800 hover:border-slate-700">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-3">
-                        <i data-lucide="check-circle" class="w-5 h-5"></i>
-                    </div>
-                    <div class="text-xs font-bold text-white">Verified Check</div>
-                    <div class="text-[10px] text-slate-400">Zero Error Guarantee</div>
-                </button>
+                    <!-- 8. Prism -->
+                    <button onclick="setGradientStyle('grad-prism', 'Prism', '#06B6D4')" class="gradient-choice-card p-3 rounded-2xl bg-slateDark-900/80 border border-slate-800 text-left transition-all hover:scale-[1.02] flex items-center gap-3">
+                        <div class="w-10 h-6 rounded-lg grad-prism border border-white/25 shrink-0 shadow-sm"></div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Prism</div>
+                            <div class="text-[10px] text-indigo-300 font-mono">Multiverse Flow</div>
+                        </div>
+                    </button>
+                </div>
             </div>
 
-            <!-- Active Selected Notification -->
-            <div class="text-center text-xs text-slate-400 font-mono">
-                Currently Selected Logo: <span id="selected-logo-name" class="text-emerald-400 font-bold">Sparkle Star</span> • Supported in WordPilot Appearance Studio
+            <!-- 6 Curated AI Emblems -->
+            <div class="glass-card rounded-3xl p-6 sm:p-8">
+                <h3 class="font-display font-bold text-base text-white mb-2">Curated AI Emblems</h3>
+                <p class="text-xs text-slate-400 mb-6">The luminous symbol representing WordPilot AI in the floating bubble.</p>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3.5 mb-4">
+                    <button onclick="selectLogoStyle('sparkles', 'Sparkle')" class="logo-card active p-4 rounded-2xl bg-slateDark-900/80 text-left transition-all hover:scale-105 border-2 border-emerald-500">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2.5">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-xs font-bold text-white">Sparkle</div>
+                        <div class="text-[10px] text-slate-400">Gemini AI</div>
+                    </button>
+
+                    <button onclick="selectLogoStyle('wand-2', 'Magic Wand')" class="logo-card p-4 rounded-2xl bg-slateDark-900/80 text-left transition-all hover:scale-105 border border-slate-800 hover:border-slate-700">
+                        <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-2.5">
+                            <i data-lucide="wand-2" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-xs font-bold text-white">Magic Wand</div>
+                        <div class="text-[10px] text-slate-400">Grammar Polish</div>
+                    </button>
+
+                    <button onclick="selectLogoStyle('zap', 'Lightning')" class="logo-card p-4 rounded-2xl bg-slateDark-900/80 text-left transition-all hover:scale-105 border border-slate-800 hover:border-slate-700">
+                        <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-2.5">
+                            <i data-lucide="zap" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-xs font-bold text-white">Lightning</div>
+                        <div class="text-[10px] text-slate-400">Zero Latency</div>
+                    </button>
+
+                    <button onclick="selectLogoStyle('brain', 'Neural AI')" class="logo-card p-4 rounded-2xl bg-slateDark-900/80 text-left transition-all hover:scale-105 border border-slate-800 hover:border-slate-700">
+                        <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-2.5">
+                            <i data-lucide="brain" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-xs font-bold text-white">Neural</div>
+                        <div class="text-[10px] text-slate-400">Intelligence</div>
+                    </button>
+
+                    <button onclick="selectLogoStyle('pen-tool', 'Editorial')" class="logo-card p-4 rounded-2xl bg-slateDark-900/80 text-left transition-all hover:scale-105 border border-slate-800 hover:border-slate-700">
+                        <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-2.5">
+                            <i data-lucide="pen-tool" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-xs font-bold text-white">Editorial</div>
+                        <div class="text-[10px] text-slate-400">Craftsmanship</div>
+                    </button>
+
+                    <button onclick="selectLogoStyle('bot', 'Companion')" class="logo-card p-4 rounded-2xl bg-slateDark-900/80 text-left transition-all hover:scale-105 border border-slate-800 hover:border-slate-700">
+                        <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-2.5">
+                            <i data-lucide="bot" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-xs font-bold text-white">Companion</div>
+                        <div class="text-[10px] text-slate-400">Smart Assistant</div>
+                    </button>
+                </div>
+                <div class="text-center text-xs text-slate-400 font-mono">
+                    Currently Selected: <span id="selected-theme-summary" class="text-emerald-400 font-bold">Aurora Gradient + Sparkle Emblem</span>
+                </div>
             </div>
         </div>
     </section>
 
-    <!-- Dual-Provider Architecture Section -->
-    <section id="architecture" class="py-20 border-t border-slate-800/80 bg-slateDark-900/30 relative">
+    <!-- 3-Tier Multi-Provider Architecture Section -->
+    <section id="architecture" class="py-20 border-t border-slate-800/80 relative">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center space-y-3 mb-16">
                 <span class="text-xs font-mono font-semibold text-emerald-400 uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    Zero Disruption Architecture
+                    3-Tier Engine Architecture
                 </span>
                 <h2 class="font-display font-bold text-3xl sm:text-4xl text-white">
-                    Sequential Multi-Provider Failover
+                    Gemini Core AI + Dual-Provider Failover
                 </h2>
                 <p class="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-                    WordPilot uses an automated circuit-breaker orchestrator. If your primary neural model reaches monthly quotas or latency limits, it silently falls back with zero interruption.
+                    WordPilot v2.0 seamlessly orchestrates Gemini Core AI for deep tone transformations alongside high-speed real-time grammar engines with automatic circuit-breaker failover.
                 </p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
-                <!-- Sapling Card -->
-                <div class="glass-card rounded-3xl p-7 border-emerald-500/30 flex flex-col justify-between relative group hover:border-emerald-500/60 transition-all">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
+                <!-- Tier 1: Gemini Model -->
+                <div class="glass-card rounded-3xl p-7 border-indigo-500/40 flex flex-col justify-between hover:border-indigo-400 transition-all shadow-xl shadow-indigo-500/5">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">
+                                V2 Core AI
+                            </span>
+                            <i data-lucide="sparkles" class="w-6 h-6 text-indigo-400"></i>
+                        </div>
+                        <h3 class="font-display font-bold text-2xl text-white">Gemini Model</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Google Gemini 2.5 Flash powers real-time sentence restructuring, polishing, and 8 tone shifts right from the floating expander window.
+                        </p>
+                        <ul class="text-xs text-slate-400 space-y-2 pt-2">
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-indigo-400"></i> Custom user Gemini API key support</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-indigo-400"></i> 8 one-word tone presets</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-indigo-400"></i> Sub-second streaming rewrite</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Tier 2: Sapling AI -->
+                <div class="glass-card rounded-3xl p-7 border-emerald-500/30 flex flex-col justify-between hover:border-emerald-500/60 transition-all">
                     <div class="space-y-4">
                         <div class="flex items-center justify-between">
                             <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                                Priority 1 • Primary
+                                Real-Time Primary
                             </span>
                             <i data-lucide="zap" class="w-6 h-6 text-emerald-400"></i>
                         </div>
                         <h3 class="font-display font-bold text-2xl text-white">Sapling AI</h3>
-                        <p class="text-sm text-slate-300 leading-relaxed">
-                            Ultra-fast neural grammar, contextual spelling, and punctuation corrections. Ideal for daily conversation, professional messaging, and precise editorial flow.
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Ultra-fast neural grammar, contextual spelling, and punctuation corrections as you type across any Android chat or document.
                         </p>
                         <ul class="text-xs text-slate-400 space-y-2 pt-2">
-                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Free monthly quota via sapling.ai</li>
-                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Deep contextual neural understanding</li>
                             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Average latency ~180ms</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Free monthly quota included</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Contextual spell checking</li>
                         </ul>
-                    </div>
-                    <div class="pt-6">
-                        <a href="https://sapling.ai" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300">
-                            Visit sapling.ai <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                        </a>
                     </div>
                 </div>
 
-                <!-- LanguageTool Card -->
-                <div class="glass-card rounded-3xl p-7 border-slate-700 flex flex-col justify-between relative group hover:border-cyan-500/50 transition-all">
+                <!-- Tier 3: LanguageTool -->
+                <div class="glass-card rounded-3xl p-7 border-slate-700 flex flex-col justify-between hover:border-cyan-500/50 transition-all">
                     <div class="space-y-4">
                         <div class="flex items-center justify-between">
                             <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
-                                Priority 2 • Automatic Fallback
+                                Automatic Fallback
                             </span>
                             <i data-lucide="shield-check" class="w-6 h-6 text-cyan-400"></i>
                         </div>
                         <h3 class="font-display font-bold text-2xl text-white">LanguageTool</h3>
-                        <p class="text-sm text-slate-300 leading-relaxed">
-                            Trusted multilingual grammar and spelling engine. Works immediately out of the box with zero key required, or self-host your own 100% private Docker instance.
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Trusted multilingual grammar and spelling engine. Works out of the box with zero key required, or self-host your own offline Docker container.
                         </p>
                         <ul class="text-xs text-slate-400 space-y-2 pt-2">
-                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Zero configuration: public endpoint pre-configured</li>
-                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Self-hostable via Docker for 100% offline privacy</li>
-                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Unlimited usage on local networks</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Zero key setup required</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Self-hostable for 100% offline privacy</li>
+                            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Unlimited local network queries</li>
                         </ul>
-                    </div>
-                    <div class="pt-6">
-                        <code class="block text-[11px] font-mono p-2.5 rounded-xl bg-slateDark-950 text-slate-300 border border-slate-800">
-                            docker run -d -p 8010:8010 erikvl87/languagetool
-                        </code>
                     </div>
                 </div>
             </div>
@@ -591,7 +807,7 @@
     </section>
 
     <!-- Privacy Shield Section -->
-    <section id="privacy" class="py-20 border-t border-slate-800/80 relative">
+    <section id="privacy" class="py-20 border-t border-slate-800/80 bg-slateDark-900/30 relative">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center space-y-3 mb-16">
                 <span class="text-xs font-mono font-semibold text-emerald-400 uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
@@ -601,7 +817,7 @@
                     50+ Financial Apps Automatically Shielded
                 </h2>
                 <p class="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-                    WordPilot respects financial security. When you open banking apps, wallets, or sensitive password fields, the floating bubble completely disappears.
+                    WordPilot strictly enforces device-level privacy. When banking apps, payment wallets, or password fields open, the assistant automatically pauses and hides.
                 </p>
             </div>
 
@@ -650,7 +866,7 @@
     </section>
 
     <!-- Setup Guide Section -->
-    <section id="setup" class="py-20 border-t border-slate-800/80 bg-slateDark-900/40 relative">
+    <section id="setup" class="py-20 border-t border-slate-800/80 relative">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center space-y-3 mb-16">
                 <span class="text-xs font-mono font-semibold text-emerald-400 uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
@@ -660,7 +876,7 @@
                     Step-by-Step Installation & Setup
                 </h2>
                 <p class="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
-                    Three simple steps to unleash system-wide writing correction on your Android device.
+                    Three quick steps to install and activate WordPilot v2.0 on any modern Android device.
                 </p>
             </div>
 
@@ -671,13 +887,18 @@
                         1
                     </div>
                     <div class="space-y-2 flex-1">
-                        <h3 class="font-display font-bold text-lg text-white">Install WordPilot APK</h3>
+                        <h3 class="font-display font-bold text-lg text-white">Install WordPilot v2.0 APK</h3>
                         <p class="text-sm text-slate-300">
-                            Download the signed release APK <code class="text-emerald-400 font-mono text-xs">WordPilot-v1.0.apk</code> and tap to install on your Android device (Android 8.0 through Android 15/16).
+                            Download the release APK <code class="text-emerald-400 font-mono text-xs">WordPilot-v2.0.apk</code> and tap to install on your Android device (Android 8.0 through Android 15/16).
                         </p>
-                        <a href="https://github.com/pratyushkk/WordPilot/releases/download/v1.0/WordPilot-v1.0.apk" class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 pt-1">
-                            Download Official Release APK (v1.0) <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-                        </a>
+                        <div class="flex flex-wrap items-center gap-3 pt-1">
+                            <a href="https://github.com/pratyushkk/WordPilot/releases/download/v2.0/WordPilot-v2.0.apk" class="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-colors">
+                                <i data-lucide="download" class="w-4 h-4"></i> Download WordPilot-v2.0.apk (12.9 MB)
+                            </a>
+                            <a href="https://github.com/pratyushkk/WordPilot/releases/tag/v2.0" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white">
+                                GitHub Release Notes <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -687,7 +908,7 @@
                         2
                     </div>
                     <div class="space-y-2 flex-1">
-                        <h3 class="font-display font-bold text-lg text-white">Turn On Accessibility Service</h3>
+                        <h3 class="font-display font-bold text-lg text-white">Enable Accessibility Service</h3>
                         <p class="text-sm text-slate-300">
                             Open WordPilot ➔ tap <strong>"Floating Assistant (Cross-App)"</strong> ➔ select <strong>"Open Accessibility Settings"</strong> ➔ tap <strong>WordPilot Assistant</strong> under Downloaded Apps and toggle to <strong>ON</strong>.
                         </p>
@@ -703,68 +924,12 @@
                         3
                     </div>
                     <div class="space-y-2 flex-1">
-                        <h3 class="font-display font-bold text-lg text-white">Configure Your Grammar Provider</h3>
+                        <h3 class="font-display font-bold text-lg text-white">Configure Gemini Key & Tone Preferences</h3>
                         <p class="text-sm text-slate-300">
-                            In <strong>API Providers & Keys</strong>, paste your free Sapling AI key for contextual grammar, or use LanguageTool out-of-the-box with zero setup required.
+                            In <strong>API Providers & Keys</strong> or directly from the expander overlay, enter your Google Gemini API key to unlock real-time AI rewrites, or enjoy LanguageTool out of the box with zero configuration!
                         </p>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- FAQ Accordion Section -->
-    <section class="py-20 border-t border-slate-800/80 relative">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center space-y-3 mb-14">
-                <span class="text-xs font-mono font-semibold text-emerald-400 uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    Got Questions?
-                </span>
-                <h2 class="font-display font-bold text-3xl sm:text-4xl text-white">
-                    Frequently Asked Questions
-                </h2>
-            </div>
-
-            <div class="space-y-4">
-                <details class="glass-card rounded-2xl p-5 group cursor-pointer">
-                    <summary class="font-display font-bold text-base text-white flex items-center justify-between list-none">
-                        <span>Is WordPilot completely free?</span>
-                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform"></i>
-                    </summary>
-                    <p class="text-sm text-slate-300 pt-3 leading-relaxed">
-                        Yes! WordPilot is 100% free and open-source under the Apache 2.0 license. The LanguageTool fallback requires zero payment or keys, and Sapling provides a generous free monthly quota.
-                    </p>
-                </details>
-
-                <details class="glass-card rounded-2xl p-5 group cursor-pointer">
-                    <summary class="font-display font-bold text-base text-white flex items-center justify-between list-none">
-                        <span>Does WordPilot store or track my keystrokes?</span>
-                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform"></i>
-                    </summary>
-                    <p class="text-sm text-slate-300 pt-3 leading-relaxed">
-                        Never. WordPilot contains zero telemetry, analytics, or background tracking. Corrections are processed solely through your configured APIs, and over 50+ banking apps and password fields are strictly shielded.
-                    </p>
-                </details>
-
-                <details class="glass-card rounded-2xl p-5 group cursor-pointer">
-                    <summary class="font-display font-bold text-base text-white flex items-center justify-between list-none">
-                        <span>How does the 30% edge-tuck feature work?</span>
-                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform"></i>
-                    </summary>
-                    <p class="text-sm text-slate-300 pt-3 leading-relaxed">
-                        When minimized, the bubble automatically snaps to the left or right screen border and rests 30% tucked inside the bezel. When you tap it, it smoothly expands into visible screen bounds with safe margins.
-                    </p>
-                </details>
-
-                <details class="glass-card rounded-2xl p-5 group cursor-pointer">
-                    <summary class="font-display font-bold text-base text-white flex items-center justify-between list-none">
-                        <span>Can I host my own LanguageTool server offline?</span>
-                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform"></i>
-                    </summary>
-                    <p class="text-sm text-slate-300 pt-3 leading-relaxed">
-                        Yes! Simply run <code>docker run -d -p 8010:8010 erikvl87/languagetool</code> on your PC or home server and input your server's local IP address into WordPilot for 100% private, offline usage.
-                    </p>
-                </details>
             </div>
         </div>
     </section>
@@ -776,20 +941,20 @@
                 <div class="absolute -top-24 -right-24 w-60 h-60 bg-emerald-500/20 rounded-full blur-[80px]"></div>
                 
                 <h2 class="font-display font-extrabold text-3xl sm:text-5xl text-white mb-4">
-                    Upgrade Your Writing Everywhere
+                    Upgrade to WordPilot v2.0
                 </h2>
                 <p class="text-base text-slate-300 max-w-xl mx-auto mb-8">
-                    Get WordPilot v1.0 today. Fast, private, intelligent typing corrections for all your Android apps.
+                    Gemini Core AI rewrite power, frosted blur aesthetics, and 8 vibrant gradient presets across all your Android apps.
                 </p>
 
                 <div class="flex flex-wrap items-center justify-center gap-4">
-                    <a href="https://github.com/pratyushkk/WordPilot/releases/download/v1.0/WordPilot-v1.0.apk" class="px-8 py-4 rounded-xl font-bold text-base text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all duration-300 shadow-xl shadow-emerald-500/25 flex items-center gap-2.5">
+                    <a href="https://github.com/pratyushkk/WordPilot/releases/download/v2.0/WordPilot-v2.0.apk" class="px-8 py-4 rounded-xl font-bold text-base text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all duration-300 shadow-xl shadow-emerald-500/25 flex items-center gap-2.5">
                         <i data-lucide="download" class="w-5 h-5"></i>
-                        <span>Download WordPilot v1.0 (APK)</span>
+                        <span>Download WordPilot v2.0 (APK)</span>
                     </a>
                     <a href="https://github.com/pratyushkk/WordPilot" target="_blank" rel="noopener noreferrer" class="px-7 py-4 rounded-xl font-semibold text-base text-slate-200 bg-slate-800/80 hover:bg-slate-700 transition-all duration-300 flex items-center gap-2 border border-slate-700">
                         <i data-lucide="github" class="w-5 h-5"></i>
-                        <span>View Source Code</span>
+                        <span>View on GitHub</span>
                     </a>
                 </div>
             </div>
@@ -801,42 +966,85 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
             <div class="flex items-center gap-3">
                 <img src="assets/logo.png" alt="WordPilot" class="w-6 h-6 rounded-lg opacity-80">
-                <span class="text-slate-400 font-medium font-display">WordPilot — System-Wide Android Assistant</span>
+                <span class="text-slate-400 font-medium font-display">WordPilot v2.0 — System-Wide Android AI Assistant</span>
             </div>
 
             <div class="flex items-center gap-6">
                 <a href="https://github.com/pratyushkk/WordPilot" class="hover:text-slate-300 transition-colors">GitHub Repository</a>
-                <a href="https://github.com/pratyushkk/WordPilot/releases/tag/v1.0" class="hover:text-slate-300 transition-colors">Releases</a>
+                <a href="https://github.com/pratyushkk/WordPilot/releases/tag/v2.0" class="hover:text-slate-300 transition-colors">Releases (v2.0)</a>
                 <a href="https://github.com/pratyushkk/WordPilot/blob/master/LICENSE" class="hover:text-slate-300 transition-colors">License (Apache 2.0)</a>
             </div>
 
             <div class="text-slate-600">
-                Crafted for Android 8.0+ • Open Source
+                Crafted for Android 8.0+ • Open Source • 100% Zero Telemetry
             </div>
         </div>
     </footer>
 
-    <!-- Interactive Script -->
+    <!-- Interactive Scripts -->
     <script>
         // Initialize Lucide Icons
         lucide.createIcons();
 
-        // Hero Sandbox Logic
+        // Hero Expander Toggle Logic
+        let heroExpanderOpen = false;
+        function toggleHeroExpander() {
+            heroExpanderOpen = !heroExpanderOpen;
+            const exp = document.getElementById('hero-expander-window');
+            if (heroExpanderOpen) {
+                exp.classList.remove('hidden');
+            } else {
+                exp.classList.add('hidden');
+            }
+        }
+
+        // Hero Tone Rewrite Simulation
+        const heroToneRewrites = {
+            'Polish': 'They are going to the meeting and ate an apple.',
+            'Short': 'They headed to the meeting and ate an apple.',
+            'Rewrite': 'They are on their way to the meeting and enjoyed an apple.',
+            'Polite': 'They will kindly be attending the meeting and had an apple.',
+            'Formal': 'The attendees proceeded to the meeting after having consumed an apple.',
+            'Casual': 'They are off to the meeting and grabbed an apple.',
+            'Clarity': 'They are attending the meeting and ate an apple.',
+            'Natural': 'They are going to the meeting and had an apple.'
+        };
+
+        function applyToneTransform(tone) {
+            const box = document.getElementById('mock-input-box');
+            const tag = document.getElementById('tone-indicator-tag');
+            const newText = heroToneRewrites[tone] || heroToneRewrites['Polish'];
+            
+            box.innerHTML = `<span class="text-indigo-300 font-semibold">${newText}</span>`;
+            tag.innerText = `Rewritten (${tone})`;
+            tag.classList.remove('hidden');
+
+            // Hide chip 1 & chip 2 as sentence is now perfect
+            document.getElementById('chip-1').classList.add('hidden');
+            document.getElementById('chip-2').classList.add('hidden');
+
+            toggleHeroExpander();
+        }
+
+        // Hero Direct Correction Chips
         function applyHeroCorrection(type) {
             const box = document.getElementById('mock-input-box');
-            if (type === 'has gone') {
-                box.innerHTML = 'I <span class="bg-emerald-500/20 text-emerald-300 px-1 rounded font-bold">has gone</span> to the meeting and ate <span class="bg-red-500/20 text-red-300 line-through px-1 rounded">a apple</span>.';
+            if (type === 'are going') {
+                box.innerHTML = 'They <span class="bg-emerald-500/20 text-emerald-300 px-1 rounded font-bold">are going</span> to the meeting and ate <span class="bg-red-500/20 text-red-300 line-through px-1 rounded">a apple</span>.';
+                document.getElementById('chip-1').classList.add('hidden');
             } else if (type === 'an apple') {
-                box.innerHTML = 'I has gone to the meeting and ate <span class="bg-emerald-500/20 text-emerald-300 px-1 rounded font-bold">an apple</span>.';
+                box.innerHTML = 'They are going to the meeting and ate <span class="bg-emerald-500/20 text-emerald-300 px-1 rounded font-bold">an apple</span>.';
+                document.getElementById('chip-2').classList.add('hidden');
             }
         }
 
         // Live Sandbox Simulator Logic
         const sandboxMistakes = [
-            { error: 'She go', fix: 'She goes', target: 'go', replacement: 'goes' },
-            { error: 'Their going', fix: 'They\'re going', target: 'Their', replacement: 'They\'re' },
-            { error: 'there new', fix: 'their new', target: 'there', replacement: 'their' },
-            { error: 'a apple', fix: 'an apple', target: 'a apple', replacement: 'an apple' }
+            { target: 'go to school', replacement: 'goes to school' },
+            { target: 'its awesome', replacement: 'it\'s awesome' },
+            { target: 'Their going', replacement: 'They\'re going' },
+            { target: 'there new', replacement: 'their new' },
+            { target: 'a apple', replacement: 'an apple' }
         ];
 
         function setSandboxText(text) {
@@ -857,7 +1065,7 @@
                 if (input.includes(m.target)) {
                     issuesFound++;
                     const btn = document.createElement('button');
-                    btn.className = "px-4 py-2 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500 text-emerald-300 text-xs font-bold flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-emerald-500/10";
+                    btn.className = "px-3.5 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-md shadow-emerald-500/10";
                     btn.innerHTML = `<span class="text-red-400 line-through text-[11px]">${m.target}</span><span>➔</span><span>${m.replacement}</span>`;
                     btn.onclick = () => applySandboxFix(m.target, m.replacement);
                     chipsContainer.appendChild(btn);
@@ -881,28 +1089,97 @@
             analyzeSandboxText();
         }
 
-        // Logo Customization Selector
-        function selectLogoStyle(iconName, displayName) {
-            document.querySelectorAll('.logo-card').forEach(el => {
-                el.classList.remove('border-emerald-500', 'bg-emerald-500/10', 'active');
-                el.classList.add('border-slate-800');
-            });
-            event.currentTarget.classList.remove('border-slate-800');
-            event.currentTarget.classList.add('border-emerald-500', 'bg-emerald-500/10', 'active');
-
-            document.getElementById('selected-logo-name').innerText = displayName;
-
-            // Update Phone Mockup Logo
-            const heroLogo = document.getElementById('hero-logo-icon');
-            heroLogo.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i>`;
-
-            const sandboxLogo = document.getElementById('sandbox-logo-pill');
-            sandboxLogo.innerHTML = `<i data-lucide="${iconName}" class="w-5 h-5"></i>`;
-
-            lucide.createIcons();
+        // Sandbox Tone Menu
+        let sandboxToneOpen = false;
+        function toggleSandboxToneMenu() {
+            sandboxToneOpen = !sandboxToneOpen;
+            const drawer = document.getElementById('sandbox-tone-drawer');
+            if (sandboxToneOpen) {
+                drawer.classList.remove('hidden');
+            } else {
+                drawer.classList.add('hidden');
+            }
         }
 
-        // Run initial analysis
+        function runSandboxTone(tone) {
+            const input = document.getElementById('sandbox-input');
+            const log = document.getElementById('sandbox-action-log');
+            let text = input.value;
+
+            // Transform sentence according to tone
+            if (tone === 'Polish') {
+                text = text.replace(/go to/g, 'goes to').replace(/its/g, 'it\'s').replace(/Their/g, 'They\'re').replace(/there new/g, 'their new').replace(/a apple/g, 'an apple');
+            } else if (tone === 'Short') {
+                text = 'She attends school daily and it is great.';
+            } else if (tone === 'Formal') {
+                text = 'She attends school on a daily basis, which is truly commendable.';
+            } else if (tone === 'Casual') {
+                text = 'She heads to school every day and it\'s super cool.';
+            } else if (tone === 'Polite') {
+                text = 'She kindly attends school every day and finds it wonderful.';
+            } else {
+                text = text.replace(/go to/g, 'goes to').replace(/its/g, 'it\'s').replace(/Their/g, 'They\'re').replace(/a apple/g, 'an apple');
+            }
+
+            input.value = text;
+            log.innerText = `✓ Rewritten with ${tone} tone`;
+            setTimeout(() => { log.innerText = ''; }, 3500);
+
+            analyzeSandboxText();
+            toggleSandboxToneMenu();
+        }
+
+        // Appearance Studio: Gradient Theme Switcher
+        let activeGradientClass = 'grad-aurora';
+        let activeGradientName = 'Aurora';
+
+        function setGradientStyle(gradientClass, name, primaryColor) {
+            document.querySelectorAll('.gradient-choice-card').forEach(el => {
+                el.classList.remove('border-emerald-500', 'border-2', 'active');
+                el.classList.add('border-slate-800', 'border');
+            });
+            event.currentTarget.classList.remove('border-slate-800', 'border');
+            event.currentTarget.classList.add('border-emerald-500', 'border-2', 'active');
+
+            activeGradientClass = gradientClass;
+            activeGradientName = name;
+
+            // Update Phone Mockup Bubble Anchor Gradient
+            const heroAnchor = document.getElementById('hero-bubble-anchor');
+            heroAnchor.className = `w-7 h-7 rounded-full ${gradientClass} text-slate-950 flex items-center justify-center font-bold shadow-md shrink-0 transition-all duration-300`;
+
+            // Update Sandbox Anchor Gradient
+            const sandboxAnchor = document.getElementById('sandbox-bubble-anchor');
+            sandboxAnchor.className = `w-10 h-10 rounded-full ${gradientClass} text-slate-950 flex items-center justify-center font-bold shadow-lg shrink-0 transition-all duration-300`;
+
+            updateThemeSummary();
+        }
+
+        // Appearance Studio: Emblem Switcher
+        let activeLogoName = 'Sparkle';
+        function selectLogoStyle(iconName, displayName) {
+            document.querySelectorAll('.logo-card').forEach(el => {
+                el.classList.remove('border-emerald-500', 'border-2', 'active');
+                el.classList.add('border-slate-800', 'border');
+            });
+            event.currentTarget.classList.remove('border-slate-800', 'border');
+            event.currentTarget.classList.add('border-emerald-500', 'border-2', 'active');
+
+            activeLogoName = displayName;
+
+            // Update Mockup Logo
+            document.getElementById('hero-bubble-anchor').innerHTML = `<i data-lucide="${iconName}" id="hero-anchor-icon" class="w-3.5 h-3.5 text-slate-950"></i>`;
+            document.getElementById('sandbox-bubble-anchor').innerHTML = `<i data-lucide="${iconName}" id="sandbox-anchor-icon" class="w-5 h-5 text-slate-950"></i>`;
+
+            lucide.createIcons();
+            updateThemeSummary();
+        }
+
+        function updateThemeSummary() {
+            document.getElementById('selected-theme-summary').innerText = `${activeGradientName} Gradient + ${activeLogoName} Emblem`;
+        }
+
+        // Initialize sandbox
         analyzeSandboxText();
     </script>
 </body>
