@@ -177,6 +177,8 @@ class FloatingAssistantController(
         return _uiState.value != FloatingUiState.COLLAPSED
     }
 
+    fun isExpanded(): Boolean = isInteracting()
+
     fun getScreenDimensions(): Pair<Int, Int> {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {

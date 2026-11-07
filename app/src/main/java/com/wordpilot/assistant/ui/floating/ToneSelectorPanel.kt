@@ -47,8 +47,8 @@ val ALL_TONE_DEFINITIONS = listOf(
     ToneOption(
         id = "FIX_GRAMMAR",
         style = RewriteStyle.FIX_GRAMMAR,
-        title = "Fix & Polish",
-        subtitle = "Grammar, spelling & flow",
+        title = "Polish",
+        subtitle = "Grammar & flow",
         icon = Icons.Filled.AutoAwesome,
         accentColor = Color(0xFF10B981)
     ),
@@ -56,7 +56,7 @@ val ALL_TONE_DEFINITIONS = listOf(
         id = "MAKE_CONCISE",
         style = RewriteStyle.MAKE_CONCISE,
         title = "Short",
-        subtitle = "Concise, direct & cut filler",
+        subtitle = "Direct & concise",
         icon = Icons.Filled.Compress,
         accentColor = Color(0xFF34D399)
     ),
@@ -64,7 +64,7 @@ val ALL_TONE_DEFINITIONS = listOf(
         id = "REWRITE",
         style = RewriteStyle.REWRITE,
         title = "Rewrite",
-        subtitle = "Fluent, natural & expressive",
+        subtitle = "Natural & expressive",
         icon = Icons.Filled.Refresh,
         accentColor = Color(0xFF60A5FA)
     ),
@@ -79,16 +79,16 @@ val ALL_TONE_DEFINITIONS = listOf(
     ToneOption(
         id = "MAKE_PROFESSIONAL",
         style = RewriteStyle.MAKE_PROFESSIONAL,
-        title = "Professional",
-        subtitle = "Polished, formal & executive",
+        title = "Formal",
+        subtitle = "Polished & formal",
         icon = Icons.Filled.WorkOutline,
         accentColor = Color(0xFF38BDF8)
     ),
     ToneOption(
         id = "MAKE_CASUAL",
         style = RewriteStyle.MAKE_CASUAL,
-        title = "Casual & Friendly",
-        subtitle = "Warm, relaxed & casual",
+        title = "Casual",
+        subtitle = "Warm & relaxed",
         icon = Icons.Filled.SentimentSatisfied,
         accentColor = Color(0xFFFBBF24)
     ),
@@ -96,7 +96,7 @@ val ALL_TONE_DEFINITIONS = listOf(
         id = "IMPROVE_CLARITY",
         style = RewriteStyle.IMPROVE_CLARITY,
         title = "Clarity",
-        subtitle = "Clear, crisp & easy to read",
+        subtitle = "Clear & easy to read",
         icon = Icons.Filled.Lightbulb,
         accentColor = Color(0xFFA78BFA)
     ),
@@ -104,7 +104,7 @@ val ALL_TONE_DEFINITIONS = listOf(
         id = "IMPROVE_NATURAL",
         style = RewriteStyle.IMPROVE_NATURAL,
         title = "Natural",
-        subtitle = "Native English phrasing",
+        subtitle = "Native phrasing",
         icon = Icons.Filled.RecordVoiceOver,
         accentColor = Color(0xFFFB7185)
     )
@@ -142,7 +142,8 @@ fun ToneSelectorPanel(
         borderWidth = settings.glassBorderWidthDp.dp,
         borderOpacity = settings.glassBorderOpacity.coerceAtLeast(0.35f),
         highlightOpacity = settings.glassHighlightOpacity,
-        shadowElevation = 18.dp
+        shadowElevation = 18.dp,
+        blurRadius = if (settings.expanderBlurEnabled) settings.expanderBlurRadiusDp.dp else 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -243,48 +244,24 @@ fun ToneSelectorPanel(
                 items(activeTones) { tone ->
                     Surface(
                         onClick = { onToneSelect(tone.style, tone.title) },
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF1E232E).copy(alpha = 0.55f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF1E232E).copy(alpha = if (settings.expanderBlurEnabled) 0.50f else 0.70f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .padding(vertical = 12.dp, horizontal = 6.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(tone.accentColor.copy(alpha = 0.18f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = tone.icon,
-                                    contentDescription = null,
-                                    tint = tone.accentColor,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = tone.title,
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = tone.subtitle,
-                                    color = AssistantColors.TextMuted,
-                                    fontSize = 9.sp,
-                                    maxLines = 1,
-                                    lineHeight = 11.sp
-                                )
-                            }
+                            Text(
+                                text = tone.title,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
                         }
                     }
                 }

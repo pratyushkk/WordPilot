@@ -238,7 +238,7 @@ fun AppearanceSettingsScreen(
                                 settings = settings,
                                 uiState = previewUiState,
                                 isNearRightEdge = false,
-                                errorCount = previewCorrections.size,
+                                errorCount = if (previewUiState == FloatingUiState.COLLAPSED) 0 else previewCorrections.size,
                                 isChecking = false,
                                 activeCorrection = previewCorrections.firstOrNull(),
                                 activeCorrections = previewCorrections,
@@ -314,19 +314,19 @@ fun AppearanceSettingsScreen(
                         val presets = listOf(
                             MasterPreset(
                                 name = "Default",
-                                subtitle = "Signature Emerald",
+                                subtitle = "Aurora Mint",
                                 bubbleSize = 48f,
                                 iconSize = 24f,
                                 shape = BubbleShape.SQUIRCLE,
-                                gradientId = GradientPresets.Default.id,
+                                gradientId = GradientPresets.Aurora.id,
                                 logoId = "sparkle",
                                 edgeTuckPercent = 0.30f,
                                 glassOpacity = 0.90f,
-                                previewColors = listOf(Color(0xFF00D2FF), Color(0xFFA855F7), Color(0xFFFF6B9D))
+                                previewColors = GradientPresets.Aurora.colors
                             ),
                             MasterPreset(
-                                name = "Compact",
-                                subtitle = "Stealth & Agile",
+                                name = "Ocean",
+                                subtitle = "Electric Indigo",
                                 bubbleSize = 36f,
                                 iconSize = 18f,
                                 shape = BubbleShape.CIRCLE,
@@ -334,31 +334,31 @@ fun AppearanceSettingsScreen(
                                 logoId = "bolt",
                                 edgeTuckPercent = 0.35f,
                                 glassOpacity = 0.82f,
-                                previewColors = listOf(Color(0xFF00D2FF), Color(0xFF2563EB), Color(0xFF4F46E5))
+                                previewColors = GradientPresets.Ocean.colors
                             ),
                             MasterPreset(
-                                name = "Comfort",
-                                subtitle = "High Visibility",
+                                name = "Cosmic",
+                                subtitle = "Electric Violet",
                                 bubbleSize = 56f,
                                 iconSize = 28f,
                                 shape = BubbleShape.ROUNDED_SQUARE,
-                                gradientId = GradientPresets.Aurora.id,
+                                gradientId = GradientPresets.Cosmic.id,
                                 logoId = "wand",
                                 edgeTuckPercent = 0.25f,
                                 glassOpacity = 0.95f,
-                                previewColors = listOf(Color(0xFF10B981), Color(0xFF06B6D4), Color(0xFF3B82F6))
+                                previewColors = GradientPresets.Cosmic.colors
                             ),
                             MasterPreset(
-                                name = "Pure OLED",
-                                subtitle = "Deep Obsidian",
+                                name = "Sunset",
+                                subtitle = "Sunset Blaze",
                                 bubbleSize = 44f,
                                 iconSize = 22f,
                                 shape = BubbleShape.SQUIRCLE,
-                                gradientId = GradientPresets.Neon.id,
-                                logoId = "brain",
+                                gradientId = GradientPresets.Sunset.id,
+                                logoId = "bolt",
                                 edgeTuckPercent = 0.30f,
                                 glassOpacity = 1.0f,
-                                previewColors = listOf(Color(0xFF22C55E), Color(0xFF06B6D4), Color(0xFF3B82F6))
+                                previewColors = GradientPresets.Sunset.colors
                             )
                         )
 
@@ -775,9 +775,14 @@ fun AppearanceSettingsScreen(
                                             ) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(20.dp)
-                                                        .clip(CircleShape)
-                                                        .background(preset.createBrush())
+                                                        .width(36.dp)
+                                                        .height(20.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(preset.createHorizontalBrush())
+                                                        .border(
+                                                            BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                                                            RoundedCornerShape(6.dp)
+                                                        )
                                                 )
                                                 Text(
                                                     text = preset.name,
@@ -830,6 +835,74 @@ fun AppearanceSettingsScreen(
                             valueRange = 40f..100f,
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = Color.White.copy(alpha = 0.06f)
+                        )
+
+                        // Expander Window Blur Design Option
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = "Expander Window Frosted Blur",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Renders a frosted blur backdrop on the expanded rewrite & tone window.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                            Switch(
+                                checked = settings.expanderBlurEnabled,
+                                onCheckedChange = { updateAndSave(settings.copy(expanderBlurEnabled = it)) }
+                            )
+                        }
+
+                        if (settings.expanderBlurEnabled) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(
+                                    "Subtle (12dp)" to 12f,
+                                    "Medium (20dp)" to 20f,
+                                    "Deep (32dp)" to 32f
+                                ).forEach { (label, radius) ->
+                                    val isSelected = kotlin.math.abs(settings.expanderBlurRadiusDp - radius) < 2f
+                                    Surface(
+                                        onClick = { updateAndSave(settings.copy(expanderBlurRadiusDp = radius)) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color(0xFF1A1F2B),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.06f)
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.padding(vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

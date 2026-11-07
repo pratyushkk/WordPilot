@@ -59,7 +59,8 @@ fun SuggestionPreview(
         borderWidth = settings.glassBorderWidthDp.dp,
         borderOpacity = settings.glassBorderOpacity.coerceAtLeast(0.35f),
         highlightOpacity = settings.glassHighlightOpacity,
-        shadowElevation = 18.dp
+        shadowElevation = 18.dp,
+        blurRadius = if (settings.expanderBlurEnabled) settings.expanderBlurRadiusDp.dp else 0.dp
     ) {
         Column(
             modifier = Modifier

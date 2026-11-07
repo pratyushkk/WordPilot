@@ -26,7 +26,7 @@ class ToneConfigurationTest {
 
         // Top 4 default options
         assertTrue(idMap.containsKey("FIX_GRAMMAR"))
-        assertEquals("Fix & Polish", idMap["FIX_GRAMMAR"]?.title)
+        assertEquals("Polish", idMap["FIX_GRAMMAR"]?.title)
         assertEquals(RewriteStyle.FIX_GRAMMAR, idMap["FIX_GRAMMAR"]?.style)
 
         assertTrue(idMap.containsKey("MAKE_CONCISE"))
@@ -43,10 +43,10 @@ class ToneConfigurationTest {
 
         // Additional selectable options in settings
         assertTrue(idMap.containsKey("MAKE_PROFESSIONAL"))
-        assertEquals("Professional", idMap["MAKE_PROFESSIONAL"]?.title)
+        assertEquals("Formal", idMap["MAKE_PROFESSIONAL"]?.title)
 
         assertTrue(idMap.containsKey("MAKE_CASUAL"))
-        assertEquals("Casual & Friendly", idMap["MAKE_CASUAL"]?.title)
+        assertEquals("Casual", idMap["MAKE_CASUAL"]?.title)
 
         assertTrue(idMap.containsKey("IMPROVE_CLARITY"))
         assertEquals("Clarity", idMap["IMPROVE_CLARITY"]?.title)
@@ -60,13 +60,13 @@ class ToneConfigurationTest {
         val defaultTones = ALL_TONE_DEFINITIONS.filter { it.id in AiWindowSettings.DEFAULT_TONE_STYLES }
         assertEquals(4, defaultTones.size)
         val titles = defaultTones.map { it.title }
-        assertEquals(listOf("Fix & Polish", "Short", "Rewrite", "Polite"), titles)
+        assertEquals(listOf("Polish", "Short", "Rewrite", "Polite"), titles)
 
-        // When user enables additional tone from settings (e.g. Professional and Clarity)
+        // When user enables additional tone from settings (e.g. Formal and Clarity)
         val customSelection = listOf("FIX_GRAMMAR", "MAKE_CONCISE", "MAKE_PROFESSIONAL", "IMPROVE_CLARITY")
         val customTones = ALL_TONE_DEFINITIONS.filter { it.id in customSelection }
         assertEquals(4, customTones.size)
-        assertTrue(customTones.any { it.title == "Professional" })
+        assertTrue(customTones.any { it.title == "Formal" })
         assertTrue(customTones.any { it.title == "Clarity" })
     }
 }

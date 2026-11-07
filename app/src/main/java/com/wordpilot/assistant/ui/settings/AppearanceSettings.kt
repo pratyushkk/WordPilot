@@ -122,7 +122,11 @@ data class AppearanceSettings(
     val badgeFontWeightBold: Boolean = true,
 
     // AI Logo in Editing Section
-    val aiLogoIconId: String = "sparkle"
+    val aiLogoIconId: String = "sparkle",
+
+    // Expander Window Blur Design
+    val expanderBlurEnabled: Boolean = true,
+    val expanderBlurRadiusDp: Float = 20f
 ) {
     fun getAiLogo(): AiLogoIcon = AiLogoIcon.fromId(aiLogoIconId)
 
@@ -272,7 +276,9 @@ data class AppearanceSettings(
                 badgeLetter = sp.getString(KEY_BADGE_LETTER, defaultInst.badgeLetter) ?: defaultInst.badgeLetter,
                 badgeTextSizeSp = sp.getFloat(KEY_BADGE_TEXT_SIZE_SP, defaultInst.badgeTextSizeSp),
                 badgeFontWeightBold = sp.getBoolean(KEY_BADGE_FONT_WEIGHT_BOLD, defaultInst.badgeFontWeightBold),
-                aiLogoIconId = sp.getString(KEY_AI_LOGO_ICON_ID, defaultInst.aiLogoIconId) ?: defaultInst.aiLogoIconId
+                aiLogoIconId = sp.getString(KEY_AI_LOGO_ICON_ID, defaultInst.aiLogoIconId) ?: defaultInst.aiLogoIconId,
+                expanderBlurEnabled = sp.getBoolean("appr_expander_blur_enabled", true),
+                expanderBlurRadiusDp = sp.getFloat("appr_expander_blur_radius", 20f)
             )
         }
 
@@ -327,6 +333,8 @@ data class AppearanceSettings(
             editor.putFloat(KEY_BADGE_TEXT_SIZE_SP, settings.badgeTextSizeSp)
             editor.putBoolean(KEY_BADGE_FONT_WEIGHT_BOLD, settings.badgeFontWeightBold)
             editor.putString(KEY_AI_LOGO_ICON_ID, settings.aiLogoIconId)
+            editor.putBoolean("appr_expander_blur_enabled", settings.expanderBlurEnabled)
+            editor.putFloat("appr_expander_blur_radius", settings.expanderBlurRadiusDp)
 
             editor.apply()
         }

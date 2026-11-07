@@ -3,8 +3,6 @@ package com.wordpilot.assistant.ui.theme
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import kotlin.math.cos
-import kotlin.math.sin
 
 data class GradientConfig(
     val id: String,
@@ -13,15 +11,25 @@ data class GradientConfig(
     val angleDegrees: Float = 45f,
     val isCustom: Boolean = false
 ) {
+    /**
+     * Creates a full-bleed diagonal gradient that adapts dynamically
+     * to the exact width and height of any drawing container (from 20dp swatches
+     * to 56dp floating bubbles and larger preview surfaces).
+     */
     fun createBrush(): Brush {
-        val rad = Math.toRadians(angleDegrees.toDouble())
-        val x = cos(rad).toFloat()
-        val y = sin(rad).toFloat()
-        
         return Brush.linearGradient(
             colors = colors,
-            start = Offset(0f, 0f),
-            end = Offset(x * 1000f, y * 1000f)
+            start = Offset.Zero,
+            end = Offset.Infinite
+        )
+    }
+
+    /**
+     * Horizontal gradient across component width, ideal for swatch preview pills.
+     */
+    fun createHorizontalBrush(): Brush {
+        return Brush.horizontalGradient(
+            colors = colors
         )
     }
 
@@ -50,89 +58,123 @@ data class GradientConfig(
 }
 
 object GradientPresets {
-    // Default signature 4-color diagonal gradient: Cyan -> Blue -> Violet -> Pink
-    val Default = GradientConfig(
-        id = "default_signature",
-        name = "Signature Sparkle",
-        colors = listOf(
-            Color(0xFF00D2FF), // Electric Cyan
-            Color(0xFF3478F6), // Vibrant Blue
-            Color(0xFFA855F7), // Violet
-            Color(0xFFFF6B9D)  // Bright Pink
-        ),
-        angleDegrees = 45f
-    )
-
-    // Preset 1: Ocean (Cyan -> Blue -> Indigo)
-    val Ocean = GradientConfig(
-        id = "ocean",
-        name = "Ocean",
-        colors = listOf(
-            Color(0xFF00D2FF),
-            Color(0xFF2563EB),
-            Color(0xFF4F46E5)
-        ),
-        angleDegrees = 45f
-    )
-
-    // Preset 2: Aurora (Mint -> Turquoise -> Blue)
+    // Kept Preset 1: Aurora (Neon Mint -> Electric Cyan -> Radiant Azure Blue)
     val Aurora = GradientConfig(
         id = "aurora",
         name = "Aurora",
         colors = listOf(
-            Color(0xFF10B981),
-            Color(0xFF06B6D4),
-            Color(0xFF3B82F6)
+            Color(0xFF00F5A0),
+            Color(0xFF00D9F5),
+            Color(0xFF0072FF)
         ),
         angleDegrees = 45f
     )
 
-    // Preset 3: Sunset (Orange -> Pink -> Violet)
+    // Kept Preset 2: Ocean (Aqua Cyan -> Ocean Blue -> Electric Indigo)
+    val Ocean = GradientConfig(
+        id = "ocean",
+        name = "Ocean",
+        colors = listOf(
+            Color(0xFF00E5FF),
+            Color(0xFF2979FF),
+            Color(0xFF651FFF)
+        ),
+        angleDegrees = 45f
+    )
+
+    // Vibrant Preset 3: Sunset Blaze (Solar Gold -> Fiery Orange -> Neon Magenta)
     val Sunset = GradientConfig(
         id = "sunset",
-        name = "Sunset",
+        name = "Sunset Blaze",
         colors = listOf(
-            Color(0xFFF97316),
-            Color(0xFFEC4899),
-            Color(0xFF8B5CF6)
+            Color(0xFFFFD200),
+            Color(0xFFFF5E36),
+            Color(0xFFE02476)
         ),
         angleDegrees = 45f
     )
 
-    // Preset 4: Neon (Green -> Cyan -> Blue)
-    val Neon = GradientConfig(
-        id = "neon",
-        name = "Neon",
+    // Vibrant Preset 4: Cosmic Violet (Hot Cyber Pink -> Electric Purple -> Azure Blue)
+    val Cosmic = GradientConfig(
+        id = "cosmic",
+        name = "Cosmic Violet",
         colors = listOf(
-            Color(0xFF22C55E),
-            Color(0xFF06B6D4),
+            Color(0xFFFF007F),
+            Color(0xFF8B5CF6),
             Color(0xFF3B82F6)
         ),
         angleDegrees = 45f
     )
 
-    // Preset 5: Fire (Orange -> Coral -> Pink)
-    val Fire = GradientConfig(
-        id = "fire",
-        name = "Fire",
+    // Vibrant Preset 5: Cyberpunk (Electric Cyan -> Laser Magenta -> Electric Purple)
+    val Cyberpunk = GradientConfig(
+        id = "cyberpunk",
+        name = "Cyberpunk",
         colors = listOf(
-            Color(0xFFEA580C),
-            Color(0xFFF43F5E),
-            Color(0xFFEC4899)
+            Color(0xFF00F0FF),
+            Color(0xFFFF006E),
+            Color(0xFF8338EC)
         ),
         angleDegrees = 45f
     )
 
+    // Vibrant Preset 6: Solar Flare (Citrus Gold -> Vivid Tangerine -> Crimson Ruby)
+    val Solar = GradientConfig(
+        id = "solar",
+        name = "Solar Flare",
+        colors = listOf(
+            Color(0xFFFFB703),
+            Color(0xFFFB8500),
+            Color(0xFFD00000)
+        ),
+        angleDegrees = 45f
+    )
+
+    // Vibrant Preset 7: Emerald Glow (Lime Mint -> Vibrant Emerald -> Deep Teal)
+    val Emerald = GradientConfig(
+        id = "emerald",
+        name = "Emerald Glow",
+        colors = listOf(
+            Color(0xFF34D399),
+            Color(0xFF059669),
+            Color(0xFF0F766E)
+        ),
+        angleDegrees = 45f
+    )
+
+    // Vibrant Preset 8: Prism (Cyan -> Indigo -> Magenta -> Warm Amber)
+    val Prism = GradientConfig(
+        id = "prism",
+        name = "Prism",
+        colors = listOf(
+            Color(0xFF06B6D4),
+            Color(0xFF6366F1),
+            Color(0xFFEC4899),
+            Color(0xFFF59E0B)
+        ),
+        angleDegrees = 45f
+    )
+
+    val Default = Aurora
+
     val AllPresets: List<GradientConfig> = listOf(
-        Default,
-        Ocean,
         Aurora,
+        Ocean,
         Sunset,
-        Neon,
-        Fire
+        Cosmic,
+        Cyberpunk,
+        Solar,
+        Emerald,
+        Prism
     )
 
     fun findById(id: String): GradientConfig {
-        return AllPresets.find { it.id == id } ?: Default
+        return AllPresets.find { it.id.equals(id, ignoreCase = true) }
+            ?: when (id.lowercase()) {
+                "default", "default_signature" -> Aurora
+                "neon", "fire" -> Sunset
+                "midnight", "rose" -> Cosmic
+                else -> Aurora
+            }
     }
 }

@@ -7,6 +7,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
 import android.widget.Toast
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -26,6 +27,7 @@ import com.wordpilot.assistant.domain.models.CorrectionCategory
 import com.wordpilot.assistant.domain.models.EditorSnapshot
 import com.wordpilot.assistant.domain.models.TextOperationResult
 import com.wordpilot.assistant.engine.SentenceSpan
+import com.wordpilot.assistant.ui.floating.FloatingUiState
 import com.wordpilot.assistant.utils.Debouncer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -128,7 +130,8 @@ class WordPilotAccessibilityService : AccessibilityService(),
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
             AccessibilityEvent.TYPE_WINDOWS_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-        info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
+            AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         info.notificationTimeout = 50
         serviceInfo = info
 
@@ -140,6 +143,23 @@ class WordPilotAccessibilityService : AccessibilityService(),
             }
         }
         com.wordpilot.assistant.widget.WordPilotWidgetProvider.updateAllWidgets(this, true)
+    }
+
+    /**
+     * Intercepts system back key presses. When the floating window is expanded
+     * (tone selector, preview diff, or expanded pill), collapses it back to the small pill.
+     */
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+            val controller = floatingController
+            if (controller != null && controller.isExpanded()) {
+                if (event.action == KeyEvent.ACTION_UP) {
+                    controller.setUiState(FloatingUiState.COLLAPSED)
+                }
+                return true
+            }
+        }
+        return super.onKeyEvent(event)
     }
 
     private fun isExcludedPackage(packageName: String?): Boolean {

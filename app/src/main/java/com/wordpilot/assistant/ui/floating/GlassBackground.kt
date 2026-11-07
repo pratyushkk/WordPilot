@@ -30,11 +30,16 @@ fun GlassBackground(
     borderOpacity: Float = AssistantColors.DefaultBorderOpacity,
     highlightOpacity: Float = AssistantColors.DefaultHighlightOpacity,
     shadowElevation: Dp = AssistantDimensions.DefaultElevation,
+    blurRadius: Dp = 0.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(cornerRadius)
     val effectiveBackgroundColor = baseColor.copy(alpha = opacity.coerceIn(0f, 1f))
-    val effectiveBorderColor = borderColor.copy(alpha = borderOpacity.coerceIn(0f, 1f))
+    val effectiveBorderColor = if (blurRadius > 0.dp) {
+        Color.White.copy(alpha = borderOpacity.coerceAtLeast(0.18f))
+    } else {
+        borderColor.copy(alpha = borderOpacity.coerceIn(0f, 1f))
+    }
 
     val shadowModifier = if (shadowElevation > 0.dp) {
         Modifier.shadow(
@@ -54,7 +59,19 @@ fun GlassBackground(
     }
 
     val bgModifier = if (effectiveBackgroundColor.alpha > 0f) {
-        Modifier.background(effectiveBackgroundColor, shape = shape)
+        if (blurRadius > 0.dp) {
+            Modifier.background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF232938).copy(alpha = opacity.coerceIn(0.6f, 0.95f)),
+                        baseColor.copy(alpha = opacity.coerceIn(0.7f, 0.98f))
+                    )
+                ),
+                shape = shape
+            )
+        } else {
+            Modifier.background(effectiveBackgroundColor, shape = shape)
+        }
     } else {
         Modifier
     }
