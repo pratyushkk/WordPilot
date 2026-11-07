@@ -2,10 +2,12 @@ package com.wordpilot.assistant.ui.settings
 
 import android.content.Context
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -19,9 +21,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wordpilot.assistant.domain.models.Correction
@@ -33,6 +38,10 @@ import com.wordpilot.assistant.ui.theme.AssistantColors
 import com.wordpilot.assistant.ui.theme.GradientConfig
 import com.wordpilot.assistant.ui.theme.GradientPresets
 
+/**
+ * World-Class Appearance & Layout Studio for WordPilot V2.
+ * Redesigned for effortless customization, high craft, and instant visual feedback.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppearanceSettingsScreen(
@@ -40,9 +49,6 @@ fun AppearanceSettingsScreen(
 ) {
     val context = LocalContext.current
     var settings by remember { mutableStateOf(AppearanceSettings.load(context)) }
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Bubble, 1: Gradient, 2: Glass, 3: Toolbar
-
-    // Preview state inside studio
     var previewUiState by remember { mutableStateOf(FloatingUiState.EXPANDED) }
 
     val defaultDemoCorrections = remember {
@@ -79,7 +85,20 @@ fun AppearanceSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Appearance & Layout Studio", fontWeight = FontWeight.SemiBold) },
+                title = {
+                    Column {
+                        Text(
+                            text = "Appearance Studio",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Floating Bubble & Layout Design",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -93,9 +112,12 @@ fun AppearanceSettingsScreen(
                             previewCorrections = defaultDemoCorrections
                         }
                     ) {
-                        Text("Reset All", color = MaterialTheme.colorScheme.primary)
+                        Text("Reset", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { innerPadding ->
@@ -105,50 +127,76 @@ fun AppearanceSettingsScreen(
                 .padding(innerPadding)
         ) {
             // =========================================================================
-            // 1. STICKY LIVE INTERACTIVE PREVIEW
+            // 1. STICKY HERO INTERACTIVE STAGE (Always Visible on Top)
             // =========================================================================
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF14171F),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                shadowElevation = 8.dp
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp)
                 ) {
+                    // Preview Header Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF10B981))
+                            )
                             Text(
-                                text = "LIVE PREVIEW",
+                                text = "LIVE CANVAS",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFF94A3B8),
+                                letterSpacing = 0.5.sp
                             )
                             if (previewCorrections.isEmpty()) {
                                 TextButton(
                                     onClick = { previewCorrections = defaultDemoCorrections },
                                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                    modifier = Modifier.height(22.dp)
+                                    modifier = Modifier.height(20.dp)
                                 ) {
-                                    Text("Reset Errors", fontSize = 10.sp)
+                                    Text("Reset Demo", fontSize = 10.sp, color = Color(0xFF60A5FA))
                                 }
                             }
                         }
 
-                        // Mode toggle chips
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            PreviewModeChip("Collapsed", previewUiState == FloatingUiState.COLLAPSED) {
+                        // Segmented Preview Mode Pills
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF1F2430))
+                                .padding(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            PreviewModeTab(
+                                label = "Bubble",
+                                icon = Icons.Filled.BubbleChart,
+                                isSelected = previewUiState == FloatingUiState.COLLAPSED
+                            ) {
                                 previewUiState = FloatingUiState.COLLAPSED
                             }
-                            PreviewModeChip("Expanded", previewUiState == FloatingUiState.EXPANDED) {
+                            PreviewModeTab(
+                                label = "Correction Pill",
+                                icon = Icons.Filled.AutoFixHigh,
+                                isSelected = previewUiState == FloatingUiState.EXPANDED
+                            ) {
                                 previewUiState = FloatingUiState.EXPANDED
                             }
                         }
@@ -156,9 +204,9 @@ fun AppearanceSettingsScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Simulated Screen Canvas
+                    // Simulated Device Wallpaper Stage
                     val tuckOffset = if (previewUiState == FloatingUiState.COLLAPSED && settings.edgeTuckEnabled) {
-                        -(settings.bubbleSizeDp * settings.edgeTuckPercent + 12f).dp
+                        -(settings.bubbleSizeDp * settings.edgeTuckPercent + 10f).dp
                     } else {
                         0.dp
                     }
@@ -166,857 +214,808 @@ fun AppearanceSettingsScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(130.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF0F1115))
-                            .padding(12.dp),
+                            .height(124.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color(0xFF090A0F), Color(0xFF11141C))
+                                )
+                            )
+                            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
                         contentAlignment = Alignment.BottomStart
                     ) {
+                        // Ambient Wallpaper Text Hint
+                        Text(
+                            text = "Tap bubble to test animation ➔",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.18f),
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
+
                         Box(modifier = Modifier.offset(x = tuckOffset)) {
                             FloatingAssistantView(
-                            settings = settings,
-                            uiState = previewUiState,
-                            isNearRightEdge = false,
-                            errorCount = previewCorrections.size,
-                            isChecking = false,
-                            activeCorrection = previewCorrections.firstOrNull(),
-                            activeCorrections = previewCorrections,
-                            previewOriginalText = "She have went to a apple store.",
-                            previewImprovedText = "She has gone to an apple store.",
-                            isPreviewLoading = false,
-                            previewErrorMessage = null,
-                            canUndo = true,
-                            currentTone = "Default",
-                            onBubbleClick = {
-                                previewUiState = if (previewUiState == FloatingUiState.COLLAPSED) FloatingUiState.EXPANDED else FloatingUiState.COLLAPSED
-                            },
-                            onDrag = { _, _ -> },
-                            onActionClick = {},
-                            onCustomPromptSubmit = {},
-                            onSelectTone = {},
-                            onReplace = {},
-                            onInsert = {},
-                            onCopy = {},
-                            onCancelPreview = { previewUiState = FloatingUiState.COLLAPSED },
-                            onUndo = {},
-                            onOpenSettings = {},
-                            onCollapse = { previewUiState = FloatingUiState.COLLAPSED },
-                            onAcceptCorrection = { accepted ->
-                                previewCorrections = previewCorrections.filter { it.id != accepted.id }
-                                if (previewCorrections.isEmpty()) {
-                                    previewUiState = FloatingUiState.COLLAPSED
+                                settings = settings,
+                                uiState = previewUiState,
+                                isNearRightEdge = false,
+                                errorCount = previewCorrections.size,
+                                isChecking = false,
+                                activeCorrection = previewCorrections.firstOrNull(),
+                                activeCorrections = previewCorrections,
+                                previewOriginalText = "She have went to a apple store.",
+                                previewImprovedText = "She has gone to an apple store.",
+                                isPreviewLoading = false,
+                                previewErrorMessage = null,
+                                canUndo = true,
+                                currentTone = "Default",
+                                onBubbleClick = {
+                                    previewUiState = if (previewUiState == FloatingUiState.COLLAPSED) {
+                                        FloatingUiState.EXPANDED
+                                    } else {
+                                        FloatingUiState.COLLAPSED
+                                    }
+                                },
+                                onDrag = { _, _ -> },
+                                onActionClick = {},
+                                onCustomPromptSubmit = {},
+                                onSelectTone = {},
+                                onReplace = {},
+                                onInsert = {},
+                                onCopy = {},
+                                onCancelPreview = { previewUiState = FloatingUiState.COLLAPSED },
+                                onUndo = {},
+                                onOpenSettings = {},
+                                onCollapse = { previewUiState = FloatingUiState.COLLAPSED },
+                                onAcceptCorrection = { accepted ->
+                                    previewCorrections = previewCorrections.filter { it.id != accepted.id }
+                                    if (previewCorrections.isEmpty()) {
+                                        previewUiState = FloatingUiState.COLLAPSED
+                                    }
+                                },
+                                onDismissCorrection = {
+                                    if (previewCorrections.isNotEmpty()) {
+                                        previewCorrections = previewCorrections.drop(1)
+                                    }
                                 }
-                            },
-                            onDismissCorrection = {
-                                if (previewCorrections.isNotEmpty()) {
-                                    previewCorrections = previewCorrections.drop(1)
-                                }
-                            }
-                        )
+                            )
                         }
                     }
                 }
             }
 
-            // Quick Style Presets Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Presets:",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                listOf(
-                    Triple("Compact", 36f, 18f),
-                    Triple("Default", 48f, 24f),
-                    Triple("Large", 56f, 28f),
-                    Triple("Minimal", 32f, 16f)
-                ).forEach { (name, bSize, iSize) ->
-                    val isMatch = settings.bubbleSizeDp == bSize && settings.iconSizeDp == iSize
-                    SuggestionChip(
-                        onClick = {
-                            val newS = when (name) {
-                                "Compact" -> settings.copy(bubbleSizeDp = 36f, iconSizeDp = 18f, edgeTuckPercent = 0.35f, backgroundOpacity = 0.85f)
-                                "Default" -> settings.copy(bubbleSizeDp = 48f, iconSizeDp = 24f, edgeTuckPercent = 0.30f, backgroundOpacity = 0.90f)
-                                "Large" -> settings.copy(bubbleSizeDp = 56f, iconSizeDp = 28f, edgeTuckPercent = 0.25f, backgroundOpacity = 0.95f)
-                                "Minimal" -> settings.copy(bubbleSizeDp = 32f, iconSizeDp = 16f, edgeTuckPercent = 0.40f, backgroundOpacity = 0.70f)
-                                else -> settings
-                            }
-                            updateAndSave(newS)
-                        },
-                        label = { Text(name, fontSize = 11.sp, fontWeight = if (isMatch) FontWeight.Bold else FontWeight.Normal) },
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = if (isMatch) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                            labelColor = if (isMatch) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        border = BorderStroke(1.dp, if (isMatch) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-                        modifier = Modifier.height(28.dp)
-                    )
-                }
-            }
-
             // =========================================================================
-            // 2. CATEGORY TABS
-            // =========================================================================
-            PrimaryTabRow(
-                selectedTabIndex = selectedTab,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { Text("Bubble & Logo", fontSize = 12.sp) }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { Text("Gradient", fontSize = 12.sp) }
-                )
-                Tab(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    text = { Text("Glass", fontSize = 12.sp) }
-                )
-                Tab(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    text = { Text("Toolbar", fontSize = 12.sp) }
-                )
-            }
-
-            // =========================================================================
-            // 3. TAB CONTENT
+            // 2. SCROLLABLE DESIGN CONTROLS (Curated & High-Craft)
             // =========================================================================
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                when (selectedTab) {
-                    0 -> BubbleSettingsSection(settings) { updateAndSave(it) }
-                    1 -> GradientSettingsSection(settings) { updateAndSave(it) }
-                    2 -> GlassSettingsSection(settings) { updateAndSave(it) }
-                    3 -> ToolbarSettingsSection(settings) { updateAndSave(it) }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PreviewModeChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-        ),
-        modifier = Modifier.height(24.dp)
-    ) {
-        Box(modifier = Modifier.padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-            Text(
-                text = label,
-                fontSize = 10.sp,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
-        }
-    }
-}
-
-// =============================================================================
-// SUB-SECTIONS
-// =============================================================================
-
-@Composable
-private fun BubbleSettingsSection(
-    settings: AppearanceSettings,
-    onUpdate: (AppearanceSettings) -> Unit
-) {
-    Text("Bubble Sizing (Smaller / Bigger)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    Text(
-        "Make the minimized circle bubble smaller or bigger for optimal screen reach and tap comfort.",
-        fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Spacer(modifier = Modifier.height(10.dp))
-
-    // 5 Quick Sizing Presets
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        listOf(
-            "XS (28dp)" to 28f,
-            "Small (38dp)" to 38f,
-            "Standard (48dp)" to 48f,
-            "Large (60dp)" to 60f,
-            "XL (72dp)" to 72f
-        ).forEach { (label, size) ->
-            val isSelected = kotlin.math.abs(settings.bubbleSizeDp - size) < 2f
-            OutlinedButton(
-                onClick = { onUpdate(settings.copy(bubbleSizeDp = size)) },
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                ),
-                border = androidx.compose.foundation.BorderStroke(
-                    if (isSelected) 1.5.dp else 1.dp,
-                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                ),
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = label.split(" ")[0],
-                    fontSize = 11.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    maxLines = 1
-                )
-            }
-        }
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    StudioSlider(
-        label = "Custom Diameter: ${settings.bubbleSizeDp.toInt()} dp",
-        value = settings.bubbleSizeDp,
-        range = 24f..80f,
-        suffix = "dp"
-    ) { onUpdate(settings.copy(bubbleSizeDp = it)) }
-
-    Text(
-        text = when {
-            settings.bubbleSizeDp < 34f -> "Extra small — minimal screen obstruction, discreet"
-            settings.bubbleSizeDp < 44f -> "Compact — clean, space-saving"
-            settings.bubbleSizeDp < 54f -> "Standard — optimal balance of visibility and tap comfort"
-            settings.bubbleSizeDp < 66f -> "Large — high visibility and prominent number display"
-            else -> "Extra large — maximum readability with huge tap target"
-        },
-        fontSize = 11.sp,
-        color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.Medium
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Text("Bubble Shape", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    Spacer(modifier = Modifier.height(6.dp))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        BubbleShape.values().forEach { shape ->
-            val isSelected = settings.bubbleShape == shape
-            OutlinedButton(
-                onClick = { onUpdate(settings.copy(bubbleShape = shape)) },
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                ),
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-            ) {
-                Text(shape.displayName, fontSize = 11.sp, maxLines = 1)
-            }
-        }
-    }
-
-    if (settings.bubbleShape == BubbleShape.CUSTOM) {
-        Spacer(modifier = Modifier.height(12.dp))
-        StudioSlider(
-            label = "Custom Corner Radius",
-            value = settings.bubbleCornerRadiusDp,
-            range = 0f..40f,
-            suffix = "dp"
-        ) { onUpdate(settings.copy(bubbleCornerRadiusDp = it)) }
-    }
-
-    Spacer(modifier = Modifier.height(14.dp))
-
-    // =========================================================================
-    // AI LOGO IN EDITING SECTION (Multiple Options & Controls)
-    // =========================================================================
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = settings.getAiLogo().icon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Column {
-                    Text("AI Logo in Editing Section", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                // ---------------------------------------------------------------------
+                // A. MASTER STYLE PRESETS (1-Tap Curated Aesthetics)
+                // ---------------------------------------------------------------------
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        "Select the AI star icon shown in the floating bubble and editing toolbar",
-                        fontSize = 11.5.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "CURATED STYLE PRESETS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 0.5.sp
                     )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text("Choose Icon Style", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // 12 Rich AI Logo Options in a 2-column grid
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                AiLogoIcon.values().toList().chunked(2).forEach { pair ->
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        pair.forEach { logo ->
-                            val isSelected = settings.aiLogoIconId == logo.id
+                        val presets = listOf(
+                            MasterPreset(
+                                name = "Default",
+                                subtitle = "Signature Emerald",
+                                bubbleSize = 48f,
+                                iconSize = 24f,
+                                shape = BubbleShape.SQUIRCLE,
+                                gradientId = GradientPresets.Default.id,
+                                logoId = "sparkle",
+                                edgeTuckPercent = 0.30f,
+                                glassOpacity = 0.90f,
+                                previewColors = listOf(Color(0xFF00D2FF), Color(0xFFA855F7), Color(0xFFFF6B9D))
+                            ),
+                            MasterPreset(
+                                name = "Compact",
+                                subtitle = "Stealth & Agile",
+                                bubbleSize = 36f,
+                                iconSize = 18f,
+                                shape = BubbleShape.CIRCLE,
+                                gradientId = GradientPresets.Ocean.id,
+                                logoId = "bolt",
+                                edgeTuckPercent = 0.35f,
+                                glassOpacity = 0.82f,
+                                previewColors = listOf(Color(0xFF00D2FF), Color(0xFF2563EB), Color(0xFF4F46E5))
+                            ),
+                            MasterPreset(
+                                name = "Comfort",
+                                subtitle = "High Visibility",
+                                bubbleSize = 56f,
+                                iconSize = 28f,
+                                shape = BubbleShape.ROUNDED_SQUARE,
+                                gradientId = GradientPresets.Aurora.id,
+                                logoId = "wand",
+                                edgeTuckPercent = 0.25f,
+                                glassOpacity = 0.95f,
+                                previewColors = listOf(Color(0xFF10B981), Color(0xFF06B6D4), Color(0xFF3B82F6))
+                            ),
+                            MasterPreset(
+                                name = "Pure OLED",
+                                subtitle = "Deep Obsidian",
+                                bubbleSize = 44f,
+                                iconSize = 22f,
+                                shape = BubbleShape.SQUIRCLE,
+                                gradientId = GradientPresets.Neon.id,
+                                logoId = "brain",
+                                edgeTuckPercent = 0.30f,
+                                glassOpacity = 1.0f,
+                                previewColors = listOf(Color(0xFF22C55E), Color(0xFF06B6D4), Color(0xFF3B82F6))
+                            )
+                        )
+
+                        presets.forEach { preset ->
+                            val isSelected = settings.bubbleSizeDp == preset.bubbleSize &&
+                                    settings.bubbleShape == preset.shape &&
+                                    settings.gradientId == preset.gradientId
+
                             Surface(
-                                onClick = { onUpdate(settings.copy(aiLogoIconId = logo.id)) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                onClick = {
+                                    val updated = settings.copy(
+                                        bubbleSizeDp = preset.bubbleSize,
+                                        iconSizeDp = preset.iconSize,
+                                        bubbleShape = preset.shape,
+                                        gradientId = preset.gradientId,
+                                        aiLogoIconId = preset.logoId,
+                                        edgeTuckPercent = preset.edgeTuckPercent,
+                                        glassOpacity = preset.glassOpacity
+                                    )
+                                    updateAndSave(updated)
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (isSelected) Color(0xFF1E293B) else Color(0xFF14171F),
                                 border = BorderStroke(
-                                    if (isSelected) 1.8.dp else 1.dp,
-                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                                    if (isSelected) 1.5.dp else 1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f)
                                 ),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.width(132.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = logo.icon,
-                                                contentDescription = logo.displayName,
-                                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(16.dp)
-                                            )
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(8.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Brush.horizontalGradient(preset.previewColors))
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = preset.name,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
+                                    )
+                                    Text(
+                                        text = preset.subtitle,
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF94A3B8),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ---------------------------------------------------------------------
+                // B. BUBBLE GEOMETRY & SIZING (Tactile 3-Size Cards)
+                // ---------------------------------------------------------------------
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF14171F)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Bubble Size & Reach",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "${settings.bubbleSizeDp.toInt()} dp",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 3 Segmented Tactile Size Cards
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                Triple("Compact", 36f, "Discreet"),
+                                Triple("Standard", 48f, "Balanced"),
+                                Triple("Comfort", 58f, "Large Target")
+                            ).forEach { (label, sizeDp, desc) ->
+                                val isSelected = kotlin.math.abs(settings.bubbleSizeDp - sizeDp) < 3f
+                                Surface(
+                                    onClick = {
+                                        val iconRatio = when (sizeDp) {
+                                            36f -> 18f
+                                            48f -> 24f
+                                            else -> 28f
                                         }
-                                    }
-                                    Column(modifier = Modifier.weight(1f)) {
+                                        updateAndSave(settings.copy(bubbleSizeDp = sizeDp, iconSizeDp = iconRatio))
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color(0xFF1A1F2B),
+                                    border = BorderStroke(
+                                        if (isSelected) 1.5.dp else 1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.06f)
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
                                         Text(
-                                            text = logo.displayName,
-                                            fontSize = 11.5.sp,
+                                            text = label,
+                                            fontSize = 12.sp,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            maxLines = 1
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
                                         )
                                         Text(
-                                            text = logo.description,
-                                            fontSize = 9.5.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1
+                                            text = "${sizeDp.toInt()} dp",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                        Text(
+                                            text = desc,
+                                            fontSize = 9.sp,
+                                            color = Color(0xFF64748B)
                                         )
                                     }
                                 }
                             }
                         }
-                        if (pair.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Shape Selector
+                        Text(
+                            text = "Bubble Shape",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFCBD5E1)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                BubbleShape.CIRCLE to "Circle",
+                                BubbleShape.SQUIRCLE to "Squircle",
+                                BubbleShape.ROUNDED_SQUARE to "Rounded"
+                            ).forEach { (shape, name) ->
+                                val isSelected = settings.bubbleShape == shape
+                                Surface(
+                                    onClick = { updateAndSave(settings.copy(bubbleShape = shape)) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF1A1F2B),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = name,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(14.dp))
+                // ---------------------------------------------------------------------
+                // C. EDGE DOCKING & 30% TUCK (WordPilot's Signature Innovation)
+                // ---------------------------------------------------------------------
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF14171F)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Edge Docking & 30% Tuck",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xFF10B981).copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = "SIGNATURE",
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF34D399),
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Snaps to screen edge and hides 30% inside when idle to never obstruct typing.",
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = settings.edgeTuckEnabled,
+                                onCheckedChange = { updateAndSave(settings.copy(edgeTuckEnabled = it)) }
+                            )
+                        }
 
-            StudioSlider(
-                label = "Logo Icon Size: ${settings.iconSizeDp.toInt()} dp",
-                value = settings.iconSizeDp,
-                range = 14f..40f,
-                suffix = "dp"
-            ) { onUpdate(settings.copy(iconSizeDp = it)) }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf(
-                    "Small (18dp)" to 18f,
-                    "Standard (24dp)" to 24f,
-                    "Large (30dp)" to 30f,
-                    "XL (36dp)" to 36f
-                ).forEach { (label, dpVal) ->
-                    val isSel = kotlin.math.abs(settings.iconSizeDp - dpVal) < 1.5f
-                    OutlinedButton(
-                        onClick = { onUpdate(settings.copy(iconSizeDp = dpVal)) },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isSel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        ),
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
-                    ) {
-                        Text(label.split(" ")[0], fontSize = 10.5.sp)
+                        if (settings.edgeTuckEnabled) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(
+                                    "Subtle (20%)" to 0.20f,
+                                    "Standard (30%)" to 0.30f,
+                                    "Deep (40%)" to 0.40f
+                                ).forEach { (label, percent) ->
+                                    val isSelected = kotlin.math.abs(settings.edgeTuckPercent - percent) < 0.05f
+                                    Surface(
+                                        onClick = { updateAndSave(settings.copy(edgeTuckPercent = percent)) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color(0xFF1A1F2B),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.06f)
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.padding(vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-        }
-    }
 
-    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-    // 1. Edge Docking & 30% Tuck
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Auto-Dock & Tuck into Edge", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text(
-                        "Snap to extreme screen edge and hide 30% inside when minimized to minimize obstruction.",
-                        fontSize = 11.5.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Switch(
-                    checked = settings.edgeTuckEnabled,
-                    onCheckedChange = { onUpdate(settings.copy(edgeTuckEnabled = it)) }
-                )
-            }
-
-            if (settings.edgeTuckEnabled) {
-                Spacer(modifier = Modifier.height(10.dp))
-                StudioSlider(
-                    label = "Tuck Depth: ${(settings.edgeTuckPercent * 100).toInt()}% hidden",
-                    value = settings.edgeTuckPercent * 100f,
-                    range = 15f..50f,
-                    suffix = "%"
-                ) { onUpdate(settings.copy(edgeTuckPercent = it / 100f)) }
-            }
-        }
-    }
-
-    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-    // 2. Error Badge Number & Letter Customization
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text("Error Badge Number & Letter", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(
-                "Customize the error counter format, letter tag, and text size on the minimized bubble.",
-                fontSize = 11.5.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text("Badge Format / Position", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                BadgeLetterPosition.values().forEach { pos ->
-                    val isSelected = settings.badgeLetterPosition == pos
-                    OutlinedButton(
-                        onClick = { onUpdate(settings.copy(badgeLetterPosition = pos)) },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        ),
-                        border = BorderStroke(
-                            if (isSelected) 1.5.dp else 1.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                    ) {
+                // ---------------------------------------------------------------------
+                // D. AI EMBLEM PERSONALITY (6 Curated World-Class Icons)
+                // ---------------------------------------------------------------------
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF14171F)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Text(
-                            text = when (pos) {
-                                BadgeLetterPosition.NONE -> "Number Only"
-                                BadgeLetterPosition.PREFIX -> "Prefix (E2)"
-                                BadgeLetterPosition.SUFFIX -> "Suffix (2e)"
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            maxLines = 1
+                            text = "AI Emblem & Identity",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
+                        Text(
+                            text = "The glowing symbol representing WordPilot AI in the bubble and editing bar.",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF94A3B8)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // 6 Curated Icons in a clean 3x2 Grid
+                        val curatedLogos = listOf(
+                            CuratedLogo("sparkle", "Sparkle", "Gemini AI", Icons.Filled.AutoAwesome),
+                            CuratedLogo("wand", "Magic Wand", "Grammar Polish", Icons.Filled.AutoFixHigh),
+                            CuratedLogo("bolt", "Lightning", "Zero Latency", Icons.Filled.Bolt),
+                            CuratedLogo("brain", "Neural", "Intelligence", Icons.Filled.Psychology),
+                            CuratedLogo("pen", "Editorial", "Craftsmanship", Icons.Filled.Edit),
+                            CuratedLogo("robot", "Companion", "Smart Assistant", Icons.Filled.SmartToy)
+                        )
+
+                        curatedLogos.chunked(3).forEach { rowLogos ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowLogos.forEach { item ->
+                                    val isSelected = settings.aiLogoIconId == item.id
+                                    Surface(
+                                        onClick = { updateAndSave(settings.copy(aiLogoIconId = item.id)) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSelected) Color(0xFF222838) else Color(0xFF1A1F2B),
+                                        border = BorderStroke(
+                                            if (isSelected) 1.5.dp else 1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.06f)
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                                                        else Color.White.copy(alpha = 0.06f)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = item.icon,
+                                                    contentDescription = item.title,
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFE2E8F0),
+                                                    modifier = Modifier.size(17.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = item.title,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
                 }
-            }
 
-            if (settings.badgeLetterPosition != BadgeLetterPosition.NONE) {
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = settings.badgeLetter,
-                    onValueChange = { onUpdate(settings.copy(badgeLetter = it.take(4))) },
-                    label = { Text("Badge Letter / Tag") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // ---------------------------------------------------------------------
+                // E. GRADIENT COLORWAY & GLASS TRANSLUCENCY
+                // ---------------------------------------------------------------------
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF14171F)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
                 ) {
-                    Text("Suggestions:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    listOf("E", "e", "!", "#", "err").forEach { tag ->
-                        SuggestionChip(
-                            onClick = { onUpdate(settings.copy(badgeLetter = tag)) },
-                            label = { Text(tag, fontSize = 11.sp) }
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = "Colorway & Glass Translucency",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Signature radiant gradient and smoked frosted glass styling.",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF94A3B8)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Gradient Swatches Grid (2 columns)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GradientPresets.AllPresets.chunked(2).forEach { pair ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    pair.forEach { preset ->
+                                        val isSelected = settings.gradientId == preset.id
+                                        Surface(
+                                            onClick = { updateAndSave(settings.copy(gradientId = preset.id)) },
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = if (isSelected) Color(0xFF1E2638) else Color(0xFF1A1F2B),
+                                            border = BorderStroke(
+                                                if (isSelected) 1.5.dp else 1.dp,
+                                                if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.06f)
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(20.dp)
+                                                        .clip(CircleShape)
+                                                        .background(preset.createBrush())
+                                                )
+                                                Text(
+                                                    text = preset.name,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                                    maxLines = 1,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                if (isSelected) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Check,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (pair.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Frosted Glass Opacity Slider
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Glass Opacity",
+                                fontSize = 12.sp,
+                                color = Color(0xFFCBD5E1)
+                            )
+                            Text(
+                                text = "${(settings.glassOpacity * 100).toInt()}%",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Slider(
+                            value = settings.glassOpacity * 100f,
+                            onValueChange = { updateAndSave(settings.copy(glassOpacity = it / 100f)) },
+                            valueRange = 40f..100f,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                // ---------------------------------------------------------------------
+                // F. ERROR BADGE & SMART VISIBILITY (Grouped Settings)
+                // ---------------------------------------------------------------------
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF14171F)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = "Error Badge & Smart Behavior",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
 
-            StudioSlider(
-                label = "Badge Text Size: ${settings.badgeTextSizeSp.toInt()} sp",
-                value = settings.badgeTextSizeSp,
-                range = 10f..26f,
-                suffix = "sp"
-            ) { onUpdate(settings.copy(badgeTextSizeSp = it)) }
+                        Spacer(modifier = Modifier.height(10.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf(
-                    "Small (14sp)" to 14f,
-                    "Medium (18sp)" to 18f,
-                    "Large (22sp)" to 22f,
-                    "XL (26sp)" to 26f
-                ).forEach { (label, spVal) ->
-                    val isSel = kotlin.math.abs(settings.badgeTextSizeSp - spVal) < 1.5f
-                    OutlinedButton(
-                        onClick = { onUpdate(settings.copy(badgeTextSizeSp = spVal)) },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isSel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        ),
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
-                    ) {
-                        Text(label.split(" ")[0], fontSize = 10.5.sp)
+                        // Error Badge Format Selector
+                        Text(
+                            text = "Error Badge Format",
+                            fontSize = 12.sp,
+                            color = Color(0xFFCBD5E1)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                BadgeLetterPosition.NONE to "Number Only (2)",
+                                BadgeLetterPosition.PREFIX to "Tagged (E2)"
+                            ).forEach { (pos, label) ->
+                                val isSelected = settings.badgeLetterPosition == pos
+                                Surface(
+                                    onClick = { updateAndSave(settings.copy(badgeLetterPosition = pos)) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color(0xFF1A1F2B),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.06f)
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = Color.White.copy(alpha = 0.06f)
+                        )
+
+                        // Smart Toggle 1: Hide When Keyboard Closed
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = "Hide when Keyboard Closed",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Only display the floating bubble while typing in an active text box.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                            Switch(
+                                checked = settings.autoHideWhenKeyboardClosed,
+                                onCheckedChange = { updateAndSave(settings.copy(autoHideWhenKeyboardClosed = it)) }
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = Color.White.copy(alpha = 0.06f)
+                        )
+
+                        // Smart Toggle 2: Auto Dim Idle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = "Auto-Dim when Idle",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Gently fades bubble opacity after 5 seconds of inactivity.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                            Switch(
+                                checked = settings.autoDimEnabled,
+                                onCheckedChange = { updateAndSave(settings.copy(autoDimEnabled = it)) }
+                            )
+                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Extra Bold / Black Font Weight", fontSize = 12.sp)
-                Switch(
-                    checked = settings.badgeFontWeightBold,
-                    onCheckedChange = { onUpdate(settings.copy(badgeFontWeightBold = it)) }
-                )
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
+}
 
-    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+// =============================================================================
+// HELPER MODELS & COMPOSABLES
+// =============================================================================
 
-    Text("Independent Layer Opacity Controls", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    Spacer(modifier = Modifier.height(6.dp))
+private data class MasterPreset(
+    val name: String,
+    val subtitle: String,
+    val bubbleSize: Float,
+    val iconSize: Float,
+    val shape: BubbleShape,
+    val gradientId: String,
+    val logoId: String,
+    val edgeTuckPercent: Float,
+    val glassOpacity: Float,
+    val previewColors: List<Color>
+)
 
-    StudioSlider(
-        label = "Gradient Background Opacity",
-        value = settings.backgroundOpacity * 100f,
-        range = 10f..100f,
-        suffix = "%"
-    ) { onUpdate(settings.copy(backgroundOpacity = it / 100f)) }
+private data class CuratedLogo(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector
+)
 
-    StudioSlider(
-        label = "Border Opacity",
-        value = settings.borderOpacity * 100f,
-        range = 0f..100f,
-        suffix = "%"
-    ) { onUpdate(settings.copy(borderOpacity = it / 100f)) }
-
-    StudioSlider(
-        label = "Border Thickness",
-        value = settings.borderWidthDp,
-        range = 0.5f..4f,
-        suffix = "dp"
-    ) { onUpdate(settings.copy(borderWidthDp = it)) }
-
-    StudioSlider(
-        label = "Shadow Elevation",
-        value = settings.shadowIntensity * 100f,
-        range = 0f..100f,
-        suffix = "%"
-    ) { onUpdate(settings.copy(shadowIntensity = it / 100f)) }
-
-    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-    Text("Automatic Dimming (Idle Transparency)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    Spacer(modifier = Modifier.height(6.dp))
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+@Composable
+private fun PreviewModeTab(
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        modifier = Modifier.height(28.dp)
     ) {
-        Text("Enable Auto Dim", fontSize = 13.sp)
-        Switch(
-            checked = settings.autoDimEnabled,
-            onCheckedChange = { onUpdate(settings.copy(autoDimEnabled = it)) }
-        )
-    }
-
-    if (settings.autoDimEnabled) {
-        StudioSlider(
-            label = "Idle Delay Before Dimming",
-            value = settings.autoDimDelaySeconds.toFloat(),
-            range = 2f..30f,
-            suffix = "s"
-        ) { onUpdate(settings.copy(autoDimDelaySeconds = it.toInt())) }
-
-        StudioSlider(
-            label = "Dimmed Opacity",
-            value = settings.autoDimOpacity * 100f,
-            range = 10f..80f,
-            suffix = "%"
-        ) { onUpdate(settings.copy(autoDimOpacity = it / 100f)) }
-    }
-
-    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-    Text("Visibility Behavior", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    Spacer(modifier = Modifier.height(6.dp))
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-            Text("Hide When Keyboard Closed", fontSize = 13.sp)
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color(0xFF94A3B8),
+                modifier = Modifier.size(12.dp)
+            )
             Text(
-                "Only display the floating bubble while typing. Turn off to keep it docked on screen when active.",
+                text = label,
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color(0xFF94A3B8)
             )
         }
-        Switch(
-            checked = settings.autoHideWhenKeyboardClosed,
-            onCheckedChange = { onUpdate(settings.copy(autoHideWhenKeyboardClosed = it)) }
-        )
-    }
-}
-
-@Composable
-private fun GradientSettingsSection(
-    settings: AppearanceSettings,
-    onUpdate: (AppearanceSettings) -> Unit
-) {
-    Text("Gradient Presets", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    Spacer(modifier = Modifier.height(10.dp))
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        GradientPresets.AllPresets.forEach { preset ->
-            val isSelected = settings.gradientId == preset.id
-            Surface(
-                onClick = { onUpdate(settings.copy(gradientId = preset.id)) },
-                shape = RoundedCornerShape(12.dp),
-                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                border = androidx.compose.foundation.BorderStroke(
-                    if (isSelected) 1.5.dp else 0.8.dp,
-                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = preset.name,
-                        fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                    )
-
-                    // Gradient preview swatch
-                    Box(
-                        modifier = Modifier
-                            .width(90.dp)
-                            .height(26.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(preset.createBrush())
-                    )
-                }
-            }
-        }
-    }
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    StudioSlider(
-        label = "Gradient Direction (Angle)",
-        value = settings.gradientAngle,
-        range = 0f..360f,
-        suffix = "°"
-    ) { onUpdate(settings.copy(gradientAngle = it)) }
-}
-
-@Composable
-private fun GlassSettingsSection(
-    settings: AppearanceSettings,
-    onUpdate: (AppearanceSettings) -> Unit
-) {
-    Text("Dark Smoked Glass Properties", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    Spacer(modifier = Modifier.height(8.dp))
-
-    StudioSlider(
-        label = "Glass Transparency (Opacity)",
-        value = settings.glassOpacity * 100f,
-        range = 30f..100f,
-        suffix = "%"
-    ) { onUpdate(settings.copy(glassOpacity = it / 100f)) }
-
-    StudioSlider(
-        label = "Corner Radius",
-        value = settings.glassCornerRadiusDp,
-        range = 12f..36f,
-        suffix = "dp"
-    ) { onUpdate(settings.copy(glassCornerRadiusDp = it)) }
-
-    StudioSlider(
-        label = "Border Opacity",
-        value = settings.glassBorderOpacity * 100f,
-        range = 0f..60f,
-        suffix = "%"
-    ) { onUpdate(settings.copy(glassBorderOpacity = it / 100f)) }
-
-    StudioSlider(
-        label = "Border Width",
-        value = settings.glassBorderWidthDp,
-        range = 0.5f..3f,
-        suffix = "dp"
-    ) { onUpdate(settings.copy(glassBorderWidthDp = it)) }
-
-    StudioSlider(
-        label = "Top Reflective Highlight Opacity",
-        value = settings.glassHighlightOpacity * 100f,
-        range = 0f..60f,
-        suffix = "%"
-    ) { onUpdate(settings.copy(glassHighlightOpacity = it / 100f)) }
-
-    StudioSlider(
-        label = "Shadow Elevation",
-        value = settings.glassShadowElevationDp,
-        range = 0f..20f,
-        suffix = "dp"
-    ) { onUpdate(settings.copy(glassShadowElevationDp = it)) }
-}
-
-@Composable
-private fun ToolbarSettingsSection(
-    settings: AppearanceSettings,
-    onUpdate: (AppearanceSettings) -> Unit
-) {
-    Text("Correction Pill & Toolbar Layout", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    Text(
-        "Fine-tune the size, width and typography of the expanded 1-tap correction pill.",
-        fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Spacer(modifier = Modifier.height(10.dp))
-
-    StudioSlider(
-        label = "Toolbar Height",
-        value = settings.toolbarHeightDp,
-        range = 40f..64f,
-        suffix = "dp"
-    ) { onUpdate(settings.copy(toolbarHeightDp = it)) }
-
-    StudioSlider(
-        label = "Max Toolbar Width",
-        value = settings.toolbarMaxWidthDp,
-        range = 220f..420f,
-        suffix = "dp"
-    ) { onUpdate(settings.copy(toolbarMaxWidthDp = it)) }
-
-    StudioSlider(
-        label = "Chip Spacing",
-        value = settings.chipSpacingDp,
-        range = 2f..14f,
-        suffix = "dp"
-    ) { onUpdate(settings.copy(chipSpacingDp = it)) }
-
-    StudioSlider(
-        label = "Chip Label Size",
-        value = settings.chipLabelSizeSp,
-        range = 11f..16f,
-        suffix = "sp"
-    ) { onUpdate(settings.copy(chipLabelSizeSp = it)) }
-}
-
-@Composable
-private fun StudioSlider(
-    label: String,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    suffix: String,
-    onValueChange: (Float) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-            Text("${String.format("%.1f", value)} $suffix", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        }
-        Slider(
-            value = value.coerceIn(range.start, range.endInclusive),
-            onValueChange = onValueChange,
-            valueRange = range,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
