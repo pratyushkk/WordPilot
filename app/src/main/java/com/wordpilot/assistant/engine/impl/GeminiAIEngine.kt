@@ -197,7 +197,7 @@ class GeminiAIEngine(
                 rewrittenText = text,
                 style = style,
                 isSuccess = false,
-                errorMessage = "Gemini API key is not configured. Tap 'Rewrite & Tone' to add your API key."
+                errorMessage = "Gemini API key is not configured. Tap 'AI' to add your API key."
             )
         }
 

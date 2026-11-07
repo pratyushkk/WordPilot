@@ -212,7 +212,7 @@ fun ToolbarActionsContent(
             }
         }
 
-        // Dedicated "Rewrite & Tone" Button in Expanded Pill
+        // Dedicated AI Button in Expanded Pill
         Surface(
             onClick = { onActionClick("rewrite_tone") },
             shape = RoundedCornerShape(12.dp),
@@ -229,12 +229,12 @@ fun ToolbarActionsContent(
             ) {
                 Icon(
                     imageVector = Icons.Filled.AutoAwesome,
-                    contentDescription = "Rewrite & Tone",
+                    contentDescription = "AI",
                     tint = Color(0xFFA5B4FC),
                     modifier = Modifier.size(13.dp)
                 )
                 Text(
-                    text = "Rewrite & Tone",
+                    text = "AI",
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
